@@ -7,6 +7,8 @@
 #include <string.h>
 #include <stdbool.h>
 #include <malloc.h>
+#include <stdarg.h>
+#include <pspiofilemgr.h>
 
 #include <stdint.h>
 
@@ -19,6 +21,97 @@ PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER);
 #define BUF_WIDTH (512)
 #define SCR_WIDTH (480)
 #define SCR_HEIGHT (272)
+
+#define PE_LEN(arr) (sizeof(arr)/sizeof(arr[0]))
+
+#define PE_DEBUG_BREAK()  \
+	asm(".set noreorder\n"\
+		"break \n"        \
+		"jr    $31\n"     \
+		"nop\n");
+#define PE_ASSERT(check, ...)\
+	if (!(check)) {          \
+		/* TODO: Logging */  \
+		PE_DEBUG_BREAK();    \
+	}
+
+
+static int file_to_uid(int fd)
+{
+	switch (fd) {
+		case 0: return sceKernelStdin();
+		case 1: return sceKernelStdout();
+		case 2: return sceKernelStderr();
+		default: return fd;
+	}
+}
+
+void debug_printf(int fd, char *fmt, ...) {
+	va_list va;
+	va_start(va, fmt);
+	char buffer[256];
+	int length = vsnprintf(buffer, sizeof(buffer), fmt, va);
+	va_end(va);
+
+	if (length > 0 && length < sizeof(buffer)) {
+		sceIoWrite(file_to_uid(fd), buffer, length);
+	}
+}
+
+bool is_power_of_two(uintptr_t x) {
+	return (x & (x-1)) == 0;
+}
+
+uintptr_t align_forward(uintptr_t ptr, size_t align) {
+	PE_ASSERT(is_power_of_two(align));
+	uintptr_t result = ptr;
+	uintptr_t modulo = ptr % (uintptr_t)align;
+	if (modulo != 0) {
+		result += (uintptr_t)align - modulo;
+	}
+	return result;
+}
+
+#ifndef BLOCK_SIZE
+#define BLOCK_SIZE sizeof(void*)
+#endif
+
+typedef struct Arena {
+	unsigned char *buffer;
+	size_t         buffer_capacity;
+	size_t         curr_offset;
+	size_t         prev_offset;
+} Arena;
+Arena edram_arena;
+
+void arena_init(Arena *arena, void *backing_buffer, size_t backing_buffer_size) {
+	arena->buffer = (unsigned char *)backing_buffer;
+	arena->buffer_capacity = backing_buffer_size;
+	arena->curr_offset = 0;
+	arena->prev_offset = 0;
+}
+
+void *arena_alloc_align(Arena *arena, size_t size, size_t align) {
+	uintptr_t current_ptr = (uintptr_t)arena->buffer + (uintptr_t)arena->curr_offset;
+	uintptr_t offset = align_forward(current_ptr, align) - (uintptr_t)arena->buffer;
+
+	if (offset + size <= arena->buffer_capacity) {
+		void *ptr = &arena->buffer[offset];
+		arena->prev_offset = offset;
+		arena->curr_offset = offset + size;
+		return ptr;
+	}
+	return NULL;
+}
+
+void *arena_alloc(Arena *arena, size_t size) {
+	return arena_alloc_align(arena, size, BLOCK_SIZE);
+}
+
+void arena_free_all(Arena *arena) {
+	arena->curr_offset = 0;
+	arena->prev_offset = 0;
+}
 
 static unsigned int __attribute__((aligned(16))) list[262144];
 
@@ -76,22 +169,6 @@ static unsigned int bytes_per_pixel(unsigned int psm) {
 
 		default: return 0;
 	}
-}
-
-static unsigned int edram_used = 0;
-
-unsigned int edram_push_offset(unsigned int amount) {
-	// TODO: Alignment?
-	unsigned int result = edram_used;
-	edram_used += amount;
-	return result;
-}
-
-void *edram_push_size(unsigned int size) {
-	// TODO: Alignment?
-	void *result = sceGeEdramGetAddr() + (int)edram_used;
-	edram_used += size;
-	return result;
 }
 
 typedef struct Texture {
@@ -152,7 +229,7 @@ Texture create_texture(void *data, int width, int height, int format, bool vram)
 
     unsigned int* swizzled_pixels = NULL;
     if(vram) {
-        swizzled_pixels = edram_push_size(size);
+		swizzled_pixels = arena_alloc_align(&edram_arena, size, 16);
     } else {
         swizzled_pixels = (unsigned int *)memalign(16, size);
     }
@@ -291,18 +368,22 @@ int main(int argc, char* argv[])
 {
 	SetupCallbacks();
 
-	// setup GU
+	arena_init(&edram_arena, sceGeEdramGetAddr(), sceGeEdramGetSize());
 
-	unsigned int framebuffer_size = BUF_WIDTH * SCR_HEIGHT * bytes_per_pixel(GU_PSM_8888);
+	unsigned int framebuffer_size = BUF_WIDTH * SCR_HEIGHT * bytes_per_pixel(GU_PSM_5650);
+	arena_alloc_align(&edram_arena, framebuffer_size, 4);
+    void *framebuffer0 = (void *)edram_arena.prev_offset;
+	arena_alloc_align(&edram_arena, framebuffer_size, 4);
+    void *framebuffer1 = (void *)edram_arena.prev_offset;
+
     unsigned int depthbuffer_size = BUF_WIDTH * SCR_HEIGHT * bytes_per_pixel(GU_PSM_4444);
-    void *framebuffer0 = (void *)edram_push_offset(framebuffer_size);
-    void *framebuffer1 = (void *)edram_push_offset(framebuffer_size);
-    void *depthbuffer = (void *)edram_push_offset(depthbuffer_size);
+	arena_alloc_align(&edram_arena, depthbuffer_size, 4);
+    void *depthbuffer = (void *)edram_arena.prev_offset;
 
 	sceGuInit();
 
 	sceGuStart(GU_DIRECT,list);
-	sceGuDrawBuffer(GU_PSM_8888, framebuffer0, BUF_WIDTH);
+	sceGuDrawBuffer(GU_PSM_5650, framebuffer0, BUF_WIDTH);
 	sceGuDispBuffer(SCR_WIDTH, SCR_HEIGHT, framebuffer1, BUF_WIDTH);
 	sceGuDepthBuffer(depthbuffer, BUF_WIDTH);
 	sceGuOffset(2048 - (SCR_WIDTH/2),2048 - (SCR_HEIGHT/2));
