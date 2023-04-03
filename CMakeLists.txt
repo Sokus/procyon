@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(procyon)
 
-add_executable(psp_app src/main.c)
+add_executable(psp_app src/main.c src/core.c)
 target_link_libraries(psp_app
     PUBLIC
         pspdebug pspdisplay pspge pspgu pspgum

@@ -15,6 +15,8 @@
 #include <pspgu.h>
 #include <pspgum.h>
 
+#include "core.h"
+
 PSP_MODULE_INFO("Cube Sample", 0, 1, 1);
 PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER);
 
@@ -23,18 +25,6 @@ PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER);
 #define SCR_HEIGHT (272)
 
 #define PE_LEN(arr) (sizeof(arr)/sizeof(arr[0]))
-
-#define PE_DEBUG_BREAK()  \
-	asm(".set noreorder\n"\
-		"break \n"        \
-		"jr    $31\n"     \
-		"nop\n");
-#define PE_ASSERT(check, ...)\
-	if (!(check)) {          \
-		/* TODO: Logging */  \
-		PE_DEBUG_BREAK();    \
-	}
-
 
 static int file_to_uid(int fd)
 {
@@ -58,62 +48,9 @@ void debug_printf(int fd, char *fmt, ...) {
 	}
 }
 
-bool is_power_of_two(uintptr_t x) {
-	return (x & (x-1)) == 0;
-}
-
-uintptr_t align_forward(uintptr_t ptr, size_t align) {
-	PE_ASSERT(is_power_of_two(align));
-	uintptr_t result = ptr;
-	uintptr_t modulo = ptr % (uintptr_t)align;
-	if (modulo != 0) {
-		result += (uintptr_t)align - modulo;
-	}
-	return result;
-}
-
-#ifndef BLOCK_SIZE
-#define BLOCK_SIZE sizeof(void*)
-#endif
-
-typedef struct Arena {
-	unsigned char *buffer;
-	size_t         buffer_capacity;
-	size_t         curr_offset;
-	size_t         prev_offset;
-} Arena;
-Arena edram_arena;
-
-void arena_init(Arena *arena, void *backing_buffer, size_t backing_buffer_size) {
-	arena->buffer = (unsigned char *)backing_buffer;
-	arena->buffer_capacity = backing_buffer_size;
-	arena->curr_offset = 0;
-	arena->prev_offset = 0;
-}
-
-void *arena_alloc_align(Arena *arena, size_t size, size_t align) {
-	uintptr_t current_ptr = (uintptr_t)arena->buffer + (uintptr_t)arena->curr_offset;
-	uintptr_t offset = align_forward(current_ptr, align) - (uintptr_t)arena->buffer;
-
-	if (offset + size <= arena->buffer_capacity) {
-		void *ptr = &arena->buffer[offset];
-		arena->prev_offset = offset;
-		arena->curr_offset = offset + size;
-		return ptr;
-	}
-	return NULL;
-}
-
-void *arena_alloc(Arena *arena, size_t size) {
-	return arena_alloc_align(arena, size, BLOCK_SIZE);
-}
-
-void arena_free_all(Arena *arena) {
-	arena->curr_offset = 0;
-	arena->prev_offset = 0;
-}
-
 static unsigned int __attribute__((aligned(16))) list[262144];
+
+static peArena edram_arena;
 
 static int exit_request = 0;
 
@@ -227,14 +164,14 @@ Texture create_texture(void *data, int width, int height, int format, bool vram)
 	int power_of_two_height = closest_greater_power_of_two(height);
 	unsigned int size = power_of_two_width * power_of_two_height * bytes_per_pixel(format);
 
-    unsigned int* swizzled_pixels = NULL;
-    if(vram) {
-		swizzled_pixels = arena_alloc_align(&edram_arena, size, 16);
-    } else {
-        swizzled_pixels = (unsigned int *)memalign(16, size);
-    }
+	// TODO: Temporary allocator
+	unsigned int* data_buffer = (unsigned int *)memalign(16, size);
+	copy_texture_data(data_buffer, data, power_of_two_width, width, height);
 
+	peAllocator texture_allocator = vram ? pe_arena_allocator(&edram_arena) : pe_heap_allocator();
+    unsigned int* swizzled_pixels = pe_alloc_align(texture_allocator, size, 16);
     swizzle_fast((u8*)swizzled_pixels, data, power_of_two_width * bytes_per_pixel(format), power_of_two_height);
+	free(data_buffer);
 
     texture.data = swizzled_pixels;
 	texture.width = width;
@@ -248,6 +185,26 @@ Texture create_texture(void *data, int width, int height, int format, bool vram)
 
     return texture;
 }
+
+void destroy_texture(Texture texture) {
+	if (texture.vram) {
+		// TODO: freeing VRAM
+	} else {
+		free(texture.data);
+	}
+}
+
+void use_texture(Texture texture) {
+ 	sceGuTexMode(texture.format, 0, 0, 1);
+	sceGuTexImage(0, texture.power_of_two_width, texture.power_of_two_height, texture.power_of_two_width, texture.data);
+	sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
+	//sceGuTexFilter(GU_LINEAR,GU_LINEAR);
+	sceGuTexFilter(GU_NEAREST,GU_NEAREST);
+	sceGuTexScale(1.0f,1.0f);
+	sceGuTexOffset(0.0f,0.0f);
+}
+
+
 
 typedef struct Vertex
 {
@@ -368,17 +325,15 @@ int main(int argc, char* argv[])
 {
 	SetupCallbacks();
 
-	arena_init(&edram_arena, sceGeEdramGetAddr(), sceGeEdramGetSize());
+	pe_arena_init_from_memory(&edram_arena, sceGeEdramGetAddr(), sceGeEdramGetSize());
+	peAllocator edram_allocator = pe_arena_allocator(&edram_arena);
 
 	unsigned int framebuffer_size = BUF_WIDTH * SCR_HEIGHT * bytes_per_pixel(GU_PSM_5650);
-	arena_alloc_align(&edram_arena, framebuffer_size, 4);
-    void *framebuffer0 = (void *)edram_arena.prev_offset;
-	arena_alloc_align(&edram_arena, framebuffer_size, 4);
-    void *framebuffer1 = (void *)edram_arena.prev_offset;
+	void *framebuffer0 = pe_alloc_align(edram_allocator, framebuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
+	void *framebuffer1 = pe_alloc_align(edram_allocator, framebuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
 
     unsigned int depthbuffer_size = BUF_WIDTH * SCR_HEIGHT * bytes_per_pixel(GU_PSM_4444);
-	arena_alloc_align(&edram_arena, depthbuffer_size, 4);
-    void *depthbuffer = (void *)edram_arena.prev_offset;
+	void *depthbuffer = pe_alloc_align(edram_allocator, depthbuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
 
 	sceGuInit();
 
@@ -406,19 +361,19 @@ int main(int argc, char* argv[])
 
 	int texture_width = 8;
 	int texture_height = 8;
-	size_t texture_data_size = texture_width*texture_height*sizeof(uint32_t);
-	uint32_t *texture_data = malloc(texture_data_size);
+	size_t texture_data_size = texture_width * texture_height * sizeof(uint16_t);
+	uint16_t *texture_data = malloc(texture_data_size);
 	for (int y = 0; y < texture_height; y++) {
 		for (int x = 0; x < texture_width; x++) {
 			if (y < texture_height/2 && x < texture_width/2 || y >= texture_height/2 && x >= texture_width/2) {
-				texture_data[y*texture_width + x] = 0xFFFFFFFF;
+				texture_data[y*texture_width + x] = 0xFFFF;
 			} else {
-				texture_data[y*texture_width + x] = 0xFF7F7F7F;
+				texture_data[y*texture_width + x] = 0x73EE; // GU_PSM_8888: 0xFF7F7F7F
 			}
 		}
 	}
 
-	Texture texture = create_texture(texture_data, texture_width, texture_height, GU_PSM_8888, true);
+	Texture texture = create_texture(texture_data, texture_width, texture_height, GU_PSM_5650, true);
 	free(texture_data);
 
 	int val = 0;
@@ -429,13 +384,9 @@ int main(int argc, char* argv[])
 	{
 		sceGuStart(GU_DIRECT,list);
 
-		// clear screen
-
 		sceGuClearColor(0xff151515);
 		sceGuClearDepth(0);
 		sceGuClear(GU_COLOR_BUFFER_BIT|GU_DEPTH_BUFFER_BIT);
-
-		// setup matrices for cube
 
 		sceGumMatrixMode(GU_PROJECTION);
 		sceGumLoadIdentity();
@@ -453,19 +404,7 @@ int main(int argc, char* argv[])
 			sceGumRotateXYZ(&rot);
 		}
 
-		// setup texture
-
-		sceGuTexMode(texture.format, 0, 0, 1);
-		sceGuTexImage(0, texture.power_of_two_width, texture.power_of_two_height, texture.power_of_two_width, texture.data);
-		sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
-		sceGuTexEnvColor(0xffffff);
-		//sceGuTexFilter(GU_LINEAR,GU_LINEAR);
-		sceGuTexFilter(GU_NEAREST,GU_NEAREST);
-		sceGuTexScale(1.0f,1.0f);
-		sceGuTexOffset(0.0f,0.0f);
-		sceGuAmbientColor(0xffffffff);
-
-		// draw cube
+		use_texture(texture);
 
 		//sceGumDrawArray(GU_TRIANGLES,GU_TEXTURE_32BITF|GU_COLOR_8888|GU_VERTEX_32BITF|GU_TRANSFORM_3D,12*3,0,vertices);
 		int vertex_type = GU_TEXTURE_32BITF|GU_COLOR_8888|GU_VERTEX_32BITF|GU_TRANSFORM_3D|GU_INDEX_16BIT;
