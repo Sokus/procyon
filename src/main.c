@@ -9,8 +9,8 @@
 #include <malloc.h>
 #include <stdarg.h>
 #include <pspiofilemgr.h>
-#include <psprtc.h>
 
+#include "pe_time.h"
 
 #include <stdint.h>
 
@@ -19,7 +19,7 @@
 
 #include "core.h"
 
-PSP_MODULE_INFO("Cube Sample", 0, 1, 1);
+PSP_MODULE_INFO("Procyon", 0, 1, 1);
 PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER);
 
 #define PSP_BUFF_W (512)
@@ -173,7 +173,7 @@ Texture create_texture(void *data, int width, int height, int format, bool vram)
 	texture.vram = vram;
 	texture.format = format;
 
-    sceKernelDcacheWritebackInvalidateAll();
+   sceKernelDcacheWritebackInvalidateAll();
 
     return texture;
 }
@@ -182,7 +182,7 @@ void destroy_texture(Texture texture) {
 	if (texture.vram) {
 		// TODO: freeing VRAM
 	} else {
-		free(texture.data);
+		pe_free(pe_heap_allocator(), texture.data);
 	}
 }
 
@@ -343,6 +343,8 @@ int main(int argc, char* argv[])
     unsigned int depthbuffer_size = PSP_BUFF_W * PSP_SCREEN_H * bytes_per_pixel(GU_PSM_4444);
 	void *depthbuffer = pe_alloc_align(edram_allocator, depthbuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
 
+	pe_time_init();
+
 	sceGuInit();
 
 	sceGuStart(GU_DIRECT,list);
@@ -372,8 +374,6 @@ int main(int argc, char* argv[])
 	pe_load_texture_default();
 	Mesh mesh = gen_mesh_cube(1.0f, 1.0f, 1.0f);
 
-	//fprintf(stdout, "%u\n", sceRtcGetTickResolution());
-
 	peCamera camera;
 	camera.eye = (ScePspFVector3){ 0.0f, 0.0f, 2.5f };
 	camera.target = (ScePspFVector3){ 0.0f, 0.0f, 0.0f };
@@ -387,7 +387,6 @@ int main(int argc, char* argv[])
 		sceGuClearColor(0xff151515);
 		sceGuClearDepth(0);
 		sceGuClear(GU_COLOR_BUFFER_BIT|GU_DEPTH_BUFFER_BIT);
-
 
 		pe_camera_update(camera);
 
