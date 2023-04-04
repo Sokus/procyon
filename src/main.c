@@ -9,6 +9,8 @@
 #include <malloc.h>
 #include <stdarg.h>
 #include <pspiofilemgr.h>
+#include <psprtc.h>
+
 
 #include <stdint.h>
 
@@ -20,37 +22,24 @@
 PSP_MODULE_INFO("Cube Sample", 0, 1, 1);
 PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER);
 
-#define BUF_WIDTH (512)
-#define SCR_WIDTH (480)
-#define SCR_HEIGHT (272)
+#define PSP_BUFF_W (512)
+#define PSP_SCREEN_W (480)
+#define PSP_SCREEN_H (272)
 
-#define PE_LEN(arr) (sizeof(arr)/sizeof(arr[0]))
-
-static int file_to_uid(int fd)
-{
-	switch (fd) {
-		case 0: return sceKernelStdin();
-		case 1: return sceKernelStdout();
-		case 2: return sceKernelStderr();
-		default: return fd;
-	}
+int pe_screen_width() {
+	return PSP_SCREEN_W;
 }
 
-void debug_printf(int fd, char *fmt, ...) {
-	va_list va;
-	va_start(va, fmt);
-	char buffer[256];
-	int length = vsnprintf(buffer, sizeof(buffer), fmt, va);
-	va_end(va);
-
-	if (length > 0 && length < sizeof(buffer)) {
-		sceIoWrite(file_to_uid(fd), buffer, length);
-	}
+int pe_screen_height() {
+	return PSP_SCREEN_H;
 }
 
 static unsigned int __attribute__((aligned(16))) list[262144];
 
 static peArena edram_arena;
+static peArena temp_arena;
+static peAllocator temp_allocator;
+
 
 static int exit_request = 0;
 
@@ -117,6 +106,7 @@ typedef struct Texture {
 	bool vram;
 	int format;
 } Texture;
+static Texture default_texture;
 
 static void copy_texture_data(void *dest, const void *src, const int pW, const int width, const int height)
 {
@@ -164,14 +154,16 @@ Texture create_texture(void *data, int width, int height, int format, bool vram)
 	int power_of_two_height = closest_greater_power_of_two(height);
 	unsigned int size = power_of_two_width * power_of_two_height * bytes_per_pixel(format);
 
-	// TODO: Temporary allocator
-	unsigned int* data_buffer = (unsigned int *)memalign(16, size);
+	peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(&temp_arena);
+
+	unsigned int *data_buffer = pe_alloc_align(temp_allocator, size, 16);
 	copy_texture_data(data_buffer, data, power_of_two_width, width, height);
 
 	peAllocator texture_allocator = vram ? pe_arena_allocator(&edram_arena) : pe_heap_allocator();
     unsigned int* swizzled_pixels = pe_alloc_align(texture_allocator, size, 16);
-    swizzle_fast((u8*)swizzled_pixels, data, power_of_two_width * bytes_per_pixel(format), power_of_two_height);
-	free(data_buffer);
+    swizzle_fast((u8*)swizzled_pixels, data, power_of_two_width*bytes_per_pixel(format), power_of_two_height);
+
+	pe_temp_arena_memory_end(temp_arena_memory);
 
     texture.data = swizzled_pixels;
 	texture.width = width;
@@ -194,6 +186,27 @@ void destroy_texture(Texture texture) {
 	}
 }
 
+void pe_load_texture_default(void) {
+	peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(&temp_arena);
+
+	int texture_width = 8;
+	int texture_height = 8;
+	size_t texture_data_size = texture_width * texture_height * sizeof(uint16_t);
+	uint16_t *texture_data = pe_alloc(pe_arena_allocator(&temp_arena), texture_data_size);
+	for (int y = 0; y < texture_height; y++) {
+		for (int x = 0; x < texture_width; x++) {
+			if (y < texture_height/2 && x < texture_width/2 || y >= texture_height/2 && x >= texture_width/2) {
+				texture_data[y*texture_width + x] = 0xFFFF;
+			} else {
+				texture_data[y*texture_width + x] = 0x73EE; // GU_PSM_8888: 0xFF7F7F7F
+			}
+		}
+	}
+	default_texture = create_texture(texture_data, texture_width, texture_height, GU_PSM_5650, true);
+
+	pe_temp_arena_memory_end(temp_arena_memory);
+}
+
 void use_texture(Texture texture) {
  	sceGuTexMode(texture.format, 0, 0, 1);
 	sceGuTexImage(0, texture.power_of_two_width, texture.power_of_two_height, texture.power_of_two_width, texture.data);
@@ -204,12 +217,10 @@ void use_texture(Texture texture) {
 	sceGuTexOffset(0.0f,0.0f);
 }
 
-
-
 typedef struct Vertex
 {
     float u, v;
-	unsigned int color;
+	uint16_t color;
 	float x, y, z;
 } Vertex;
 
@@ -266,33 +277,6 @@ Mesh gen_mesh_cube(float width, float height, float length) {
 		0.0f, 0.0f,  1.0f, 0.0f,  1.0, 1.0f,  0.0f, 1.0f,
 	};
 
-	uint32_t colors[] = {
-		0xff007af8,
-		0xff007af8,
-		0xff007af8,
-		0xff007af8,
-		0xff0229e4,
-		0xff0229e4,
-		0xff0229e4,
-		0xff0229e4,
-		0xff11009c,
-		0xff11009c,
-		0xff11009c,
-		0xff11009c,
-		0xff681d20,
-		0xff681d20,
-		0xff681d20,
-		0xff681d20,
-		0xffa24000,
-		0xffa24000,
-		0xffa24000,
-		0xffa24000,
-		0xff117100,
-		0xff117100,
-		0xff117100,
-		0xff117100,
-	};
-
 	uint16_t indices[] = {
 		0,  1,  2,  0,  2,  3,
 		4,  5,  6,  4,  6,  7,
@@ -303,48 +287,72 @@ Mesh gen_mesh_cube(float width, float height, float length) {
     };
 
 	Mesh mesh = {0};
-	mesh.vertices = memalign(16, sizeof(colors)/sizeof(uint32_t)*sizeof(Vertex));
-	mesh.indices = memalign(16, sizeof(indices));
+
+	mesh.vertices = pe_alloc_align(pe_heap_allocator(), PE_COUNT_OF(vertices)/3*sizeof(Vertex), 16);
+	mesh.indices = pe_alloc_align(pe_heap_allocator(), sizeof(indices), 16);
 	memcpy(mesh.indices, indices, sizeof(indices));
 
-	for (int i = 0; i < (int)sizeof(colors)/sizeof(uint32_t); i++) {
+	for (int i = 0; i < PE_COUNT_OF(vertices)/3; i += 1) {
 		mesh.vertices[i].x = vertices[3*i];
 		mesh.vertices[i].y = vertices[3*i + 1];
 		mesh.vertices[i].z = vertices[3*i + 2];
-		mesh.vertices[i].color = colors[i];
+		mesh.vertices[i].color = 0xFFFF;
 		mesh.vertices[i].u = texcoords[2*i];
 		mesh.vertices[i].v = texcoords[2*i + 1];
 	}
-
 
     sceKernelDcacheWritebackInvalidateAll();
 	return mesh;
 }
 
+typedef struct peCamera {
+	ScePspFVector3 eye;
+	ScePspFVector3 target;
+	ScePspFVector3 up;
+	float fovy;
+} peCamera;
+
+void pe_camera_update(peCamera camera) {
+	float aspect = (float)pe_screen_width() / (float)pe_screen_height();
+	float near = 0.5f;
+	float far = 1000.0f;
+	sceGumMatrixMode(GU_PROJECTION);
+	sceGumLoadIdentity();
+	sceGumPerspective(camera.fovy, aspect, near, far);
+	//sceGumPerspective(75.0f,16.0f/9.0f,0.5f,1000.0f);
+
+	sceGumMatrixMode(GU_VIEW);
+	sceGumLoadIdentity();
+	sceGumLookAt(&camera.eye, &camera.target, &camera.up);
+}
+
 int main(int argc, char* argv[])
 {
+	pe_arena_init_from_allocator(&temp_arena, pe_heap_allocator(), PE_MEGABYTES(4));
+	temp_allocator = pe_arena_allocator(&temp_arena);
+
 	SetupCallbacks();
 
 	pe_arena_init_from_memory(&edram_arena, sceGeEdramGetAddr(), sceGeEdramGetSize());
 	peAllocator edram_allocator = pe_arena_allocator(&edram_arena);
 
-	unsigned int framebuffer_size = BUF_WIDTH * SCR_HEIGHT * bytes_per_pixel(GU_PSM_5650);
+	unsigned int framebuffer_size = PSP_BUFF_W * PSP_SCREEN_H * bytes_per_pixel(GU_PSM_5650);
 	void *framebuffer0 = pe_alloc_align(edram_allocator, framebuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
 	void *framebuffer1 = pe_alloc_align(edram_allocator, framebuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
 
-    unsigned int depthbuffer_size = BUF_WIDTH * SCR_HEIGHT * bytes_per_pixel(GU_PSM_4444);
+    unsigned int depthbuffer_size = PSP_BUFF_W * PSP_SCREEN_H * bytes_per_pixel(GU_PSM_4444);
 	void *depthbuffer = pe_alloc_align(edram_allocator, depthbuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
 
 	sceGuInit();
 
 	sceGuStart(GU_DIRECT,list);
-	sceGuDrawBuffer(GU_PSM_5650, framebuffer0, BUF_WIDTH);
-	sceGuDispBuffer(SCR_WIDTH, SCR_HEIGHT, framebuffer1, BUF_WIDTH);
-	sceGuDepthBuffer(depthbuffer, BUF_WIDTH);
-	sceGuOffset(2048 - (SCR_WIDTH/2),2048 - (SCR_HEIGHT/2));
-	sceGuViewport(2048,2048,SCR_WIDTH,SCR_HEIGHT);
+	sceGuDrawBuffer(GU_PSM_5650, framebuffer0, PSP_BUFF_W);
+	sceGuDispBuffer(PSP_SCREEN_W, PSP_SCREEN_H, framebuffer1, PSP_BUFF_W);
+	sceGuDepthBuffer(depthbuffer, PSP_BUFF_W);
+	sceGuOffset(2048 - (PSP_SCREEN_W/2),2048 - (PSP_SCREEN_H/2));
+	sceGuViewport(2048,2048,PSP_SCREEN_W,PSP_SCREEN_H);
 	sceGuDepthRange(65535,0);
-	sceGuScissor(0,0,SCR_WIDTH,SCR_HEIGHT);
+	sceGuScissor(0,0,PSP_SCREEN_W,PSP_SCREEN_H);
 	sceGuEnable(GU_SCISSOR_TEST);
 	sceGuDepthFunc(GU_GEQUAL);
 	sceGuEnable(GU_DEPTH_TEST);
@@ -359,26 +367,18 @@ int main(int argc, char* argv[])
 	sceDisplayWaitVblankStart();
 	sceGuDisplay(GU_TRUE);
 
-	int texture_width = 8;
-	int texture_height = 8;
-	size_t texture_data_size = texture_width * texture_height * sizeof(uint16_t);
-	uint16_t *texture_data = malloc(texture_data_size);
-	for (int y = 0; y < texture_height; y++) {
-		for (int x = 0; x < texture_width; x++) {
-			if (y < texture_height/2 && x < texture_width/2 || y >= texture_height/2 && x >= texture_width/2) {
-				texture_data[y*texture_width + x] = 0xFFFF;
-			} else {
-				texture_data[y*texture_width + x] = 0x73EE; // GU_PSM_8888: 0xFF7F7F7F
-			}
-		}
-	}
-
-	Texture texture = create_texture(texture_data, texture_width, texture_height, GU_PSM_5650, true);
-	free(texture_data);
-
 	int val = 0;
 
+	pe_load_texture_default();
 	Mesh mesh = gen_mesh_cube(1.0f, 1.0f, 1.0f);
+
+	//fprintf(stdout, "%u\n", sceRtcGetTickResolution());
+
+	peCamera camera;
+	camera.eye = (ScePspFVector3){ 0.0f, 0.0f, 2.5f };
+	camera.target = (ScePspFVector3){ 0.0f, 0.0f, 0.0f };
+	camera.up = (ScePspFVector3){ 0.0f, 1.0f, 0.0f };
+	camera.fovy = 55.0f;
 
 	while(running())
 	{
@@ -388,26 +388,21 @@ int main(int argc, char* argv[])
 		sceGuClearDepth(0);
 		sceGuClear(GU_COLOR_BUFFER_BIT|GU_DEPTH_BUFFER_BIT);
 
-		sceGumMatrixMode(GU_PROJECTION);
-		sceGumLoadIdentity();
-		sceGumPerspective(75.0f,16.0f/9.0f,0.5f,1000.0f);
 
-		sceGumMatrixMode(GU_VIEW);
-		sceGumLoadIdentity();
+		pe_camera_update(camera);
 
 		sceGumMatrixMode(GU_MODEL);
 		sceGumLoadIdentity();
 		{
-			ScePspFVector3 pos = { 0, 0, -2.5f };
+			//ScePspFVector3 pos = { 0, 0, -2.5f };
 			ScePspFVector3 rot = { val * 0.79f * (GU_PI/180.0f), val * 0.98f * (GU_PI/180.0f), val * 1.32f * (GU_PI/180.0f) };
-			sceGumTranslate(&pos);
+			//sceGumTranslate(&pos);
 			sceGumRotateXYZ(&rot);
 		}
 
-		use_texture(texture);
+		use_texture(default_texture);
 
-		//sceGumDrawArray(GU_TRIANGLES,GU_TEXTURE_32BITF|GU_COLOR_8888|GU_VERTEX_32BITF|GU_TRANSFORM_3D,12*3,0,vertices);
-		int vertex_type = GU_TEXTURE_32BITF|GU_COLOR_8888|GU_VERTEX_32BITF|GU_TRANSFORM_3D|GU_INDEX_16BIT;
+		int vertex_type = GU_TEXTURE_32BITF|GU_COLOR_5650|GU_VERTEX_32BITF|GU_TRANSFORM_3D|GU_INDEX_16BIT;
 		sceGumDrawArray(GU_TRIANGLES, vertex_type, 12*3, mesh.indices, mesh.vertices);
 
 		sceGuFinish();
@@ -417,6 +412,8 @@ int main(int argc, char* argv[])
 		sceGuSwapBuffers();
 
 		val++;
+
+		pe_free_all(temp_allocator);
 	}
 
 	sceGuTerm();

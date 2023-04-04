@@ -17,18 +17,51 @@
 	#endif
 #endif
 
+void pe_assert_handler(char *prefix, char *condition, char *file, int line, char *msg, ...);
 
-#define PE_DEBUG_BREAK()  \
-	asm(".set noreorder\n"\
-		"break \n"        \
-		"jr    $31\n"     \
-		"nop\n");
-#define PE_ASSERT(check, ...)\
-	if (!(check)) {          \
-		/* TODO: Logging */  \
-		PE_DEBUG_BREAK();    \
-	}
+#define PE_COUNT_OF(x) (sizeof(x)/sizeof(x[0]))
 
+#ifndef PE_DEBUG_TRAP
+	#if defined(PSP)
+		#define PE_DEBUG_TRAP() \
+			asm(".set noreorder\n" \
+				"break\n" \
+				"jr $31\n" \
+				"nop\n");
+	#elif defined(_MSC_VER)
+	 	#if _MSC_VER < 1300
+		#define PE_DEBUG_TRAP() __asm int 3 /* Trap to debugger! */
+		#else
+		#define PE_DEBUG_TRAP() __debugbreak()
+		#endif
+	#else
+		#define PE_DEBUG_TRAP() __builtin_trap()
+	#endif
+#endif
+
+#ifndef PE_ASSERT_MSG
+#define PE_ASSERT_MSG(cond, msg, ...) do { \
+	if (!(cond)) { \
+		pe_assert_handler("Assertion Failure", #cond, __FILE__, (int)__LINE__, msg, ##__VA_ARGS__); \
+		PE_DEBUG_TRAP(); \
+	} \
+} while (0)
+#endif
+
+#ifndef PE_ASSERT
+#define PE_ASSERT(cond) PE_ASSERT_MSG(cond, NULL)
+#endif
+
+#ifndef PE_PANIC
+#define PE_PANIC(msg, ...) do { \
+	pe_assert_handler("Panic", NULL, __FILE__, (int)__LINE__, msg, #__VA_ARGS__); \
+	PE_DEBUG_TRAP(); \
+} while (0)
+#endif
+
+#define PE_KILOBYTES(x) (1024*(x))
+#define PE_MEGABYTES(x) (1024 * PE_KILOBYTES(x))
+#define PE_GIGABYTES(x) (1024 * PE_MEGABYTES(x))
 
 typedef enum peAllocationType {
 	peAllocation_Alloc,
@@ -87,6 +120,7 @@ typedef struct peArena {
     void * physical_start;
     size_t total_size;
     size_t total_allocated;
+	size_t temp_count;
 } peArena;
 
 void pe_arena_init_from_memory   (peArena *arena, void *start, size_t size);
@@ -98,6 +132,14 @@ size_t pe_arena_alignment_offset(peArena *arena, size_t alignment);
 size_t pe_arena_size_remaining(peArena *arena, size_t alignment);
 
 peAllocator pe_arena_allocator(peArena *arena);
+
+typedef struct peTempArenaMemory {
+	peArena *arena;
+	size_t original_count;
+} peTempArenaMemory;
+
+peTempArenaMemory pe_temp_arena_memory_begin(peArena *arena);
+void              pe_temp_arena_memory_end  (peTempArenaMemory temp_arena_memory);
 
 void pe_zero_size(void *ptr, size_t size);
 bool pe_is_power_of_two(uintptr_t x);

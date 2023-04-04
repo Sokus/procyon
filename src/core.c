@@ -1,6 +1,23 @@
 #include "core.h"
 
+#include <stdio.h>
+#include <stdarg.h>
 
+void pe_assert_handler(char *prefix, char *condition, char *file, int line, char *msg, ...) {
+    char buf[512] = {0};
+    int buf_off = 0;
+    buf_off += snprintf(&buf[buf_off], PE_COUNT_OF(buf)-buf_off-1, "%s(%d): %s: ", file, line, prefix);
+	if (condition)
+        buf_off += snprintf(&buf[buf_off], PE_COUNT_OF(buf)-buf_off-1, "`%s` ", condition);
+	if (msg) {
+		va_list va;
+		va_start(va, msg);
+        buf_off += vsnprintf(&buf[buf_off], PE_COUNT_OF(buf)-buf_off-1, msg, va);
+		va_end(va);
+	}
+    buf_off += snprintf(&buf[buf_off], PE_COUNT_OF(buf)-buf_off-1, "\n");
+    fprintf(stderr, buf);
+}
 
 PE_INLINE void *pe_alloc_align(peAllocator a, size_t size, size_t alignment) {
     return a.proc(a.data, peAllocation_Alloc, size, alignment, NULL, 0, PE_DEFAULT_ALLOCATOR_FLAGS);
@@ -41,6 +58,7 @@ size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFla
 
         case peAllocation_Resize: {
             // TODO: Implementation
+            PE_PANIC("Unimplemented");
         }
 
         default: break;
@@ -69,6 +87,7 @@ PE_INLINE void pe_arena_init_from_memory(peArena *arena, void *start, size_t siz
     arena->physical_start = start;
     arena->total_size = size;
     arena->total_allocated = 0;
+    arena->temp_count = 0;
 }
 
 PE_INLINE void pe_arena_init_from_allocator(peArena *arena, peAllocator backing, size_t size) {
@@ -76,6 +95,7 @@ PE_INLINE void pe_arena_init_from_allocator(peArena *arena, peAllocator backing,
     arena->physical_start = pe_alloc(backing, size);
     arena->total_size = size;
     arena->total_allocated = 0;
+    arena->temp_count = 0;
 }
 
 PE_INLINE void pe_arena_init_sub(peArena *arena, peArena *parent_arena, size_t size) {
@@ -90,7 +110,7 @@ PE_INLINE void pe_arena_free(peArena *arena) {
 }
 
 PE_INLINE size_t pe_arena_alignment_offset(peArena *arena, size_t alignment) {
-    PE_ASSERT(pe_is_power_of_two(alignment))
+    PE_ASSERT(pe_is_power_of_two(alignment));
     size_t alignment_offset = 0;
     uintptr_t result_pointer = (uintptr_t)arena->physical_start + arena->total_allocated;
     uintptr_t mask = alignment - 1;
@@ -115,7 +135,7 @@ size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFla
             size_t alignment_offset = pe_arena_alignment_offset(arena, alignment);
             size_t allocation_size = size + alignment_offset;
             if (arena->total_allocated + allocation_size > arena->total_size) {
-                // TODO: Print error
+                fprintf(stderr, "Arena out of memory\n");
                 return NULL;
             }
             uintptr_t result_offset = (uintptr_t)arena->total_allocated + (uintptr_t)alignment_offset;
@@ -132,6 +152,7 @@ size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFla
 
         case peAllocation_Resize: {
             // TODO: Implementation
+            PE_PANIC("Unimplemented");
         } break;
 
         default: break;
@@ -144,4 +165,20 @@ PE_INLINE peAllocator pe_arena_allocator(peArena *arena) {
     allocator.proc = pe_arena_allocator_proc;
     allocator.data = arena;
     return allocator;
+}
+
+PE_INLINE peTempArenaMemory pe_temp_arena_memory_begin(peArena *arena) {
+    peTempArenaMemory temp_arena_memory;
+    temp_arena_memory.arena = arena;
+    temp_arena_memory.original_count = arena->total_allocated;
+    arena->temp_count += 1;
+    return temp_arena_memory;
+}
+
+PE_INLINE void pe_temp_arena_memory_end  (peTempArenaMemory tmp) {
+    PE_ASSERT_MSG(tmp.arena->total_allocated >= tmp.original_count,
+                  "%zu >= %zu", tmp.arena->total_allocated, tmp.original_count);
+    PE_ASSERT(tmp.arena->temp_count > 0);
+    tmp.arena->total_allocated = tmp.original_count;
+    tmp.arena->temp_count -= 1;
 }
