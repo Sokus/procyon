@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
+#include <malloc.h>
 
 void pe_assert_handler(char *prefix, char *condition, char *file, int line, char *msg, ...) {
     char buf[512] = {0};
@@ -37,16 +39,18 @@ PE_INLINE void pe_free_all(peAllocator a) {
     a.proc(a.data, peAllocation_FreeAll, 0, 0, NULL, 0, PE_DEFAULT_ALLOCATOR_FLAGS);
 }
 
-#include <malloc.h> // PSP
-
-#include <string.h>
-
 static void *pe_heap_allocator_proc(void *allocator_data, peAllocationType type,
 size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFlag flags) {
     void *ptr = NULL;
     switch (type) {
         case peAllocation_Alloc: {
+#if defined(_WIN32)
+            ptr = _aligned_malloc(size, alignment);
+#elif defined(PSP)
             ptr = memalign(alignment, size);
+#else
+            PE_PANIC("Unimplemented");
+#endif
             if (flags & peAllocatorFlag_ClearToZero) {
                 pe_zero_size(ptr, size);
             }
@@ -59,7 +63,7 @@ size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFla
         case peAllocation_Resize: {
             // TODO: Implementation
             PE_PANIC("Unimplemented");
-        }
+        } break;
 
         default: break;
     }
@@ -139,7 +143,7 @@ size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFla
                 return NULL;
             }
             uintptr_t result_offset = (uintptr_t)arena->total_allocated + (uintptr_t)alignment_offset;
-            ptr = arena->physical_start + result_offset;
+            ptr = (void *)((uintptr_t)arena->physical_start + result_offset);
             arena->total_allocated += allocation_size;
             if (flags & peAllocatorFlag_ClearToZero) {
                 pe_zero_size(ptr, size);

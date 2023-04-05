@@ -10,6 +10,7 @@
     #if !defined(WIN32_LEAN_AND_MEAN)
     #define WIN32_LEAN_AND_MEAN
     #endif
+	#pragma comment( lib, "Winmm.lib" )
 #elif defined(PSP)
     #include <psptypes.h>
     #include <time.h>

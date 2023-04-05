@@ -27,7 +27,7 @@ void pe_assert_handler(char *prefix, char *condition, char *file, int line, char
 			asm(".set noreorder\n" \
 				"break\n" \
 				"jr $31\n" \
-				"nop\n");
+				"nop\n")
 	#elif defined(_MSC_VER)
 	 	#if _MSC_VER < 1300
 		#define PE_DEBUG_TRAP() __asm int 3 /* Trap to debugger! */
@@ -52,9 +52,12 @@ void pe_assert_handler(char *prefix, char *condition, char *file, int line, char
 #define PE_ASSERT(cond) PE_ASSERT_MSG(cond, NULL)
 #endif
 
+#include <stddef.h>
+#include <stdarg.h>
+
 #ifndef PE_PANIC
 #define PE_PANIC(msg, ...) do { \
-	pe_assert_handler("Panic", NULL, __FILE__, (int)__LINE__, msg, #__VA_ARGS__); \
+	pe_assert_handler("Panic", NULL, __FILE__, (int)__LINE__, msg, ##__VA_ARGS__); \
 	PE_DEBUG_TRAP(); \
 } while (0)
 #endif
