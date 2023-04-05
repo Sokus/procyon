@@ -3,7 +3,7 @@ project(procyon)
 
 add_executable(procyon
     src/main.c
-    src/core.c
+    src/pe_core.c
     src/pe_time.c
     src/pe_input.c
 )

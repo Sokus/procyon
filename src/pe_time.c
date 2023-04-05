@@ -1,5 +1,5 @@
 #include "pe_time.h"
-#include "core.h"
+#include "pe_core.h"
 
 #include <stdbool.h>
 #include <stdint.h>

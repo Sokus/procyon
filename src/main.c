@@ -19,7 +19,7 @@
 #include <pspgum.h>
 #include <math.h>
 
-#include "core.h"
+#include "pe_core.h"
 
 PSP_MODULE_INFO("Procyon", 0, 1, 1);
 PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER);

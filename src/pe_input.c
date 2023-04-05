@@ -1,5 +1,5 @@
 #include "pe_input.h"
-#include "core.h"
+#include "pe_core.h"
 
 #include <stdbool.h>
 #include <string.h>
