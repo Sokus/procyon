@@ -1,10 +1,16 @@
 cmake_minimum_required(VERSION 3.5)
 project(procyon)
 
-add_executable(procyon src/main.c src/core.c src/pe_time.c)
+add_executable(procyon
+    src/main.c
+    src/core.c
+    src/pe_time.c
+    src/pe_input.c
+)
+
 target_link_libraries(procyon
     PUBLIC
-        pspdebug pspdisplay pspge pspgu pspgum
+        pspdebug pspdisplay pspge pspgu pspgum pspctrl
 )
 
 create_pbp_file(

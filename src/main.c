@@ -11,11 +11,13 @@
 #include <pspiofilemgr.h>
 
 #include "pe_time.h"
+#include "pe_input.h"
 
 #include <stdint.h>
 
 #include <pspgu.h>
 #include <pspgum.h>
+#include <math.h>
 
 #include "core.h"
 
@@ -39,7 +41,6 @@ static unsigned int __attribute__((aligned(16))) list[262144];
 static peArena edram_arena;
 static peArena temp_arena;
 static peAllocator temp_allocator;
-
 
 static int exit_request = 0;
 
@@ -95,6 +96,27 @@ static unsigned int bytes_per_pixel(unsigned int psm) {
 
 		default: return 0;
 	}
+}
+
+typedef struct Color {
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
+	uint8_t a;
+} Color;
+
+#define PE_COLOR_WHITE (Color){ 255, 255, 255, 255 }
+#define PE_COLOR_GRAY  (Color){ 127, 127, 127, 255 }
+
+uint16_t pe_color_to_5650(Color color) {
+	uint16_t max_5_bit = (1U << 5) - 1;
+	uint16_t max_6_bit = (1U << 6) - 1;
+	uint16_t max_8_bit = (1U << 8) - 1;
+	uint16_t r = (((uint16_t)color.r * max_5_bit) / max_8_bit) & max_5_bit;
+	uint16_t g = (((uint16_t)color.g * max_6_bit) / max_8_bit) & max_6_bit;
+	uint16_t b = (((uint16_t)color.b * max_5_bit) / max_8_bit) & max_5_bit;
+	uint16_t result = b << 11 | g << 5 | r;
+	return result;
 }
 
 typedef struct Texture {
@@ -196,9 +218,9 @@ void pe_load_texture_default(void) {
 	for (int y = 0; y < texture_height; y++) {
 		for (int x = 0; x < texture_width; x++) {
 			if (y < texture_height/2 && x < texture_width/2 || y >= texture_height/2 && x >= texture_width/2) {
-				texture_data[y*texture_width + x] = 0xFFFF;
+				texture_data[y*texture_width + x] = pe_color_to_5650(PE_COLOR_WHITE);
 			} else {
-				texture_data[y*texture_width + x] = 0x73EE; // GU_PSM_8888: 0xFF7F7F7F
+				texture_data[y*texture_width + x] = pe_color_to_5650(PE_COLOR_GRAY);
 			}
 		}
 	}
@@ -210,6 +232,7 @@ void pe_load_texture_default(void) {
 void use_texture(Texture texture) {
  	sceGuTexMode(texture.format, 0, 0, 1);
 	sceGuTexImage(0, texture.power_of_two_width, texture.power_of_two_height, texture.power_of_two_width, texture.data);
+	//sceGuTexEnvColor(0x00FFFFFF);
 	sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
 	//sceGuTexFilter(GU_LINEAR,GU_LINEAR);
 	sceGuTexFilter(GU_NEAREST,GU_NEAREST);
@@ -225,11 +248,15 @@ typedef struct Vertex
 } Vertex;
 
 typedef struct Mesh {
+	int vertex_count;
+	int index_count;
+
 	Vertex *vertices;
 	uint16_t *indices;
+	int vertex_type;
 } Mesh;
 
-Mesh gen_mesh_cube(float width, float height, float length) {
+Mesh gen_mesh_cube(float width, float height, float length, Color color) {
 	float vertices[] = {
 		-width/2.0f, -height/2.0f,  length/2.0f,
 		 width/2.0f, -height/2.0f,  length/2.0f,
@@ -288,21 +315,31 @@ Mesh gen_mesh_cube(float width, float height, float length) {
 
 	Mesh mesh = {0};
 
-	mesh.vertices = pe_alloc_align(pe_heap_allocator(), PE_COUNT_OF(vertices)/3*sizeof(Vertex), 16);
+	int vertex_count = PE_COUNT_OF(vertices)/3; // NOTE: 3 floats per vertex
+	int index_count = PE_COUNT_OF(indices);
+	mesh.vertex_count = vertex_count;
+	mesh.index_count = index_count;
+	mesh.vertices = pe_alloc_align(pe_heap_allocator(), vertex_count*sizeof(Vertex), 16);
 	mesh.indices = pe_alloc_align(pe_heap_allocator(), sizeof(indices), 16);
 	memcpy(mesh.indices, indices, sizeof(indices));
+	mesh.vertex_type = GU_TEXTURE_32BITF|GU_COLOR_5650|GU_VERTEX_32BITF|GU_TRANSFORM_3D|GU_INDEX_16BIT;
 
-	for (int i = 0; i < PE_COUNT_OF(vertices)/3; i += 1) {
+	for (int i = 0; i < vertex_count; i += 1) {
 		mesh.vertices[i].x = vertices[3*i];
 		mesh.vertices[i].y = vertices[3*i + 1];
 		mesh.vertices[i].z = vertices[3*i + 2];
-		mesh.vertices[i].color = 0xFFFF;
+		mesh.vertices[i].color = pe_color_to_5650(color);
 		mesh.vertices[i].u = texcoords[2*i];
 		mesh.vertices[i].v = texcoords[2*i + 1];
 	}
 
     sceKernelDcacheWritebackInvalidateAll();
 	return mesh;
+}
+
+void pe_draw_mesh(Mesh mesh) {
+	int count = (mesh.indices != NULL) ? mesh.index_count : mesh.vertex_count;
+	sceGumDrawArray(GU_TRIANGLES, mesh.vertex_type, count, mesh.indices, mesh.vertices);
 }
 
 typedef struct peCamera {
@@ -344,6 +381,7 @@ int main(int argc, char* argv[])
 	void *depthbuffer = pe_alloc_align(edram_allocator, depthbuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
 
 	pe_time_init();
+	pe_input_init();
 
 	sceGuInit();
 
@@ -372,13 +410,22 @@ int main(int argc, char* argv[])
 	int val = 0;
 
 	pe_load_texture_default();
-	Mesh mesh = gen_mesh_cube(1.0f, 1.0f, 1.0f);
+	Mesh mesh = gen_mesh_cube(1.0f, 1.0f, 1.0f, (Color){255, 255, 255, 255});
 
 	peCamera camera;
-	camera.eye = (ScePspFVector3){ 0.0f, 0.0f, 2.5f };
+	ScePspFVector3 eye_offset = (ScePspFVector3){ 0.0f, 3.0f, 3.0f };
 	camera.target = (ScePspFVector3){ 0.0f, 0.0f, 0.0f };
+	camera.eye.x = camera.target.x + eye_offset.x;
+	camera.eye.y = camera.target.y + eye_offset.y;
+	camera.eye.z = camera.target.z + eye_offset.z;
 	camera.up = (ScePspFVector3){ 0.0f, 1.0f, 0.0f };
 	camera.fovy = 55.0f;
+
+	float dt = 1.0f/60.0f;
+
+	ScePspFVector3 position = {0};
+
+	float angle = 0.0;
 
 	while(running())
 	{
@@ -388,21 +435,29 @@ int main(int argc, char* argv[])
 		sceGuClearDepth(0);
 		sceGuClear(GU_COLOR_BUFFER_BIT|GU_DEPTH_BUFFER_BIT);
 
-		pe_camera_update(camera);
+		pe_input_update();
 
-		sceGumMatrixMode(GU_MODEL);
-		sceGumLoadIdentity();
-		{
-			//ScePspFVector3 pos = { 0, 0, -2.5f };
-			ScePspFVector3 rot = { val * 0.79f * (GU_PI/180.0f), val * 0.98f * (GU_PI/180.0f), val * 1.32f * (GU_PI/180.0f) };
-			//sceGumTranslate(&pos);
-			sceGumRotateXYZ(&rot);
+		position.x += dt * pe_input_axis(peGamepadAxis_LeftX);
+		position.z += dt * pe_input_axis(peGamepadAxis_LeftY);
+
+		if (pe_input_axis(peGamepadAxis_LeftX) != 0.0 || pe_input_axis(peGamepadAxis_LeftY) != 0.0) {
+			angle = atan2f(pe_input_axis(peGamepadAxis_LeftX), pe_input_axis(peGamepadAxis_LeftY));
 		}
+
+		//camera.target = position;
+		//camera.eye.x = camera.target.x + eye_offset.x;
+		//camera.eye.y = camera.target.y + eye_offset.y;
+		//camera.eye.z = camera.target.z + eye_offset.z;
+
+		pe_camera_update(camera);
 
 		use_texture(default_texture);
 
-		int vertex_type = GU_TEXTURE_32BITF|GU_COLOR_5650|GU_VERTEX_32BITF|GU_TRANSFORM_3D|GU_INDEX_16BIT;
-		sceGumDrawArray(GU_TRIANGLES, vertex_type, 12*3, mesh.indices, mesh.vertices);
+		sceGumMatrixMode(GU_MODEL);
+		sceGumLoadIdentity();
+		sceGumTranslate(&position);
+		sceGumRotateY(angle);
+		pe_draw_mesh(mesh);
 
 		sceGuFinish();
 		sceGuSync(0,0);
