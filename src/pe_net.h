@@ -12,7 +12,7 @@ typedef enum peAddressType
 {
     peAddress_Undefined,
     peAddress_IPv4,
-    peAddress_IPv6
+    peAddress_IPv6,
 } peAddressType;
 
 typedef struct peAddress
@@ -33,8 +33,6 @@ peAddress pe_address6(uint16_t a, uint16_t b, uint16_t c, uint16_t d,
                       uint16_t e, uint16_t f, uint16_t g, uint16_t h,
                       uint16_t port);
 peAddress pe_address6_from_array(uint16_t address[], uint16_t port);
-struct sockaddr_storage;
-peAddress pe_address_from_sockaddr(struct sockaddr_storage *addr);
 peAddress pe_address_parse(char *address_in);
 peAddress pe_address_parse_ex(char *address_in, uint16_t port);
 char *pe_address_to_string(peAddress address, char buffer[], int buffer_size);
