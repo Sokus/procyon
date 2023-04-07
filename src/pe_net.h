@@ -6,6 +6,7 @@
 #include <stddef.h>
 
 bool pe_net_init(void);
+void pe_net_update(void);
 void pe_net_shutdown(void);
 
 typedef enum peAddressType

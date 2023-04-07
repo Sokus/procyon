@@ -9,7 +9,7 @@ int main() {
     pe_time_init();
 
     uint16_t port = 54727; // 49152 to 65535
-    peSocket socket = pe_socket_create(peSocket_IPv6, port);
+    peSocket socket = pe_socket_create(peSocket_IPv4, port);
 
     printf("waiting for packets...\n");
     while(1) {

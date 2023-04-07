@@ -18,7 +18,6 @@
 	#undef SetPort
 	#endif // #ifdef SetPort
 #elif defined(PSP)
-
     #include <unistd.h>
     #include <pspnet.h>
     #include <pspnet_inet.h>
@@ -30,6 +29,8 @@
     #include <sys/select.h>
     #include <errno.h>
     #include <fcntl.h>
+    #include <psputility.h>
+    #include <psprtc.h>
 #else
 	#include <netdb.h>
     #include <sys/types.h>
@@ -43,24 +44,89 @@
 #endif
 
 static bool network_initialized = false;
+#if defined(PSP)
+static int apctl_state = PSP_NET_APCTL_STATE_DISCONNECTED;
+static u64 next_apctl_get_state_tick;
+static u64 next_apctl_connect_tick;
+#endif
 
 bool pe_net_init(void) {
     PE_ASSERT(!network_initialized);
     bool result = true;
-#if _WIN32
+#if defined(_WIN32)
     WSADATA WsaData;
     result = WSAStartup(MAKEWORD(2, 2), &WsaData) == NO_ERROR;
+#elif defined(PSP)
+    result = result && (sceUtilityLoadNetModule(PSP_NET_MODULE_INET) == 0);
+    result = result && (sceUtilityLoadNetModule(PSP_NET_MODULE_COMMON) == 0);
+#if 0 /* NOTE: We don't need those modules (yet?) */
+    result = result && (sceUtilityLoadNetModule(PSP_NET_MODULE_PARSEURI) == 0);
+    result = result && (sceUtilityLoadNetModule(PSP_NET_MODULE_PARSEHTTP) == 0);
+    result = result && (sceUtilityLoadNetModule(PSP_NET_MODULE_HTTP) == 0);
+#endif
+	result = result && (sceNetInit(0x20000, 0x20, 0x1000, 0x20, 0x1000) == 0);
+	result = result && (sceNetInetInit() == 0);
+	result = result && (sceNetApctlInit(0x1600, 42) == 0);
+
+    if (result) {
+        sceNetApctlConnect(1);
+        u64 current_tick;
+        sceRtcGetCurrentTick(&current_tick);
+        next_apctl_get_state_tick = current_tick;
+        next_apctl_connect_tick = current_tick;
+    }
 #endif
     if (result) {
         network_initialized = result;
     }
+    PE_ASSERT(network_initialized);
     return result;
+}
+
+// NOTE: For now the only use for `pe_net_update` is to reconnect
+// to an Access Point on PSP in case the connection was lost
+void pe_net_update(void) {
+#if defined(PSP)
+	u64 apclt_get_state_cooldown_ms = 100;
+	u64 apctl_connect_cooldown_ms = 5000;
+
+	u64 current_tick;
+	sceRtcGetCurrentTick(&current_tick);
+
+	if (sceRtcCompareTick(&current_tick, &next_apctl_get_state_tick) >= 0) {
+		int new_apctl_state;
+		if (sceNetApctlGetState(&new_apctl_state) == 0) {
+			if (new_apctl_state != apctl_state) {
+				if (new_apctl_state == PSP_NET_APCTL_STATE_DISCONNECTED) {
+					sceRtcTickAddMicroseconds(&next_apctl_connect_tick, &current_tick, 1000ULL*apctl_connect_cooldown_ms);
+				}
+				apctl_state = new_apctl_state;
+			}
+		}
+		sceRtcTickAddMicroseconds(&next_apctl_get_state_tick, &current_tick, 1000ULL*apclt_get_state_cooldown_ms);
+	}
+
+	if (apctl_state == PSP_NET_APCTL_STATE_DISCONNECTED) {
+		if (sceRtcCompareTick(&current_tick, &next_apctl_connect_tick) >= 0) {
+			sceNetApctlConnect(1);
+			sceRtcTickAddMicroseconds(&next_apctl_connect_tick, &current_tick, 1000ULL*apctl_connect_cooldown_ms);
+		}
+	}
+#endif
 }
 
 void pe_net_shutdown(void) {
     PE_ASSERT(network_initialized);
-#if _WIN32
+#if defined(_WIN32)
     WSACleanup();
+#elif defined(PSP)
+	sceNetApctlTerm();
+    //sceNetResolverTerm();
+    sceNetInetTerm();
+    sceNetTerm();
+
+    sceUtilityUnloadNetModule(PSP_NET_MODULE_COMMON);
+    sceUtilityUnloadNetModule(PSP_NET_MODULE_INET);
 #endif
     network_initialized = false;
 }
@@ -109,12 +175,19 @@ peAddress pe_address6_from_array(uint16_t address[], uint16_t port) {
 }
 
 #if defined(PSP)
-peAddress pe_address_from_sockaddr(struct sockaddr *addr) {
-    peAddress result = {0};
+static peAddress pe_address_from_sockaddr(struct sockaddr *addr) {
+    struct peSockaddrDataLayout {
+        uint8_t port_msb;
+        uint8_t port_lsb;
+        uint8_t a, b, c, d;
+    };
+    struct peSockaddrDataLayout *data = (void *)addr->sa_data;
+    uint16_t port = (uint16_t)data->port_msb << 8 | data->port_lsb;
+    peAddress result = pe_address4(data->a, data->b, data->c, data->d, port);
     return result;
 }
 #else
-peAddress pe_address_from_sockaddr(struct sockaddr_storage *addr) {
+static peAddress pe_address_from_sockaddr_storage(struct sockaddr_storage *addr) {
     PE_ASSERT(addr->ss_family == AF_INET || addr->ss_family == AF_INET6);
     peAddress result = {0};
     if (addr->ss_family == AF_INET) {
@@ -144,6 +217,8 @@ peAddress pe_address_parse(char *address_in) {
         address_length += 1;
     }
 
+    // TODO: Fix that. Although PSP has no IPv6 support
+    // we can still let the user parse IPv6 addreesses.
 #if !defined(PSP)
     // first try to parse as an IPv6 address:
     // 1. if the first character is '[' then it's probably an ipv6 in form "[addr6]:portnum"
@@ -205,7 +280,7 @@ peAddress pe_address_parse_ex(char *address_in, uint16_t port) {
     return result;
 }
 
-#ifndef INET6_ADDRSTRLEN
+#if defined(PSP) && !defined(INET6_ADDRSTRLEN)
 #define INET6_ADDRSTRLEN 46
 #endif
 char *pe_address_to_string(peAddress address, char buffer[], int buffer_size) {
@@ -253,7 +328,11 @@ bool pe_address_compare(peAddress a, peAddress b) {
 }
 
 peSocket pe_socket_create(peSocketType type, uint16_t port) {
-    PE_ASSERT(network_initialized);
+    //PE_ASSERT(network_initialized);
+#if defined(PSP)
+    PE_ASSERT(type != peSocket_IPv6);
+#endif
+
     peSocket result = {0};
 
     // Create socket
@@ -264,9 +343,9 @@ peSocket pe_socket_create(peSocketType type, uint16_t port) {
         return result;
     }
 
-#if !defined(PSP)
     // Force IPv6 if necessary
     if (type == peSocket_IPv6) {
+#if !defined(PSP)
         char optval = 1;
         if (setsockopt(result.handle, IPPROTO_IPV6, IPV6_V6ONLY, &optval, sizeof(optval)) != 0)
         {
@@ -274,13 +353,13 @@ peSocket pe_socket_create(peSocketType type, uint16_t port) {
             result.error = peSocketError_SockoptIPv6OnlyFailed;
             return result;
         }
-    }
 #endif
+    }
 
     // Bind to port
     if (type == peSocket_IPv6) {
 #if !defined(PSP)
-        struct sockaddr_in6 sock_address = {0};
+        struct sockaddr_in6 sock_address;
         sock_address.sin6_family = AF_INET6;
         sock_address.sin6_addr = in6addr_any;
         sock_address.sin6_port = htons(port);
@@ -362,7 +441,7 @@ bool pe_socket_send(peSocket socket, peAddress address, void *packet_data, size_
     PE_ASSERT(packet_bytes > 0);
     PE_ASSERT(pe_address_is_valid(address));
     PE_ASSERT(socket.handle != 0);
-    PE_ASSERT_MSG(!pe_socket_is_error(socket), "Socket error: %d\n", socket.error);
+    PE_ASSERT_MSG(!pe_socket_is_error(socket), "socket error: %d\n", socket.error);
 
     bool result = false;
     if (address.type == peAddress_IPv6) {
@@ -385,12 +464,12 @@ bool pe_socket_send(peSocket socket, peAddress address, void *packet_data, size_
     return result;
 }
 
-int pe_socket_receive(peSocket socket, peAddress *from, void *packet_data, int max_packet_size) {
+int pe_socket_receive(peSocket socket, peAddress *opt_from, void *packet_data, int max_packet_size) {
     PE_ASSERT(socket.handle != 0);
     PE_ASSERT(packet_data != NULL);
     PE_ASSERT(max_packet_size > 0);
 
-#if _WIN32
+#if defined(_WIN32)
     typedef int socklen_t;
 #endif
 #if !defined(PSP)
@@ -401,7 +480,7 @@ int pe_socket_receive(peSocket socket, peAddress *from, void *packet_data, int m
     socklen_t from_length = sizeof(sockaddr_from);
     int result = recvfrom(socket.handle, packet_data, max_packet_size, 0, (struct sockaddr *)&sockaddr_from, &from_length);
 
-#if _WIN32
+#if defined(_WIN32)
     if (result == SOCKET_ERROR) {
         int error = WSAGetLastError();
         // TODO: Check if it is safe to ignore WSAECONNRESET
@@ -420,7 +499,13 @@ int pe_socket_receive(peSocket socket, peAddress *from, void *packet_data, int m
     }
 #endif
     PE_ASSERT(result >= 0);
-    *from = pe_address_from_sockaddr(&sockaddr_from);
+    if (from != NULL) {
+#if defined(PSP)
+        *from = pe_address_from_sockaddr(&sockaddr_from);
+#else
+        *from = pe_address_from_sockaddr_storage(&sockaddr_from);
+#endif
+    }
     return result;
 }
 
