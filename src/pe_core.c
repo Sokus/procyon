@@ -49,7 +49,7 @@ size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFla
 #elif defined(PSP)
             ptr = memalign(alignment, size);
 #else
-            PE_PANIC("Unimplemented");
+            PE_UNIMPLEMENTED();
 #endif
             if (flags & peAllocatorFlag_ClearToZero) {
                 pe_zero_size(ptr, size);
@@ -62,7 +62,7 @@ size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFla
 
         case peAllocation_Resize: {
             // TODO: Implementation
-            PE_PANIC("Unimplemented");
+            PE_UNIMPLEMENTED();
         } break;
 
         default: break;
@@ -156,7 +156,7 @@ size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFla
 
         case peAllocation_Resize: {
             // TODO: Implementation
-            PE_PANIC("Unimplemented");
+            PE_UNIMPLEMENTED();
         } break;
 
         default: break;

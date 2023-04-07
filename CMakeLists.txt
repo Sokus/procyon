@@ -5,6 +5,7 @@ add_library(shared STATIC
     src/pe_core.c
     src/pe_time.c
     src/pe_net.c
+    src/pe_bit_stream.c
 )
 target_include_directories(shared PRIVATE src)
 
@@ -16,7 +17,8 @@ if(PSP)
     )
 elseif(WIN32)
     add_executable(procyon
-        src/client/win32_main.c
+        #src/client/win32_main.c
+        src/client/win32_bit_stream_sample.c
     )
     add_executable(server
         src/server/win32_main.c
@@ -43,4 +45,8 @@ if(PSP)
         TITLE "Procyon"
         BUILD_PRX
     )
+endif()
+
+if(MSVC)
+    add_compile_options(-WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127)
 endif()

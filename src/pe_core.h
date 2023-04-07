@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 #ifndef PE_INLINE
 	#ifdef _MSC_VER
@@ -16,6 +17,24 @@
 		#define PE_INLINE __attribute__ ((__always_inline__)) inline
 	#endif
 #endif
+
+
+
+
+#if defined(__386__) || defined(i386)    || defined(__i386__)  || \
+    defined(__X86)   || defined(_M_IX86)                       || \
+    defined(_M_X64)  || defined(__x86_64__)                    || \
+    defined(alpha)   || defined(__alpha) || defined(__alpha__) || \
+    defined(_M_ALPHA)                                          || \
+    defined(ARM)     || defined(_ARM)    || defined(__arm__)   || \
+    defined(WIN32)   || defined(_WIN32)  || defined(__WIN32__) || \
+    defined(_WIN32_WCE) || defined(__NT__)                     || \
+    defined(__MIPSEL__)
+  #define PE_ARCH_LITTLE_ENDIAN 1
+#else
+  #define PE_ARCH_BIG_ENDIAN 1
+#endif
+
 
 void pe_assert_handler(char *prefix, char *condition, char *file, int line, char *msg, ...);
 
@@ -52,19 +71,33 @@ void pe_assert_handler(char *prefix, char *condition, char *file, int line, char
 #define PE_ASSERT(cond) PE_ASSERT_MSG(cond, NULL)
 #endif
 
-#include <stddef.h>
-#include <stdarg.h>
-
-#ifndef PE_PANIC
-#define PE_PANIC(msg, ...) do { \
+#ifndef PE_PANIC_MSG
+#define PE_PANIC_MSG(msg, ...) do { \
 	pe_assert_handler("Panic", NULL, __FILE__, (int)__LINE__, msg, ##__VA_ARGS__); \
 	PE_DEBUG_TRAP(); \
 } while (0)
 #endif
 
+#ifndef PE_PANIC
+#define PE_PANIC() do { \
+	pe_assert_handler("Panic", NULL, __FILE__, (int)__LINE__, NULL); \
+	PE_DEBUG_TRAP(); \
+} while (0)
+#endif
+
+#ifndef PE_UNIMPLEMENTED
+#define PE_UNIMPLEMENTED() do { \
+	pe_assert_handler("Unimplemented", NULL, __FILE__, (int)__LINE__, NULL); \
+	PE_DEBUG_TRAP(); \
+} while(0)
+#endif
+
 #define PE_KILOBYTES(x) (1024*(x))
 #define PE_MEGABYTES(x) (1024 * PE_KILOBYTES(x))
 #define PE_GIGABYTES(x) (1024 * PE_MEGABYTES(x))
+
+#define PE_MAX(a, b) ((a)>=(b)?(a):(b))
+#define PE_MIN(a, b) ((a)<=(b)?(a):(b))
 
 typedef enum peAllocationType {
 	peAllocation_Alloc,

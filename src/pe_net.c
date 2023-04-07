@@ -43,6 +43,10 @@
     #include <errno.h>
 #endif
 
+// TODO:
+// - clean up the includes, especially on PSP
+// - change 'printf' for 'fprintf(stdout...' on PSP
+
 static bool network_initialized = false;
 #if defined(PSP)
 static int apctl_state = PSP_NET_APCTL_STATE_DISCONNECTED;
@@ -499,11 +503,11 @@ int pe_socket_receive(peSocket socket, peAddress *opt_from, void *packet_data, i
     }
 #endif
     PE_ASSERT(result >= 0);
-    if (from != NULL) {
+    if (opt_from != NULL) {
 #if defined(PSP)
-        *from = pe_address_from_sockaddr(&sockaddr_from);
+        *opt_from = pe_address_from_sockaddr(&sockaddr_from);
 #else
-        *from = pe_address_from_sockaddr_storage(&sockaddr_from);
+        *opt_from = pe_address_from_sockaddr_storage(&sockaddr_from);
 #endif
     }
     return result;
