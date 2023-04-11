@@ -6,9 +6,14 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
+#define PE_INLINE
+// TODO: Functions that are force inlined are not present
+// in the .dlls causing link errors. (tested on windows at least)
+// Maybe compile shared code into objs and link those instead of a dll.
+
 #ifndef PE_INLINE
 	#ifdef _MSC_VER
-		#if _MSC_VER < 1300
+		#if _MSC_VER < 1800
 		#define PE_INLINE
 		#else
 		#define PE_INLINE __forceinline
@@ -17,8 +22,6 @@
 		#define PE_INLINE __attribute__ ((__always_inline__)) inline
 	#endif
 #endif
-
-
 
 
 #if defined(__386__) || defined(i386)    || defined(__i386__)  || \
