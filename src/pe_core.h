@@ -6,23 +6,22 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#define PE_INLINE
+// #define PE_INLINE
 // TODO: Functions that are force inlined are not present
 // in the .dlls causing link errors. (tested on windows at least)
 // Maybe compile shared code into objs and link those instead of a dll.
 
-#ifndef PE_INLINE
-	#ifdef _MSC_VER
-		#if _MSC_VER < 1800
+#if !defined(PE_INLINE)
+	#if defined(_MSC_VER)
+		#if _MSC_VER < 1300
 		#define PE_INLINE
 		#else
 		#define PE_INLINE __forceinline
 		#endif
 	#else
-		#define PE_INLINE __attribute__ ((__always_inline__)) inline
+		#define PE_INLINE __attribute__ ((__always_inline__))
 	#endif
 #endif
-
 
 #if defined(__386__) || defined(i386)    || defined(__i386__)  || \
     defined(__X86)   || defined(_M_IX86)                       || \
@@ -182,6 +181,8 @@ void              pe_temp_arena_memory_end  (peTempArenaMemory temp_arena_memory
 
 void pe_zero_size(void *ptr, size_t size);
 bool pe_is_power_of_two(uintptr_t x);
+
+#include "pe_core.i"
 
 #endif // PE_CORE_H
 

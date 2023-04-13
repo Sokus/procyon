@@ -71,4 +71,6 @@ peSerializationError pe_serialize_u8(peBitStream *bs, uint8_t *value);
 peSerializationError pe_serialize_bool(peBitStream *bs, bool *value);
 peSerializationError pe_serialize_float(peBitStream *bs, float *value);
 
+#include "pe_bit_stream.i"
+
 #endif // PE_BIT_STREAM_H
