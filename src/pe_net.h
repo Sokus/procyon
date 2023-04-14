@@ -46,36 +46,40 @@ typedef uint64_t peSocketHandle;
 typedef int peSocketHandle;
 #endif
 
-typedef enum peSocketType
-{
+typedef enum peSocketType {
     peSocket_Undefined,
     peSocket_IPv4,
     peSocket_IPv6
 } peSocketType;
 
-typedef enum peSocketError
-{
-    peSocketError_None,
-    peSocketError_CreateFailed,
-    peSocketError_SetNonBlockingFailed,
-    peSocketError_SockoptIPv6OnlyFailed,
-    peSocketError_BindIPv4Failed,
-    peSocketError_BindIPv6Failed,
-    peSocketError_GetSocknameIPv4Failed,
-    peSocketError_GetSocknameIPv6Failed
-} peSocketError;
+typedef enum peSocketCreateError {
+    peSocketCreateError_None,
+    peSocketCreateError_InvalidParameter,
+    peSocketCreateError_CreateFailed,
+    peSocketCreateError_SetNonBlockingFailed,
+    peSocketCreateError_SockoptIPv6OnlyFailed,
+    peSocketCreateError_BindIPv4Failed,
+    peSocketCreateError_BindIPv6Failed,
+    peSocketCreateError_GetSocknameIPv4Failed,
+    peSocketCreateError_GetSocknameIPv6Failed
+} peSocketCreateError;
 
-typedef struct peSocket
-{
+typedef enum peSocketSendError {
+    peSocketSendError_None,
+} peSocketSendError;
+
+typedef enum peSocketReceiveError {
+    peSocketReceiveError_None,
+} peSocketReceiveError;
+
+typedef struct peSocket {
     peSocketHandle handle;
     uint16_t port;
-    int error;
 } peSocket;
 
-peSocket pe_socket_create(peSocketType type, uint16_t port);
+peSocketCreateError pe_socket_create(peSocketType type, uint16_t port, peSocket *socket);
 void pe_socket_destroy(peSocket *socket);
-bool pe_socket_send(peSocket socket, peAddress address, void *packet_data, size_t packet_bytes);
-int pe_socket_receive(peSocket socket, peAddress *from, void *packet_data, int max_packet_size);
-bool pe_socket_is_error(peSocket socket);
+peSocketSendError pe_socket_send(peSocket socket, peAddress address, void *packet_data, size_t packet_bytes);
+peSocketReceiveError pe_socket_receive(peSocket socket, void *packet_data, int max_packet_size, int *bytes_received, peAddress *from);
 
 #endif // PE_NET_H

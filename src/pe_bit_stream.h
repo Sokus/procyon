@@ -70,7 +70,11 @@ peSerializationError pe_serialize_u16(peBitStream *bs, uint16_t *value);
 peSerializationError pe_serialize_u8(peBitStream *bs, uint8_t *value);
 peSerializationError pe_serialize_bool(peBitStream *bs, bool *value);
 peSerializationError pe_serialize_float(peBitStream *bs, float *value);
+peSerializationError pe_serialize_enum(peBitStream *bs, void *value, int enum_value_count);
 
+
+#if defined(_MSC_VER)
 #include "pe_bit_stream.i"
+#endif
 
 #endif // PE_BIT_STREAM_H

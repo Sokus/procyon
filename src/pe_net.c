@@ -331,31 +331,27 @@ bool pe_address_compare(peAddress a, peAddress b) {
     return false;
 }
 
-peSocket pe_socket_create(peSocketType type, uint16_t port) {
-    //PE_ASSERT(network_initialized);
+peSocketCreateError pe_socket_create(peSocketType type, uint16_t port, peSocket *out_socket) {
+    PE_ASSERT(network_initialized);
 #if defined(PSP)
     PE_ASSERT(type != peSocket_IPv6);
+    return peSocketCreateError_InvalidParameter;
 #endif
 
-    peSocket result = {0};
-
     // Create socket
-    result.handle = socket((type == peSocket_IPv6) ? AF_INET6 : AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-
-    if (result.handle <= 0) {
-        result.error = peSocketError_CreateFailed;
-        return result;
+    out_socket->handle = socket((type == peSocket_IPv6) ? AF_INET6 : AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (out_socket->handle <= 0) {
+        return peSocketCreateError_CreateFailed;
     }
 
     // Force IPv6 if necessary
     if (type == peSocket_IPv6) {
 #if !defined(PSP)
         char optval = 1;
-        if (setsockopt(result.handle, IPPROTO_IPV6, IPV6_V6ONLY, &optval, sizeof(optval)) != 0)
+        if (setsockopt(out_socket->handle, IPPROTO_IPV6, IPV6_V6ONLY, &optval, sizeof(optval)) != 0)
         {
             printf("failed to set ipv6 only sockopt\n");
-            result.error = peSocketError_SockoptIPv6OnlyFailed;
-            return result;
+            return peSocketCreateError_SockoptIPv6OnlyFailed;
         }
 #endif
     }
@@ -368,9 +364,8 @@ peSocket pe_socket_create(peSocketType type, uint16_t port) {
         sock_address.sin6_addr = in6addr_any;
         sock_address.sin6_port = htons(port);
 
-        if (bind(result.handle, (const struct sockaddr *)&sock_address, sizeof(sock_address)) < 0) {
-            result.error = peSocketError_BindIPv6Failed;
-            return result;
+        if (bind(out_socket->handle, (const struct sockaddr *)&sock_address, sizeof(sock_address)) < 0) {
+            return peSocketCreateError_BindIPv6Failed;
         }
 #endif
     } else {
@@ -379,54 +374,49 @@ peSocket pe_socket_create(peSocketType type, uint16_t port) {
         sock_address.sin_addr.s_addr = INADDR_ANY;
         sock_address.sin_port = htons(port);
 
-        if (bind(result.handle, (const struct sockaddr *)&sock_address, sizeof(sock_address)) < 0) {
-            result.error = peSocketError_BindIPv4Failed;
-            return result;
+        if (bind(out_socket->handle, (const struct sockaddr *)&sock_address, sizeof(sock_address)) < 0) {
+            return peSocketCreateError_BindIPv4Failed;
         }
     }
 
     // If bound to port 0 find the actual port we got
-    result.port = port;
-    if (result.port == 0) {
+    out_socket->port = port;
+    if (out_socket->port == 0) {
         if (type == peSocket_IPv6) {
 #if !defined(PSP)
             struct sockaddr_in6 sin;
             socklen_t len = sizeof(sin);
-            if (getsockname(result.handle, (struct sockaddr *)&sin, &len) == -1) {
-                result.error = peSocketError_GetSocknameIPv6Failed;
-                return result;
+            if (getsockname(out_socket->handle, (struct sockaddr *)&sin, &len) == -1) {
+                return peSocketCreateError_GetSocknameIPv6Failed;
             }
-            result.port = ntohs(sin.sin6_port);
+            out_socket->port = ntohs(sin.sin6_port);
 #endif
         } else if (type == peSocket_IPv4) {
             struct sockaddr_in sin;
             socklen_t len = sizeof(sin);
-            if (getsockname(result.handle, (struct sockaddr *)&sin, &len) == -1)
+            if (getsockname(out_socket->handle, (struct sockaddr *)&sin, &len) == -1)
             {
-                result.error = peSocketError_GetSocknameIPv4Failed;
-                return result;
+                return peSocketCreateError_GetSocknameIPv4Failed;
             }
-            result.port = ntohs(sin.sin_port);
+            out_socket->port = ntohs(sin.sin_port);
         }
     }
 
     // Set non-blocking IO
 #if _WIN32
     DWORD non_blocking = 1;
-    if (ioctlsocket(result.handle, FIONBIO, &non_blocking) != 0) {
+    if (ioctlsocket(out_socket->handle, FIONBIO, &non_blocking) != 0) {
         printf("failed to make socket non-blocking\n");
-        result.error = peSocketError_SetNonBlockingFailed;
-        return result;
+        return peSocketCreateError_SetNonBlockingFailed;
     }
 #else
     int non_blocking = 1;
-    if (fcntl(result.handle, F_SETFL, O_NONBLOCK, non_blocking) == -1) {
+    if (fcntl(out_socket->handle, F_SETFL, O_NONBLOCK, non_blocking) == -1) {
         printf("failed to make socket non-blocking\n");
-        result.error = peSocketError_SetNonBlockingFailed;
-        return result;
+        return peSocketCreateError_SetNonBlockingFailed;
     }
 #endif
-    return result;
+    return peSocketCreateError_None;
 }
 
 void pe_socket_destroy(peSocket *socket) {
@@ -440,79 +430,94 @@ void pe_socket_destroy(peSocket *socket) {
     }
 }
 
-bool pe_socket_send(peSocket socket, peAddress address, void *packet_data, size_t packet_bytes) {
-    PE_ASSERT(packet_data != NULL);
+peSocketSendError pe_socket_send(peSocket socket, peAddress address, void *packet_data, size_t packet_bytes) {
     PE_ASSERT(packet_bytes > 0);
     PE_ASSERT(pe_address_is_valid(address));
-    PE_ASSERT(socket.handle != 0);
-    PE_ASSERT_MSG(!pe_socket_is_error(socket), "socket error: %d\n", socket.error);
 
-    bool result = false;
+    int sendto_result;
     if (address.type == peAddress_IPv6) {
-#if !defined(PSP)
+#if defined(PSP)
+        PE_PANIC();
+        return -1; // TODO: Unsupported address type error
+#else
         struct sockaddr_in6 socket_address = {0};
         socket_address.sin6_family = AF_INET6;
         socket_address.sin6_port = htons(address.port);
         memcpy(&socket_address.sin6_addr, address.ipv6, sizeof(socket_address.sin6_addr));
-        size_t sent_bytes = sendto(socket.handle, packet_data, (int)packet_bytes, 0, (struct sockaddr *)&socket_address, sizeof(socket_address));
-        result = (sent_bytes == packet_bytes);
+        sendto_result = sendto(socket.handle, packet_data, (int)packet_bytes, 0, (struct sockaddr *)&socket_address, sizeof(socket_address));
 #endif
     } else if (address.type == peAddress_IPv4) {
         struct sockaddr_in socket_address = {0};
         socket_address.sin_family = AF_INET;
         socket_address.sin_addr.s_addr = address.ipv4;
         socket_address.sin_port = htons(address.port);
-        size_t sent_bytes = sendto(socket.handle, packet_data, (int)packet_bytes, 0, (struct sockaddr *)&socket_address, sizeof(socket_address));
-        result = (sent_bytes == packet_bytes);
+        sendto_result = sendto(socket.handle, packet_data, (int)packet_bytes, 0, (struct sockaddr *)&socket_address, sizeof(socket_address));
     }
-    return result;
-}
-
-int pe_socket_receive(peSocket socket, peAddress *opt_from, void *packet_data, int max_packet_size) {
-    PE_ASSERT(socket.handle != 0);
-    PE_ASSERT(packet_data != NULL);
-    PE_ASSERT(max_packet_size > 0);
 
 #if defined(_WIN32)
-    typedef int socklen_t;
-#endif
-#if !defined(PSP)
-    struct sockaddr_storage sockaddr_from;
+    if (sendto_result != packet_bytes) {
+        int error = WSAGetLastError();
+        return error;
+    }
 #else
-    struct sockaddr sockaddr_from;
+    if (sendto_result < 0) {
+        int error = errno;
+        return error;
+    }
 #endif
-    socklen_t from_length = sizeof(sockaddr_from);
-    int result = recvfrom(socket.handle, packet_data, max_packet_size, 0, (struct sockaddr *)&sockaddr_from, &from_length);
+    return peSocketSendError_None;
+}
+
+peSocketReceiveError pe_socket_receive(peSocket socket, void *packet_data, int max_packet_size, int *bytes_received, peAddress *from) {
+// TODO: Maybe split it into three different functions (WIN32, LINUX, PSP) to improve readability?
+#if defined(PSP)
+    struct sockaddr sockaddr_from;
+#else
+    struct sockaddr_storage sockaddr_from;
+#endif
+#if defined(_WIN32)
+    int sockaddr_from_length = (int)sizeof(sockaddr_from);
+#else
+    socklen_t sockaddr_from_length = (socklen_t)sizeof(sockaddr_from);
+#endif
+    int result = recvfrom(socket.handle, packet_data, max_packet_size, 0, (struct sockaddr *)&sockaddr_from, &sockaddr_from_length);
 
 #if defined(_WIN32)
     if (result == SOCKET_ERROR) {
         int error = WSAGetLastError();
         // TODO: Check if it is safe to ignore WSAECONNRESET
-        if (error == WSAEWOULDBLOCK || error == WSAECONNRESET)
-            return 0;
-        printf("recvfrom failed: %d\n", error);
-        printf("max packet size: %d\n", max_packet_size);
-        return 0;
+        if (error == WSAEWOULDBLOCK || error == WSAECONNRESET) {
+            *bytes_received = 0;
+            return peSocketReceiveError_None; // TODO: would_block error?
+        } else {
+            return error;
+        }
     }
 #else
-    if (result <= 0) {
-        if (errno == EAGAIN)
-            return 0;
-        printf("recvfrom failed: %s\n", strerror(errno));
-        return 0;
+    if (result < 0) {
+        int error = errno;
+        if (error == EAGAIN) {
+            *bytes_received = 0;
+            return peSocketReceiveError_None; // TODO: would_block error?
+        } else {
+            return error;
+        }
     }
 #endif
-    PE_ASSERT(result >= 0);
-    if (opt_from != NULL) {
-#if defined(PSP)
-        *opt_from = pe_address_from_sockaddr(&sockaddr_from);
-#else
-        *opt_from = pe_address_from_sockaddr_storage(&sockaddr_from);
-#endif
+    if (result == 0) {
+        *bytes_received = 0;
+        return peSocketReceiveError_None; // TODO: connection closed error?
     }
-    return result;
-}
 
-bool pe_socket_is_error(peSocket socket) {
-    return socket.error != peSocketError_None;
+    PE_ASSERT(result > 0);
+    *bytes_received = result;
+
+    if (from != NULL) {
+#if defined(PSP)
+        *from = pe_address_from_sockaddr(&sockaddr_from);
+#else
+        *from = pe_address_from_sockaddr_storage(&sockaddr_from);
+#endif
+    }
+    return peSocketReceiveError_None;
 }

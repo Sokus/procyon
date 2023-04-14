@@ -259,6 +259,10 @@ peSerializationError pe_serialize_float(peBitStream *bs, float *value) {
     return pe_serialize_bits(bs, (void*)value, 32);
 }
 
+peSerializationError pe_serialize_enum(peBitStream *bs, void *value, int enum_value_count) {
+    return pe_serialize_range_int(bs, (int *)value, 0,  enum_value_count - 1);
+}
+
 //
 // SERIALIZATION INTERNALS
 //
@@ -325,3 +329,6 @@ static peSerializationError pe_serialize_bits_measure_stream(peBitStream *bs, ui
     return peSerializationError_None;
 }
 
+#if !defined(_MSC_VER)
+#include "pe_bit_stream.i"
+#endif

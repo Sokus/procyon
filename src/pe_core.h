@@ -19,7 +19,7 @@
 		#define PE_INLINE __forceinline
 		#endif
 	#else
-		#define PE_INLINE __attribute__ ((__always_inline__))
+		#define PE_INLINE __attribute__ ((__always_inline__)) inline
 	#endif
 #endif
 
@@ -182,7 +182,9 @@ void              pe_temp_arena_memory_end  (peTempArenaMemory temp_arena_memory
 void pe_zero_size(void *ptr, size_t size);
 bool pe_is_power_of_two(uintptr_t x);
 
+#if defined(_MSC_VER)
 #include "pe_core.i"
+#endif
 
 #endif // PE_CORE_H
 
