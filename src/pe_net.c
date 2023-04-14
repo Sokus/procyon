@@ -335,7 +335,9 @@ peSocketCreateError pe_socket_create(peSocketType type, uint16_t port, peSocket 
     PE_ASSERT(network_initialized);
 #if defined(PSP)
     PE_ASSERT(type != peSocket_IPv6);
-    return peSocketCreateError_InvalidParameter;
+    if (type == peSocket_IPv6) {
+        return peSocketCreateError_InvalidParameter;
+    }
 #endif
 
     // Create socket
@@ -485,23 +487,12 @@ peSocketReceiveError pe_socket_receive(peSocket socket, void *packet_data, int m
 #if defined(_WIN32)
     if (result == SOCKET_ERROR) {
         int error = WSAGetLastError();
-        // TODO: Check if it is safe to ignore WSAECONNRESET
-        if (error == WSAEWOULDBLOCK || error == WSAECONNRESET) {
-            *bytes_received = 0;
-            return peSocketReceiveError_None; // TODO: would_block error?
-        } else {
-            return error;
-        }
+        return (peSocketReceiveError)error;
     }
 #else
     if (result < 0) {
         int error = errno;
-        if (error == EAGAIN) {
-            *bytes_received = 0;
-            return peSocketReceiveError_None; // TODO: would_block error?
-        } else {
-            return error;
-        }
+        return (peSocketReceiveError)error;
     }
 #endif
     if (result == 0) {

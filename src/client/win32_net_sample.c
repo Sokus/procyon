@@ -11,8 +11,12 @@ int main(int argc, char *argv[]) {
 
     peAddress server = pe_address4(127, 0, 0, 1, 54727);
 
-    int data;
-    pe_socket_send(socket, server, &data, sizeof(data));
+    peMessageType type = peMessage_ConnectionClosed;
+    peConnectionRequestMessage *msg = pe_alloc_message(pe_heap_allocator(), type);
+    pePacket packet = {0};
+    pe_append_message(&packet, msg, type);
+
+    pe_send_packet(socket, server, &packet);
 
     return 0;
 }

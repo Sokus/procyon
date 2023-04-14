@@ -2,6 +2,8 @@
 #include "pe_time.h"
 #include "pe_net.h"
 
+#include "pe_protocol.h"
+
 #include <stdio.h>
 
 int main() {
@@ -14,16 +16,16 @@ int main() {
 
     printf("waiting for packets...\n");
     while(1) {
-        uint8_t buf[PE_KILOBYTES(2)];
-        int bytes_received;
         peAddress from;
-        peSocketReceiveError error = pe_socket_receive(socket, buf, sizeof(buf), &bytes_received, &from);
-        if (error == peSocketReceiveError_None && bytes_received > 0) {
-            char address_string[256];
-            printf("received %d bytes from %s\n", bytes_received,
-            pe_address_to_string(from, address_string, sizeof(address_string)));
-            break;
+        pePacket packet = {0};
+        if (pe_receive_packet(socket, &from, &packet)) {
+            printf("packet received! messages:\n");
+            for (int i = 0; i < packet.message_count; i += 1) {
+                printf(" %d\n", (int)packet.message_types[i]);
+            }
+            pe_free_packet(pe_heap_allocator(), &packet);
         }
+
     }
 
     pe_net_shutdown();

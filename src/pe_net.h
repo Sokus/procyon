@@ -70,6 +70,12 @@ typedef enum peSocketSendError {
 
 typedef enum peSocketReceiveError {
     peSocketReceiveError_None,
+    #if defined(_WIN32)
+    peSocketReceiveError_WouldBlock = 10035, // WSAEWOULDBLOCK
+    peSocketReceiveError_RemoteNotListening = 10054 // WSAECONNRESET,
+    #else
+    peSocketReceiveError_Timeout = 11 // EAGAIN, EWOULDBLOCK,
+    #endif
 } peSocketReceiveError;
 
 typedef struct peSocket {

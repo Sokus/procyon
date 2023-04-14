@@ -39,7 +39,11 @@ size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFla
         } break;
 
         case peAllocation_Free: {
+        #if defined(_WIN32)
+            _aligned_free(old_memory);
+        #else
             free(old_memory);
+        #endif
         } break;
 
         case peAllocation_Resize: {

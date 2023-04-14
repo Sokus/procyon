@@ -32,8 +32,8 @@ endif()
 
 if (PSP)
     add_executable(procyon
-        src/client/psp_main.c
-        #src/client/psp_net_sample.c
+        #src/client/psp_main.c
+        src/client/psp_net_sample.c
         src/pe_input.c
     )
     target_include_directories(procyon PRIVATE src)

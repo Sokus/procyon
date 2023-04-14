@@ -22,6 +22,7 @@
 #include "pe_core.h"
 #include "pe_time.h"
 #include "pe_net.h"
+#include "pe_protocol.h"
 
 PSP_MODULE_INFO("Procyon", 0, 1, 1);
 PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER);
@@ -60,6 +61,8 @@ int SetupCallbacks(void)
 	return thid;
 }
 
+#include <stdio.h>
+
 int main(int argc, char **argv)
 {
 	SetupCallbacks();
@@ -68,16 +71,25 @@ int main(int argc, char **argv)
 	pe_time_init();
 	pe_net_init();
 
-	peSocket socket = pe_socket_create(peSocket_IPv4, 0);
-	float dt = 1.0f;
-	for (int i = 0; i < 30; i += 1) {
+	for (int i = 0; i < 50; i += 1) {
 		pe_net_update();
-		pspDebugScreenPrintf("waiting for a packet\n");
-		int data;
-		peAddress address;
-		pe_socket_receive(socket, &address, &data, sizeof(data));
-		//pe_socket_send(socket, pe_address4(192, 168, 128, 81, 54727), &data, sizeof(data));
-		pe_time_sleep(dt*1000.0f);
+		pe_time_sleep(100);
+	}
+
+	fprintf(stdout, "sending the packet\n");
+
+    peSocket socket;
+    pe_socket_create(peSocket_IPv4, 0, &socket);
+
+    peAddress server = pe_address4(192, 168, 128, 81, 54727);
+
+    peMessageType type = peMessage_ConnectionClosed;
+    peConnectionRequestMessage *msg = pe_alloc_message(pe_heap_allocator(), type);
+    pePacket packet = {0};
+    pe_append_message(&packet, msg, type);
+
+    if (pe_send_packet(socket, server, &packet)) {
+		fprintf(stdout, "packet sent.\n");
 	}
 
 	pe_net_shutdown();
