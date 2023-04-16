@@ -342,6 +342,45 @@ void pe_draw_mesh(peMesh *mesh, HMM_Vec3 position, HMM_Vec3 rotation) {
 }
 
 //
+// TEXTURE
+//
+
+ID3D11ShaderResourceView *pe_create_default_texture(void) {
+    uint32_t texture_data[2*2] = {
+        0xFFFFFFFF, 0xFF7F7F7F,
+        0xFF7F7F7F, 0xFFFFFFFF,
+    };
+    D3D11_TEXTURE2D_DESC texture_desc = {
+        .Width = 2,
+        .Height = 2,
+        .MipLevels = 1,
+        .ArraySize = 1,
+        .Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+        .SampleDesc = {
+            .Count = 1,
+        },
+        .Usage = D3D11_USAGE_IMMUTABLE,
+        .BindFlags = D3D11_BIND_SHADER_RESOURCE,
+    };
+    D3D11_SUBRESOURCE_DATA subresource_data = {
+        .pSysMem = texture_data,
+        .SysMemPitch = 2 * sizeof(uint32_t),
+    };
+
+    HRESULT hr;
+    ID3D11Texture2D *texture;
+    hr = ID3D11Device_CreateTexture2D(directx_state.device, &texture_desc, &subresource_data, &texture);
+    ID3D11ShaderResourceView *texture_view;
+    hr = ID3D11Device_CreateShaderResourceView(directx_state.device, (ID3D11Resource*)texture, NULL, &texture_view);
+    ID3D11Texture2D_Release(texture);
+    return texture_view;
+}
+
+void pe_bind_texture(ID3D11ShaderResourceView *texture) {
+    ID3D11DeviceContext_PSSetShaderResources(directx_state.context, 0, 1, &texture);
+}
+
+//
 //
 //
 
@@ -562,36 +601,7 @@ int main(int argc, char *argv[]) {
 
     pe_set_viewport(window_width, window_height);
 
-    #define TEXTURE_WIDTH 2
-    #define TEXTURE_HEIGHT 2
-    static uint32_t texture_data[TEXTURE_WIDTH*TEXTURE_HEIGHT] = {
-        0xFFFFFFFF, 0xFF7F7F7F,
-        0xFF7F7F7F, 0xFFFFFFFF,
-    };
-
-    D3D11_TEXTURE2D_DESC texture_desc = {
-        .Width = TEXTURE_WIDTH,
-        .Height = TEXTURE_HEIGHT,
-        .MipLevels = 1,
-        .ArraySize = 1,
-        .Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
-        .SampleDesc = {
-            .Count = 1,
-        },
-        .Usage = D3D11_USAGE_IMMUTABLE,
-        .BindFlags = D3D11_BIND_SHADER_RESOURCE,
-    };
-
-    D3D11_SUBRESOURCE_DATA subresource_data = {
-        .pSysMem = texture_data,
-        .SysMemPitch = TEXTURE_WIDTH * sizeof(uint32_t),
-    };
-
-    ID3D11Texture2D *texture;
-    hr = ID3D11Device_CreateTexture2D(directx_state.device, &texture_desc, &subresource_data, &texture);
-
-    ID3D11ShaderResourceView *texture_view;
-    hr = ID3D11Device_CreateShaderResourceView(directx_state.device, (ID3D11Resource*)texture, NULL, &texture_view);
+    ID3D11ShaderResourceView *default_texture_view = pe_create_default_texture();
 
     ///////////////////
 
@@ -635,7 +645,7 @@ int main(int argc, char *argv[]) {
         ID3D11DeviceContext_RSSetState(directx_state.context, directx_state.rasterizer_state);
 
         ID3D11DeviceContext_PSSetShader(directx_state.context, directx_state.pixel_shader, NULL, 0);
-        ID3D11DeviceContext_PSSetShaderResources(directx_state.context, 0, 1, &texture_view);
+        pe_bind_texture(default_texture_view);
         ID3D11DeviceContext_PSSetSamplers(directx_state.context, 0, 1, &directx_state.sampler_state);
 
         ID3D11DeviceContext_OMSetRenderTargets(directx_state.context, 1, &directx_state.render_target_view, directx_state.depth_stencil_view);

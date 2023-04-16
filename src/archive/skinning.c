@@ -49,7 +49,7 @@ unsigned short __attribute__((aligned(16))) cylinder_indices[CYLINDER_SLICES*(CY
 #define min( a, b ) ( ((a)<(b))?(a):(b) )
 #define max( a, b ) ( ((a)>(b))?(a):(b) )
 
-int SetupCallbacks();
+int pe_setup_callbacks();
 
 void genSkinnedCylinder( unsigned slices, unsigned rows, float length, float radius, unsigned bones,
 	Vertex* dstVertices, unsigned short* dstIndices );
@@ -65,7 +65,7 @@ void genSkinnedCylinder( unsigned slices, unsigned rows, float length, float rad
 
 int main(int argc, char* argv[])
 {
-	SetupCallbacks();
+	pe_setup_callbacks();
 
 	// generate geometry
 
@@ -195,18 +195,18 @@ int main(int argc, char* argv[])
 }
 
 /* Exit callback */
-int exit_callback(int arg1, int arg2, void *common)
+int pe_exit_callback_proc(int arg1, int arg2, void *common)
 {
 	sceKernelExitGame();
 	return 0;
 }
 
 /* Callback thread */
-int CallbackThread(SceSize args, void *argp)
+int pe_callback_thread_proc(SceSize args, void *argp)
 {
 	int cbid;
 
-	cbid = sceKernelCreateCallback("Exit Callback", exit_callback, NULL);
+	cbid = sceKernelCreateCallback("Exit Callback", pe_exit_callback_proc, NULL);
 	sceKernelRegisterExitCallback(cbid);
 
 	sceKernelSleepThreadCB();
@@ -215,11 +215,11 @@ int CallbackThread(SceSize args, void *argp)
 }
 
 /* Sets up the callback thread and returns its thread id */
-int SetupCallbacks(void)
+int pe_setup_callbacks(void)
 {
 	int thid = 0;
 
-	thid = sceKernelCreateThread("update_thread", CallbackThread, 0x11, 0xFA0, 0, 0);
+	thid = sceKernelCreateThread("update_thread", pe_callback_thread_proc, 0x11, 0xFA0, 0, 0);
 	if(thid >= 0)
 	{
 		sceKernelStartThread(thid, 0, 0);

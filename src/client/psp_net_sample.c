@@ -28,18 +28,18 @@ PSP_MODULE_INFO("Procyon", 0, 1, 1);
 PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER);
 
 /* Exit callback */
-int exit_callback(int arg1, int arg2, void *common)
+int pe_exit_callback_proc(int arg1, int arg2, void *common)
 {
 	sceKernelExitGame();
 	return 0;
 }
 
 /* Callback thread */
-int CallbackThread(SceSize args, void *argp)
+int pe_callback_thread_proc(SceSize args, void *argp)
 {
 	int cbid;
 
-	cbid = sceKernelCreateCallback("Exit Callback", exit_callback, NULL);
+	cbid = sceKernelCreateCallback("Exit Callback", pe_exit_callback_proc, NULL);
 	sceKernelRegisterExitCallback(cbid);
 	sceKernelSleepThreadCB();
 
@@ -47,11 +47,11 @@ int CallbackThread(SceSize args, void *argp)
 }
 
 /* Sets up the callback thread and returns its thread id */
-int SetupCallbacks(void)
+int pe_setup_callbacks(void)
 {
 	int thid = 0;
 
-	thid = sceKernelCreateThread("update_thread", CallbackThread,
+	thid = sceKernelCreateThread("update_thread", pe_callback_thread_proc,
 				     0x11, 0xFA0, PSP_THREAD_ATTR_USER, 0);
 	if(thid >= 0)
 	{
@@ -65,7 +65,7 @@ int SetupCallbacks(void)
 
 int main(int argc, char **argv)
 {
-	SetupCallbacks();
+	pe_setup_callbacks();
 	pspDebugScreenInit();
 
 	pe_time_init();
@@ -83,7 +83,7 @@ int main(int argc, char **argv)
 
     peAddress server = pe_address4(192, 168, 128, 81, 54727);
 
-    peMessageType type = peMessage_ConnectionClosed;
+    peMessageType type = peMessageType_ConnectionClosed;
     peConnectionRequestMessage *msg = pe_alloc_message(pe_heap_allocator(), type);
     pePacket packet = {0};
     pe_append_message(&packet, msg, type);

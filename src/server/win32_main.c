@@ -21,7 +21,7 @@ int main() {
         if (pe_receive_packet(socket, &from, &packet)) {
             printf("packet received! messages:\n");
             for (int i = 0; i < packet.message_count; i += 1) {
-                printf(" %d\n", (int)packet.message_types[i]);
+                printf(" %d\n", (int)packet.messages[i].type);
             }
             pe_free_packet(pe_heap_allocator(), &packet);
         }

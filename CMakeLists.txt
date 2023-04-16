@@ -14,7 +14,8 @@ target_include_directories(shared PRIVATE src)
 
 if(WIN32)
     add_executable(procyon
-        src/client/win32_net_sample.c
+        #src/client/win32_net_sample.c
+        src/client/win32_main.c
     )
     target_include_directories(procyon PRIVATE src)
     target_link_libraries(procyon shared glfw handmade-math)
@@ -32,14 +33,14 @@ endif()
 
 if (PSP)
     add_executable(procyon
-        #src/client/psp_main.c
-        src/client/psp_net_sample.c
+        src/client/psp_main.c
+        #src/client/psp_net_sample.c
         src/pe_input.c
     )
     target_include_directories(procyon PRIVATE src)
     target_link_libraries(procyon
         PUBLIC
-            shared
+            shared handmade-math
             pspdebug pspdisplay pspge pspgu pspgum pspctrl
             pspnet pspnet_apctl pspnet_resolver
     )

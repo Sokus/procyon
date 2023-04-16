@@ -6,20 +6,6 @@
 
 #define MAX_MESSAGES_PER_PACKET 64
 
-typedef enum peMessageType {
-    peMessage_ConnectionRequest,
-    peMessage_ConnectionDenied,
-    peMessage_ConnectionAccepted,
-    peMessage_ConnectionClosed,
-    peMessageType_Count,
-} peMessageType;
-
-typedef struct pePacket {
-    peMessageType message_types[MAX_MESSAGES_PER_PACKET];
-    void *messages[MAX_MESSAGES_PER_PACKET];
-    int message_count;
-} pePacket;
-
 typedef struct peConnectionRequestMessage {
     uint8_t zero;
 } peConnectionRequestMessage;
@@ -46,12 +32,37 @@ typedef struct peConnectionClosedMessage {
     peConnectionClosedReason reason;
 } peConnectionClosedMessage;
 
+typedef enum peMessageType {
+    peMessageType_ConnectionRequest,
+    peMessageType_ConnectionDenied,
+    peMessageType_ConnectionAccepted,
+    peMessageType_ConnectionClosed,
+    peMessageType_Count,
+} peMessageType;
+
+typedef struct peMessage {
+    peMessageType type;
+    union {
+        void *any;
+        peConnectionRequestMessage *connection_request;
+        peConnectionDeniedMessage *connection_denied;
+        peConnectionAcceptedMessage *connection_accepted;
+        peConnectionClosedMessage *connection_closed;
+    };
+} peMessage;
+
+typedef struct pePacket {
+    peMessage messages[MAX_MESSAGES_PER_PACKET];
+    int message_count;
+} pePacket;
+
 typedef struct peAllocator peAllocator;
 typedef enum peSerializationError peSerializationError;
 typedef struct peBitStream peBitStream;
-void *pe_alloc_message(peAllocator a, peMessageType type);
-peSerializationError pe_serialize_message(peBitStream *bs, void *msg, peMessageType type);
-void pe_append_message(pePacket *packet, void *msg, peMessageType type);
+peMessage pe_message_create(peAllocator a, peMessageType type);
+void pe_message_destroy(peAllocator a, peMessage msg);
+peSerializationError pe_serialize_message(peBitStream *bs, peMessage *msg);
+void pe_append_message(pePacket *packet, peMessage msg);
 
 typedef struct peSocket peSocket;
 typedef struct peAddress peAddress;
