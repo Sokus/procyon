@@ -9,13 +9,16 @@ add_library(shared STATIC
     src/pe_net.c
     src/pe_bit_stream.c
     src/pe_protocol.c
+    src/game/pe_entity.c
 )
 target_include_directories(shared PRIVATE src)
+target_link_libraries(shared handmade-math)
 
 if(WIN32)
     add_executable(procyon
         #src/client/win32_net_sample.c
         src/client/win32_main.c
+        src/client/win32/win32_shader.c
     )
     target_include_directories(procyon PRIVATE src)
     target_link_libraries(procyon shared glfw handmade-math)

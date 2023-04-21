@@ -1,27 +1,28 @@
-#include <pspkernel.h>
-#include <pspdisplay.h>
-#include <pspdebug.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
-#include <string.h>
-#include <stdbool.h>
-#include <malloc.h>
-#include <stdarg.h>
-#include <pspiofilemgr.h>
-
+#include "pe_core.h"
 #include "pe_time.h"
 #include "pe_input.h"
+#include "pe_protocol.h"
+#include "pe_net.h"
+#include "game/pe_entity.h"
+#include "pe_config.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <malloc.h>
+#include <stdbool.h>
+#include <string.h>
 #include <stdint.h>
-
-#include <pspgu.h>
-#include <pspgum.h>
 #include <math.h>
+#include <stdarg.h>
 
 #include "HandmadeMath.h"
 
-#include "pe_core.h"
+#include <pspkernel.h>
+#include <pspdisplay.h>
+#include <pspdebug.h>
+#include <pspiofilemgr.h>
+#include <pspgu.h>
+#include <pspgum.h>
 
 PSP_MODULE_INFO("Procyon", 0, 1, 1);
 PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER);
@@ -106,11 +107,11 @@ typedef struct peColor {
 	uint8_t a;
 } peColor;
 
-#define PE_COLOR_WHITE (Color){ 255, 255, 255, 255 }
-#define PE_COLOR_GRAY  (Color){ 127, 127, 127, 255 }
-#define PE_COLOR_RED   (Color){ 255,   0,   0, 255 }
-#define PE_COLOR_GREEN (Color){   0, 255,   0, 255 }
-#define PE_COLOR_BLUE  (Color){   0,   0, 255, 255 }
+#define PE_COLOR_WHITE (peColor){ 255, 255, 255, 255 }
+#define PE_COLOR_GRAY  (peColor){ 127, 127, 127, 255 }
+#define PE_COLOR_RED   (peColor){ 255,   0,   0, 255 }
+#define PE_COLOR_GREEN (peColor){   0, 255,   0, 255 }
+#define PE_COLOR_BLUE  (peColor){   0,   0, 255, 255 }
 
 uint16_t pe_color_to_5650(peColor color) {
 	uint16_t max_5_bit = (1U << 5) - 1;
@@ -255,12 +256,12 @@ void use_texture(Texture texture) {
 	sceGuTexOffset(0.0f,0.0f);
 }
 
-typedef struct Vertex
+typedef struct VertexTCP
 {
     float u, v;
 	uint16_t color;
 	float x, y, z;
-} Vertex;
+} VertexTCP;
 
 typedef struct VertexTP {
 	float u,v;
@@ -275,7 +276,7 @@ typedef struct Mesh {
 	int vertex_count;
 	int index_count;
 
-	VertexTP *vertices;
+	VertexTCP *vertices;
 	uint16_t *indices;
 	int vertex_type;
 } Mesh;
@@ -343,20 +344,73 @@ Mesh gen_mesh_cube(float width, float height, float length, peColor color) {
 	int index_count = PE_COUNT_OF(indices);
 	mesh.vertex_count = vertex_count;
 	mesh.index_count = index_count;
-	mesh.vertices = pe_alloc_align(pe_heap_allocator(), vertex_count*sizeof(VertexTP), 16);
+	mesh.vertices = pe_alloc_align(pe_heap_allocator(), vertex_count*sizeof(VertexTCP), 16);
 	mesh.indices = pe_alloc_align(pe_heap_allocator(), sizeof(indices), 16);
-	memcpy(mesh.indices, indices, sizeof(indices));
-	mesh.vertex_type = GU_TEXTURE_32BITF|GU_VERTEX_32BITF|GU_TRANSFORM_3D|GU_INDEX_16BIT;
+	mesh.vertex_type = GU_TEXTURE_32BITF|GU_COLOR_5650|GU_VERTEX_32BITF|GU_TRANSFORM_3D|GU_INDEX_16BIT;
 
 	for (int i = 0; i < vertex_count; i += 1) {
+		mesh.vertices[i].u = texcoords[2*i];
+		mesh.vertices[i].v = texcoords[2*i + 1];
+		mesh.vertices[i].color = pe_color_to_5650(color);
 		mesh.vertices[i].x = vertices[3*i];
 		mesh.vertices[i].y = vertices[3*i + 1];
 		mesh.vertices[i].z = vertices[3*i + 2];
-		mesh.vertices[i].u = texcoords[2*i];
-		mesh.vertices[i].v = texcoords[2*i + 1];
 	}
 
-    sceKernelDcacheWritebackInvalidateAll();
+	memcpy(mesh.indices, indices, sizeof(indices));
+
+	sceKernelDcacheWritebackInvalidateRange(mesh.vertices, vertex_count*sizeof(VertexTCP));
+	sceKernelDcacheWritebackInvalidateRange(mesh.indices, sizeof(indices));
+
+	return mesh;
+}
+
+Mesh pe_gen_mesh_quad(float width, float length, peColor color) {
+	float vertices[] = {
+		-width/2.0f, 0.0f, -length/2.0f,
+		-width/2.0f, 0.0f,  length/2.0f,
+		 width/2.0f, 0.0f, -length/2.0f,
+		 width/2.0f, 0.0f,  length/2.0f,
+	};
+
+	// TODO: normals?
+
+	float texcoords[] = {
+		0.0f, 0.0f,
+		0.0f, 1.0f,
+		1.0f, 0.0f,
+		1.0f, 1.0f,
+	};
+
+	uint16_t indices[] = {
+		0, 1, 2,
+		1, 3, 2
+	};
+
+	Mesh mesh = {0};
+
+	int vertex_count = PE_COUNT_OF(vertices)/3;
+	int index_count = PE_COUNT_OF(indices);
+	mesh.vertex_count = vertex_count;
+	mesh.index_count = index_count;
+	mesh.vertices = pe_alloc_align(pe_heap_allocator(), vertex_count*sizeof(VertexTCP), 16);
+	mesh.indices = pe_alloc_align(pe_heap_allocator(), sizeof(indices), 16);
+	mesh.vertex_type = GU_TEXTURE_32BITF|GU_COLOR_5650|GU_VERTEX_32BITF|GU_TRANSFORM_3D|GU_INDEX_16BIT;
+
+	for (int i = 0; i < vertex_count; i += 1) {
+		mesh.vertices[i].u = texcoords[2*i];
+		mesh.vertices[i].v = texcoords[2*i + 1];
+		mesh.vertices[i].color = pe_color_to_5650(color);
+		mesh.vertices[i].x = vertices[3*i];
+		mesh.vertices[i].y = vertices[3*i + 1];
+		mesh.vertices[i].z = vertices[3*i + 2];
+	}
+
+	memcpy(mesh.indices, indices, sizeof(indices));
+
+	sceKernelDcacheWritebackInvalidateRange(mesh.vertices, vertex_count*sizeof(VertexTCP));
+	sceKernelDcacheWritebackInvalidateRange(mesh.indices, sizeof(indices));
+
 	return mesh;
 }
 
@@ -497,6 +551,86 @@ void pe_clear_background(peColor color) {
 	sceGuClear(GU_COLOR_BUFFER_BIT|GU_DEPTH_BUFFER_BIT);
 }
 
+//
+// NET CLIENT STUFF
+//
+
+#define CONNECTION_REQUEST_TIME_OUT 20.0f // seconds
+#define CONNECTION_REQUEST_SEND_RATE 1.0f // # per second
+
+#define SECONDS_TO_TIME_OUT 10.0f
+
+typedef enum peClientNetworkState {
+	peClientNetworkState_Disconnected,
+	peClientNetworkState_Connecting,
+	peClientNetworkState_Connected,
+	peClientNetworkState_Error,
+} peClientNetworkState;
+
+static peSocket socket;
+peAddress server_address;
+peClientNetworkState network_state = peClientNetworkState_Disconnected;
+int client_index;
+uint32_t entity_index;
+uint64_t last_packet_send_time = 0;
+uint64_t last_packet_receive_time = 0;
+
+pePacket outgoing_packet = {0};
+
+extern peEntity *entities;
+
+void pe_receive_packets(void) {
+	peAddress address;
+	pePacket packet = {0};
+	peAllocator allocator = pe_heap_allocator();
+	while (pe_receive_packet(socket, allocator, &address, &packet)) {
+		if (!pe_address_compare(address, server_address)) {
+			goto message_cleanup;
+		}
+
+		for (int m = 0; m < packet.message_count; m += 1) {
+			peMessage message = packet.messages[m];
+			switch (message.type) {
+				case peMessageType_ConnectionDenied: {
+					fprintf(stdout, "connection request denied (reason = %d)\n", message.connection_denied->reason);
+					network_state = peClientNetworkState_Error;
+				} break;
+				case peMessageType_ConnectionAccepted: {
+					if (network_state == peClientNetworkState_Connecting) {
+						char address_string[256];
+						fprintf(stdout, "connected to the server (address = %s)\n", pe_address_to_string(server_address, address_string, sizeof(address_string)));
+						network_state = peClientNetworkState_Connected;
+						client_index = message.connection_accepted->client_index;
+						entity_index = message.connection_accepted->entity_index;
+						last_packet_receive_time = pe_time_now();
+					} else if (network_state == peClientNetworkState_Connected) {
+						PE_ASSERT(client_index == message.connection_accepted->client_index);
+						last_packet_receive_time = pe_time_now();
+					}
+				} break;
+				case peMessageType_ConnectionClosed: {
+					if (network_state == peClientNetworkState_Connected) {
+						fprintf(stdout, "connection closed (reason = %d)\n", message.connection_closed->reason);
+						network_state = peClientNetworkState_Error;
+					}
+				} break;
+				case peMessageType_WorldState: {
+					if (network_state == peClientNetworkState_Connected) {
+						memcpy(entities, message.world_state->entities, MAX_ENTITY_COUNT*sizeof(peEntity));
+					}
+				} break;
+				default: break;
+			}
+		}
+
+message_cleanup:
+		for (int m = 0; m < packet.message_count; m += 1) {
+			pe_message_destroy(allocator, packet.messages[m]);
+		}
+		packet.message_count = 0;
+	}
+}
+
 int main(int argc, char* argv[])
 {
 	pe_setup_callbacks();
@@ -506,8 +640,17 @@ int main(int argc, char* argv[])
 
 	pe_gu_init();
 
+	pe_net_init();
 	pe_time_init();
 	pe_input_init();
+
+	pe_allocate_entities();
+
+	peSocketCreateError socket_create_error = pe_socket_create(peSocket_IPv4, 0, &socket);
+	fprintf(stdout, "socket create result: %d\n", socket_create_error);
+
+	server_address = pe_address4(192, 168, 128, 81, SERVER_PORT);
+
 
 	pe_default_texture_init();
 
@@ -520,34 +663,82 @@ int main(int argc, char* argv[])
 	HMM_Vec3 up = { 0.0f, 1.0f, 0.0f };
 	pe_view_lookat(eye, target, up);
 
-	Mesh mesh = gen_mesh_cube(1.0f, 1.0f, 1.0f, (peColor){255, 255, 255, 255});
+	Mesh cube = gen_mesh_cube(1.0f, 1.0f, 1.0f, (peColor){255, 255, 255, 255});
 	HMM_Vec3 position = { 0.0f, 0.0f, 0.0f };
 	HMM_Vec3 rotation = {0.0f, 0.0f, 0.0f };
 
 	float dt = 1.0f/60.0f;
 	while(!pe_should_quit())
 	{
+		pe_net_update();
+		pe_input_update();
+
+		if (network_state != peClientNetworkState_Disconnected) {
+			pe_receive_packets();
+		}
+
+		switch (network_state) {
+			case peClientNetworkState_Disconnected: {
+				fprintf(stdout, "connecting to the server\n");
+				network_state = peClientNetworkState_Connecting;
+				last_packet_receive_time = pe_time_now();
+			} break;
+			case peClientNetworkState_Connecting: {
+				uint64_t ticks_since_last_received_packet = pe_time_since(last_packet_receive_time);
+				float seconds_since_last_received_packet = (float)pe_time_sec(ticks_since_last_received_packet);
+				if (seconds_since_last_received_packet > (float)CONNECTION_REQUEST_TIME_OUT) {
+					fprintf(stdout, "connection request timed out");
+					network_state = peClientNetworkState_Error;
+					break;
+				}
+				float connection_request_send_interval = 1.0f / (float)CONNECTION_REQUEST_SEND_RATE;
+				uint64_t ticks_since_last_sent_packet = pe_time_since(last_packet_send_time);
+				float seconds_since_last_sent_packet = pe_time_sec(ticks_since_last_sent_packet);
+				if (seconds_since_last_sent_packet > connection_request_send_interval) {
+					peMessage message = pe_message_create(pe_heap_allocator(), peMessageType_ConnectionRequest);
+					pe_append_message(&outgoing_packet, message);
+				}
+			} break;
+			case peClientNetworkState_Connected: {
+				peMessage message = pe_message_create(pe_heap_allocator(), peMessageType_InputState);
+				message.input_state->input.movement.X = pe_input_axis(peGamepadAxis_LeftX);
+				message.input_state->input.movement.Y = pe_input_axis(peGamepadAxis_LeftY);
+				pe_append_message(&outgoing_packet, message);
+			} break;
+			default: break;
+		}
+
+		if (outgoing_packet.message_count > 0) {
+			pe_send_packet(socket, server_address, &outgoing_packet);
+			last_packet_send_time = pe_time_now();
+			for (int m = 0; m < outgoing_packet.message_count; m += 1) {
+				pe_message_destroy(pe_heap_allocator(), outgoing_packet.messages[m]);
+			}
+			outgoing_packet.message_count = 0;
+		}
+
 		sceGuStart(GU_DIRECT,list);
 		sceGuColor(default_gu_color);
 
 		pe_clear_background((peColor){20, 20, 20, 255});
 
-		pe_input_update();
-
-		position.X += dt * pe_input_axis(peGamepadAxis_LeftX);
-		position.Z += dt * pe_input_axis(peGamepadAxis_LeftY);
-
-		if (pe_input_axis(peGamepadAxis_LeftX) != 0.0 || pe_input_axis(peGamepadAxis_LeftY) != 0.0) {
-			rotation.Y = atan2f(pe_input_axis(peGamepadAxis_LeftX), pe_input_axis(peGamepadAxis_LeftY));
-		}
-
 		use_texture(default_texture);
 
-		pe_draw_mesh(mesh, position, rotation);
+		HMM_Vec3 zero = {0.0f};
+		pe_draw_line(zero, (HMM_Vec3){1.0f, 0.0f, 0.0f}, PE_COLOR_RED);
+		pe_draw_line(zero, (HMM_Vec3){0.0f, 1.0f, 0.0f}, PE_COLOR_GREEN);
+		pe_draw_line(zero, (HMM_Vec3){0.0f, 0.0f, 1.0f}, PE_COLOR_BLUE);
+
+		for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
+			peEntity *entity = &entities[e];
+			if (!entity->active) continue;
+
+			pe_draw_mesh(cube, entity->position, (HMM_Vec3){ .Y = entity->angle });
+		}
+
 
 		sceGuFinish();
 		sceGuSync(0,0);
-
 		sceDisplayWaitVblankStart();
 		sceGuSwapBuffers();
 

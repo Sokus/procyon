@@ -3,6 +3,8 @@
 #include "pe_core.h"
 #include "pe_bit_stream.h"
 #include "pe_net.h"
+#include "game/pe_entity.h"
+#include "pe_config.h"
 
 #include <stdio.h>
 
@@ -15,13 +17,28 @@ static peSerializationError pe_serialize_connection_denied_message(peBitStream *
 }
 
 static peSerializationError pe_serialize_connection_accepted_message(peBitStream *bs, peConnectionAcceptedMessage *msg) {
-    return peSerializationError_None;
+    peSerializationError err = peSerializationError_None;
+    err = pe_serialize_range_int(bs, &msg->client_index, 0, MAX_CLIENT_COUNT); if (err) return err;
+    err = pe_serialize_u32(bs, &msg->entity_index); if (err) return err;
+    return err;
 }
 
 static peSerializationError pe_serialize_connection_closed_message(peBitStream *bs, peConnectionClosedMessage *msg) {
     return pe_serialize_enum(bs, &msg->reason, peConnectionClosedReason_Count);
 }
 
+static peSerializationError pe_serialize_input_state_message(peBitStream *bs, peInputStateMessage *msg) {
+    return pe_serialize_input(bs, &msg->input);
+}
+
+static peSerializationError pe_serialize_world_state_message(peBitStream *bs, peWorldStateMessage *msg) {
+    peSerializationError err = peSerializationError_None;
+    for (int i = 0; i < PE_COUNT_OF(msg->entities); i += 1) {
+        err = pe_serialize_entity(bs, &msg->entities[i]);
+        if (err) return err;
+    }
+    return err;
+}
 
 peMessage pe_message_create(peAllocator a, peMessageType type) {
     PE_ASSERT(type >= 0);
@@ -33,6 +50,8 @@ peMessage pe_message_create(peAllocator a, peMessageType type) {
         case peMessageType_ConnectionDenied: message_size = sizeof(peConnectionDeniedMessage); break;
         case peMessageType_ConnectionAccepted: message_size = sizeof(peConnectionAcceptedMessage); break;
         case peMessageType_ConnectionClosed: message_size = sizeof(peConnectionClosedMessage); break;
+        case peMessageType_InputState: message_size = sizeof(peInputStateMessage); break;
+        case peMessageType_WorldState: message_size = sizeof(peWorldStateMessage); break;
         default: PE_PANIC(); return message;
     }
     message.type = type;
@@ -54,7 +73,10 @@ peSerializationError pe_serialize_message(peBitStream *bs, peMessage *msg) {
             return pe_serialize_connection_accepted_message(bs, msg->connection_accepted);
         case peMessageType_ConnectionClosed:
             return pe_serialize_connection_closed_message(bs, msg->connection_closed);
-
+        case peMessageType_InputState:
+            return pe_serialize_input_state_message(bs, msg->input_state);
+        case peMessageType_WorldState:
+            return pe_serialize_world_state_message(bs, msg->world_state);
         default: PE_PANIC(); break;
     }
 
@@ -91,7 +113,7 @@ bool pe_send_packet(peSocket socket, peAddress address, pePacket *packet) {
     return true;
 }
 
-bool pe_receive_packet(peSocket socket, peAddress *address, pePacket *packet) {
+bool pe_receive_packet(peSocket socket, peAllocator allocator, peAddress *address, pePacket *packet) {
     PE_ASSERT(packet->message_count == 0);
 
     uint8_t buffer[1400];
@@ -113,8 +135,6 @@ bool pe_receive_packet(peSocket socket, peAddress *address, pePacket *packet) {
             } break;
         }
     }
-
-    peAllocator allocator = pe_heap_allocator(); // FIXME
 
     packet->message_count = 0;
     peBitStream read_stream = pe_create_read_stream(buffer, sizeof(buffer), bytes_received);

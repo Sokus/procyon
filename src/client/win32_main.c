@@ -5,6 +5,7 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include "GLFW/glfw3native.h"
 
+
 #define COBJMACROS
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -24,6 +25,8 @@
 #include <wchar.h>
 #include <stdio.h>
 
+#include "win32/win32_shader.h"
+
 struct peDirectXState {
     ID3D11Device *device;
     ID3D11DeviceContext *context;
@@ -41,106 +44,10 @@ struct peDirectXState {
     ID3D11DepthStencilState *depth_stencil_state;
 } directx_state = {0};
 
-//
-// SHADERS
-//
-
-typedef __declspec(align(16)) struct peShaderConstant_Projection {
-    HMM_Mat4 matrix;
-} peShaderConstant_Projection;
-
-typedef __declspec(align(16)) struct peShaderConstant_View {
-    HMM_Mat4 matrix;
-} peShaderConstant_View;
-
-typedef __declspec(align(16)) struct peShaderConstant_Model {
-    HMM_Mat4 matrix;
-} peShaderConstant_Model;
-
-typedef __declspec(align(16)) struct peShaderConstant_Light  {
-    HMM_Vec3 vector;
-} peShaderConstant_Light;
-
 ID3D11Buffer *pe_shader_constant_projection_buffer;
 ID3D11Buffer *pe_shader_constant_view_buffer;
 ID3D11Buffer *pe_shader_constant_model_buffer;
 ID3D11Buffer *pe_shader_constant_light_buffer;
-
-void pe_shader_initialize_constant_buffers(void) {
-    HRESULT hr;
-    D3D11_BUFFER_DESC constant_buffer_desc = {
-        .Usage = D3D11_USAGE_DYNAMIC,
-        .BindFlags = D3D11_BIND_CONSTANT_BUFFER,
-        .CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
-    };
-
-    constant_buffer_desc.ByteWidth = sizeof(peShaderConstant_Projection);
-    hr = ID3D11Device_CreateBuffer(directx_state.device, &constant_buffer_desc, 0, &pe_shader_constant_projection_buffer);
-
-    constant_buffer_desc.ByteWidth = sizeof(peShaderConstant_View);
-    hr = ID3D11Device_CreateBuffer(directx_state.device, &constant_buffer_desc, 0, &pe_shader_constant_view_buffer);
-
-    constant_buffer_desc.ByteWidth = sizeof(peShaderConstant_Model);
-    hr = ID3D11Device_CreateBuffer(directx_state.device, &constant_buffer_desc, 0, &pe_shader_constant_model_buffer);
-
-    constant_buffer_desc.ByteWidth = sizeof(peShaderConstant_Light);
-    hr = ID3D11Device_CreateBuffer(directx_state.device, &constant_buffer_desc, 0, &pe_shader_constant_light_buffer);
-}
-
-void *pe_shader_constant_begin_map(ID3D11Buffer *shader_constant_buffer) {
-    D3D11_MAPPED_SUBRESOURCE mapped_subresource;
-    HRESULT hr = ID3D11DeviceContext_Map(directx_state.context, (ID3D11Resource*)shader_constant_buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_subresource);
-    return mapped_subresource.pData;
-}
-
-void pe_shader_constant_end_map(ID3D11Buffer *shader_constant_buffer) {
-    ID3D11DeviceContext_Unmap(directx_state.context, (ID3D11Resource*)shader_constant_buffer, 0);
-}
-
-bool pe_compile_shader(wchar_t *wchar_file_name, char *entry_point, char *profile, ID3DBlob **out_shader_blob) {
-    UINT compiler_flags = D3DCOMPILE_ENABLE_STRICTNESS;
-    ID3DBlob *error_blob = NULL;
-    HRESULT hr = D3DCompileFromFile(wchar_file_name, NULL, NULL, entry_point, profile, compiler_flags, 0, out_shader_blob, &error_blob);
-    if (!SUCCEEDED(hr)) {
-        printf("D3D11: Failed to read shader from file (%x)\n", hr);
-        if (error_blob != NULL) {
-            printf("\tWith message: %s\n", (char *)ID3D10Blob_GetBufferPointer(error_blob));
-            ID3D10Blob_Release(error_blob);
-        }
-        return false;
-    }
-    return true;
-}
-
-bool pe_create_vertex_shader(ID3D11Device *device, wchar_t *wchar_file_name, ID3D11VertexShader **out_vertex_shader, ID3DBlob **out_vertex_shader_blob) {
-    if (!pe_compile_shader(wchar_file_name, "vs_main", "vs_5_0", out_vertex_shader_blob)) {
-        return false;
-    }
-    void *bytecode = ID3D10Blob_GetBufferPointer(*out_vertex_shader_blob);
-    size_t bytecode_length = ID3D10Blob_GetBufferSize(*out_vertex_shader_blob);
-    HRESULT hr = ID3D11Device_CreateVertexShader(device, bytecode, bytecode_length, NULL, out_vertex_shader);
-    if (!SUCCEEDED(hr)) {
-        printf("D3D11: Failed to compile vertex shader (%x)\n", hr);
-        ID3D10Blob_Release(*out_vertex_shader_blob);
-        return false;
-    }
-    return true;
-}
-
-bool pe_create_pixel_shader(ID3D11Device *device, wchar_t *wchar_file_name, ID3D11PixelShader **out_pixel_shader, ID3DBlob **out_pixel_shader_blob) {
-    if (!pe_compile_shader(wchar_file_name, "ps_main", "ps_5_0", out_pixel_shader_blob)) {
-        return false;
-    }
-    void *bytecode = ID3D10Blob_GetBufferPointer(*out_pixel_shader_blob);
-    size_t bytecode_length = ID3D10Blob_GetBufferSize(*out_pixel_shader_blob);
-    HRESULT hr = ID3D11Device_CreatePixelShader(device, bytecode, bytecode_length, NULL, out_pixel_shader);
-    if (!SUCCEEDED(hr)) {
-        printf("D3D11: Failed to compile pixel shader (%x)\n", hr);
-        ID3D10Blob_Release(*out_pixel_shader_blob);
-        return false;
-    }
-    return true;
-}
 
 //
 // MESH
@@ -247,32 +154,10 @@ peMesh pe_gen_mesh_cube(float width, float height, float length) {
 		0.0, 0.0,  1.0, 0.0,  1.0, 1.0,  0.0, 1.0,
     };
 
-    uint32_t colors[] = {
-		0xff007af8,
-		0xff007af8,
-		0xff007af8,
-		0xff007af8,
-		0xff0229e4,
-		0xff0229e4,
-		0xff0229e4,
-		0xff0229e4,
-		0xff11009c,
-		0xff11009c,
-		0xff11009c,
-		0xff11009c,
-		0xff681d20,
-		0xff681d20,
-		0xff681d20,
-		0xff681d20,
-		0xffa24000,
-		0xffa24000,
-		0xffa24000,
-		0xffa24000,
-		0xff117100,
-		0xff117100,
-		0xff117100,
-		0xff117100,
-    };
+    uint32_t colors[24];
+    for (int i = 0; i < PE_COUNT_OF(colors); i += 1) {
+        colors[i] = 0xffffffff;
+    }
 
     uint32_t indices[] = {
 		0,  1,  2,  0,  2,  3,
@@ -314,9 +199,9 @@ void pe_draw_mesh(peMesh *mesh, HMM_Vec3 position, HMM_Vec3 rotation) {
     HMM_Mat4 translate = HMM_Translate(position);
 
     HMM_Mat4 model_matrix = HMM_MulM4(HMM_MulM4(HMM_MulM4(translate, rotate_z), rotate_y), rotate_x);
-    peShaderConstant_Model *constant_model = pe_shader_constant_begin_map(pe_shader_constant_model_buffer);
+    peShaderConstant_Model *constant_model = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_model_buffer);
     constant_model->matrix = model_matrix;
-    pe_shader_constant_end_map(pe_shader_constant_model_buffer);
+    pe_shader_constant_end_map(directx_state.context, pe_shader_constant_model_buffer);
 
     ID3D11Buffer *vertex_buffers[] = {
         mesh->position_buffer,
@@ -438,9 +323,9 @@ void pe_set_viewport(int width, int height) {
     float n = 1.0f;
     float f = 9.0f;
 
-    peShaderConstant_Projection *projection = pe_shader_constant_begin_map(pe_shader_constant_projection_buffer);
+    peShaderConstant_Projection *projection = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_projection_buffer);
     projection->matrix = pe_mat4_perspective(w, h, n, f);
-    pe_shader_constant_end_map(pe_shader_constant_projection_buffer);
+    pe_shader_constant_end_map(directx_state.context, pe_shader_constant_projection_buffer);
 
     ID3D11DeviceContext_RSSetViewports(directx_state.context, 1, &viewport);
 }
@@ -458,6 +343,25 @@ void pe_on_resize(int new_width, int new_height) {
 void glfw_framebuffer_size_proc(GLFWwindow *window, int width, int height) {
     pe_on_resize(width, height);
     pe_set_viewport(width, height);
+}
+typedef struct peColor {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+} peColor;
+
+#include <math.h>
+
+void pe_clear_background(peColor color) {
+    float r = (float)color.r / 255.0f;
+    float g = (float)color.g / 255.0f;
+    float b = (float)color.b / 255.0f;
+
+    // FIXME: this is a hack, render a sprite to get exact background color
+    FLOAT clear_color[4] = { powf(r, 2.0f), powf(g, 2.0f), powf(b, 2.0f), 1.0f };
+    ID3D11DeviceContext_ClearRenderTargetView(directx_state.context, directx_state.render_target_view, clear_color);
+    ID3D11DeviceContext_ClearDepthStencilView(directx_state.context, directx_state.depth_stencil_view, D3D11_CLEAR_DEPTH, 1, 0);
 }
 
 int main(int argc, char *argv[]) {
@@ -481,7 +385,6 @@ int main(int argc, char *argv[]) {
     {
         UINT flags = 0;
 #ifndef NDEBUG
-        // this enables VERY USEFUL debug messages in debugger output
         flags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
         D3D_FEATURE_LEVEL levels[] = { D3D_FEATURE_LEVEL_11_0 };
@@ -496,7 +399,6 @@ int main(int argc, char *argv[]) {
     }
 
 #ifndef NDEBUG
-    // for debug builds enable VERY USEFUL debug break on API errors
     {
         ID3D11InfoQueue* info;
         hr = ID3D11Device_QueryInterface(directx_state.device, &IID_ID3D11InfoQueue, (void**)&info);
@@ -504,22 +406,16 @@ int main(int argc, char *argv[]) {
         hr = ID3D11InfoQueue_SetBreakOnSeverity(info, D3D11_MESSAGE_SEVERITY_ERROR, TRUE);
         ID3D11InfoQueue_Release(info);
     }
-    // after this there's no need to check for any errors on device functions manually
-    // so all HRESULT return  values in this code will be ignored
-    // debugger will break on errors anyway
 #endif
 
     // create DXGI swap chain
     {
-        // get DXGI device from D3D11 device
         IDXGIDevice* dxgi_device;
         hr = ID3D11Device_QueryInterface(directx_state.device, &IID_IDXGIDevice, (void**)&dxgi_device);
 
-        // get DXGI adapter from DXGI device
         IDXGIAdapter* dxgi_adapter;
         hr = IDXGIDevice_GetAdapter(dxgi_device, &dxgi_adapter);
 
-        // get DXGI factory from DXGI adapter
         IDXGIFactory2* factory;
         hr = IDXGIAdapter_GetParent(dxgi_adapter, &IID_IDXGIFactory2, (void**)&factory);
 
@@ -552,7 +448,7 @@ int main(int argc, char *argv[]) {
 
     // Compile shaders
     {
-        PE_ASSERT(pe_create_vertex_shader(directx_state.device, L"res/shader.hlsl", &directx_state.vertex_shader, &directx_state.vs_blob));
+        PE_ASSERT(pe_vertex_shader_create(directx_state.device, L"res/shader.hlsl", &directx_state.vertex_shader, &directx_state.vs_blob));
 
         D3D11_INPUT_ELEMENT_DESC input_element_descs[] = {
             { "POS", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,                            0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
@@ -569,14 +465,14 @@ int main(int argc, char *argv[]) {
             &directx_state.input_layout
         );
 
-        PE_ASSERT(pe_create_pixel_shader(directx_state.device, L"res/shader.hlsl", &directx_state.pixel_shader, &directx_state.ps_blob));
+        PE_ASSERT(pe_pixel_shader_create(directx_state.device, L"res/shader.hlsl", &directx_state.pixel_shader, &directx_state.ps_blob));
     }
 
     {
         HRESULT hr;
         D3D11_RASTERIZER_DESC rasterizer_desc = {
             .FillMode = D3D11_FILL_SOLID,
-            .CullMode = D3D11_CULL_BACK
+            .CullMode = D3D11_CULL_BACK,
         };
         hr = ID3D11Device_CreateRasterizerState(directx_state.device, &rasterizer_desc, &directx_state.rasterizer_state);
 
@@ -597,7 +493,10 @@ int main(int argc, char *argv[]) {
         hr = ID3D11Device_CreateDepthStencilState(directx_state.device, &depth_stencil_desc, &directx_state.depth_stencil_state);
     }
 
-    pe_shader_initialize_constant_buffers();
+    pe_shader_constant_buffer_init(directx_state.device, sizeof(peShaderConstant_Projection), &pe_shader_constant_projection_buffer);
+    pe_shader_constant_buffer_init(directx_state.device, sizeof(peShaderConstant_View), &pe_shader_constant_view_buffer);
+    pe_shader_constant_buffer_init(directx_state.device, sizeof(peShaderConstant_Model), &pe_shader_constant_model_buffer);
+    pe_shader_constant_buffer_init(directx_state.device, sizeof(peShaderConstant_Light), &pe_shader_constant_light_buffer);
 
     pe_set_viewport(window_width, window_height);
 
@@ -608,18 +507,18 @@ int main(int argc, char *argv[]) {
     peMesh mesh = pe_gen_mesh_cube(1.0f, 1.0f, 1.0f);
 
     HMM_Vec3 model_rotation = {0.0f};
-    HMM_Vec3 model_position = {0.0f, 0.0f, 4.0f};
+    HMM_Vec3 model_position = {0.0f, 0.0f, 0.0f};
 
-    peShaderConstant_Light *constant_light = pe_shader_constant_begin_map(pe_shader_constant_light_buffer);
+    peShaderConstant_Light *constant_light = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_light_buffer);
     constant_light->vector = (HMM_Vec3){ 1.0f, -1.0f, 1.0f };
-    pe_shader_constant_end_map(pe_shader_constant_light_buffer);
+    pe_shader_constant_end_map(directx_state.context, pe_shader_constant_light_buffer);
 
-    peShaderConstant_View *constant_view = pe_shader_constant_begin_map(pe_shader_constant_view_buffer);
-    HMM_Vec3 eye = {0.0f, 0.0f, 0.0f};
-    HMM_Vec3 center = {0.0f, 0.0f, 4.0f};
+    peShaderConstant_View *constant_view = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_view_buffer);
+    HMM_Vec3 eye = {0.0f, 0.0f, -4.0f};
+    HMM_Vec3 center = {0.0f, 0.0f, 0.0f};
     HMM_Vec3 up = {0.0f, 1.0f, 0.0f};
     constant_view->matrix = HMM_LookAt_RH(eye, center, up);
-    pe_shader_constant_end_map(pe_shader_constant_view_buffer);
+    pe_shader_constant_end_map(directx_state.context, pe_shader_constant_view_buffer);
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -628,9 +527,7 @@ int main(int argc, char *argv[]) {
         model_rotation.Y += 0.009f;
         model_rotation.Z += 0.001f;
 
-        FLOAT clear_color[4] = { 0.025f, 0.025f, 0.025f, 1.0f };
-        ID3D11DeviceContext_ClearRenderTargetView(directx_state.context, directx_state.render_target_view, clear_color);
-        ID3D11DeviceContext_ClearDepthStencilView(directx_state.context, directx_state.depth_stencil_view, D3D11_CLEAR_DEPTH, 1, 0);
+        pe_clear_background((peColor){ 20, 20, 20, 255 });
 
         ID3D11DeviceContext_VSSetShader(directx_state.context, directx_state.vertex_shader, NULL, 0);
 
@@ -652,7 +549,10 @@ int main(int argc, char *argv[]) {
         ID3D11DeviceContext_OMSetDepthStencilState(directx_state.context, directx_state.depth_stencil_state, 0);
         ID3D11DeviceContext_OMSetBlendState(directx_state.context, NULL, NULL, ~(uint32_t)(0));
 
-        pe_draw_mesh(&mesh, model_position, model_rotation);
+        //pe_draw_mesh(&mesh, model_position, model_rotation);
+        pe_draw_mesh(&mesh, (HMM_Vec3){ 2.0f, 0.0f, 0.0f }, (HMM_Vec3){0.0f});
+        pe_draw_mesh(&mesh, (HMM_Vec3){ 0.0f, 2.0f, 0.0f }, (HMM_Vec3){0.0f});
+        pe_draw_mesh(&mesh, (HMM_Vec3){ 0.0f, 0.0f, 2.0f }, (HMM_Vec3){0.0f});
 
         IDXGISwapChain1_Present(directx_state.swapchain, 1, 0);
     }

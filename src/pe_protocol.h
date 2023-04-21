@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "game/pe_entity.h"
+
 #define MAX_MESSAGES_PER_PACKET 64
 
 typedef struct peConnectionRequestMessage {
@@ -19,7 +21,8 @@ typedef struct peConnectionDeniedMessage {
 } peConnectionDeniedMessage;
 
 typedef struct peConnectionAcceptedMessage {
-    uint8_t zero;
+    int client_index;
+    uint32_t entity_index;
 } peConnectionAcceptedMessage;
 
 typedef enum peConnectionClosedReason {
@@ -32,11 +35,21 @@ typedef struct peConnectionClosedMessage {
     peConnectionClosedReason reason;
 } peConnectionClosedMessage;
 
+typedef struct peInputStateMessage {
+    peInput input;
+} peInputStateMessage;
+
+typedef struct peWorldStateMessage {
+    peEntity entities[MAX_ENTITY_COUNT];
+} peWorldStateMessage;
+
 typedef enum peMessageType {
     peMessageType_ConnectionRequest,
     peMessageType_ConnectionDenied,
     peMessageType_ConnectionAccepted,
     peMessageType_ConnectionClosed,
+    peMessageType_InputState,
+    peMessageType_WorldState,
     peMessageType_Count,
 } peMessageType;
 
@@ -48,6 +61,8 @@ typedef struct peMessage {
         peConnectionDeniedMessage *connection_denied;
         peConnectionAcceptedMessage *connection_accepted;
         peConnectionClosedMessage *connection_closed;
+        peInputStateMessage *input_state;
+        peWorldStateMessage *world_state;
     };
 } peMessage;
 
@@ -67,7 +82,7 @@ void pe_append_message(pePacket *packet, peMessage msg);
 typedef struct peSocket peSocket;
 typedef struct peAddress peAddress;
 bool pe_send_packet(peSocket socket, peAddress address, pePacket *packet);
-bool pe_receive_packet(peSocket socket, peAddress *address, pePacket *packet);
+bool pe_receive_packet(peSocket socket, peAllocator allocator, peAddress *address, pePacket *packet);
 void pe_free_packet(peAllocator a, pePacket *packet);
 
 #endif // PE_PROTOCOL_H
