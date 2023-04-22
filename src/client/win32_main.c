@@ -303,9 +303,9 @@ void pe_destroy_swapchain_resources(void) {
 
 HMM_Mat4 pe_mat4_perspective(float w, float h, float n, float f) {
     HMM_Mat4 result = {
-		-2 * n / w, 0,         0,           0,
+		2 * n / w,  0,         0,           0,
 		0,          2 * n / h, 0,           0,
-		0,          0,         f / (n - f), n * f / (n - f),
+		0,          0,          f / (n - f), n * f / (n - f),
 		0,          0,         -1,           0,
     };
     return result;
@@ -364,8 +364,96 @@ void pe_clear_background(peColor color) {
     ID3D11DeviceContext_ClearDepthStencilView(directx_state.context, directx_state.depth_stencil_view, D3D11_CLEAR_DEPTH, 1, 0);
 }
 
+//
+// NET CLIENT STUFF
+//
+
+#include "pe_net.h"
+#include "pe_protocol.h"
+#include "pe_config.h"
+#include "game/pe_entity.h"
+
+#define CONNECTION_REQUEST_TIME_OUT 20.0f // seconds
+#define CONNECTION_REQUEST_SEND_RATE 1.0f // # per second
+
+#define SECONDS_TO_TIME_OUT 10.0f
+
+typedef enum peClientNetworkState {
+	peClientNetworkState_Disconnected,
+	peClientNetworkState_Connecting,
+	peClientNetworkState_Connected,
+	peClientNetworkState_Error,
+} peClientNetworkState;
+
+static peSocket client_socket;
+peAddress server_address;
+peClientNetworkState network_state = peClientNetworkState_Disconnected;
+int client_index;
+uint32_t entity_index;
+uint64_t last_packet_send_time = 0;
+uint64_t last_packet_receive_time = 0;
+
+pePacket outgoing_packet = {0};
+
+extern peEntity *entities;
+
+void pe_receive_packets(void) {
+	peAddress address;
+	pePacket packet = {0};
+	peAllocator allocator = pe_heap_allocator();
+	while (pe_receive_packet(client_socket, allocator, &address, &packet)) {
+		if (!pe_address_compare(address, server_address)) {
+			goto message_cleanup;
+		}
+
+		for (int m = 0; m < packet.message_count; m += 1) {
+			peMessage message = packet.messages[m];
+			switch (message.type) {
+				case peMessageType_ConnectionDenied: {
+					fprintf(stdout, "connection request denied (reason = %d)\n", message.connection_denied->reason);
+					network_state = peClientNetworkState_Error;
+				} break;
+				case peMessageType_ConnectionAccepted: {
+					if (network_state == peClientNetworkState_Connecting) {
+						char address_string[256];
+						fprintf(stdout, "connected to the server (address = %s)\n", pe_address_to_string(server_address, address_string, sizeof(address_string)));
+						network_state = peClientNetworkState_Connected;
+						client_index = message.connection_accepted->client_index;
+						entity_index = message.connection_accepted->entity_index;
+						last_packet_receive_time = pe_time_now();
+					} else if (network_state == peClientNetworkState_Connected) {
+						PE_ASSERT(client_index == message.connection_accepted->client_index);
+						last_packet_receive_time = pe_time_now();
+					}
+				} break;
+				case peMessageType_ConnectionClosed: {
+					if (network_state == peClientNetworkState_Connected) {
+						fprintf(stdout, "connection closed (reason = %d)\n", message.connection_closed->reason);
+						network_state = peClientNetworkState_Error;
+					}
+				} break;
+				case peMessageType_WorldState: {
+					if (network_state == peClientNetworkState_Connected) {
+						memcpy(entities, message.world_state->entities, MAX_ENTITY_COUNT*sizeof(peEntity));
+					}
+				} break;
+				default: break;
+			}
+		}
+
+message_cleanup:
+		for (int m = 0; m < packet.message_count; m += 1) {
+			pe_message_destroy(allocator, packet.messages[m]);
+		}
+		packet.message_count = 0;
+	}
+}
+
+
 int main(int argc, char *argv[]) {
     pe_time_init();
+    pe_net_init();
+    pe_allocate_entities();
 
     glfwInit();
 
@@ -473,6 +561,7 @@ int main(int argc, char *argv[]) {
         D3D11_RASTERIZER_DESC rasterizer_desc = {
             .FillMode = D3D11_FILL_SOLID,
             .CullMode = D3D11_CULL_BACK,
+            .FrontCounterClockwise = TRUE,
         };
         hr = ID3D11Device_CreateRasterizerState(directx_state.device, &rasterizer_desc, &directx_state.rasterizer_state);
 
@@ -504,17 +593,21 @@ int main(int argc, char *argv[]) {
 
     ///////////////////
 
-    peMesh mesh = pe_gen_mesh_cube(1.0f, 1.0f, 1.0f);
+	peSocketCreateError socket_create_error = pe_socket_create(peSocket_IPv4, 0, &client_socket);
+	fprintf(stdout, "socket create result: %d\n", socket_create_error);
 
-    HMM_Vec3 model_rotation = {0.0f};
-    HMM_Vec3 model_position = {0.0f, 0.0f, 0.0f};
+	server_address = pe_address4(127, 0, 0, 1, SERVER_PORT);
+
+    ///////////////////
+
+    peMesh mesh = pe_gen_mesh_cube(1.0f, 1.0f, 1.0f);
 
     peShaderConstant_Light *constant_light = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_light_buffer);
     constant_light->vector = (HMM_Vec3){ 1.0f, -1.0f, 1.0f };
     pe_shader_constant_end_map(directx_state.context, pe_shader_constant_light_buffer);
 
     peShaderConstant_View *constant_view = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_view_buffer);
-    HMM_Vec3 eye = {0.0f, 0.0f, -4.0f};
+    HMM_Vec3 eye = {0.0f, 3.0f, 3.0f};
     HMM_Vec3 center = {0.0f, 0.0f, 0.0f};
     HMM_Vec3 up = {0.0f, 1.0f, 0.0f};
     constant_view->matrix = HMM_LookAt_RH(eye, center, up);
@@ -523,9 +616,55 @@ int main(int argc, char *argv[]) {
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        model_rotation.X += 0.005f;
-        model_rotation.Y += 0.009f;
-        model_rotation.Z += 0.001f;
+		if (network_state != peClientNetworkState_Disconnected) {
+			pe_receive_packets();
+		}
+
+        switch (network_state) {
+			case peClientNetworkState_Disconnected: {
+				fprintf(stdout, "connecting to the server\n");
+				network_state = peClientNetworkState_Connecting;
+				last_packet_receive_time = pe_time_now();
+			} break;
+			case peClientNetworkState_Connecting: {
+				uint64_t ticks_since_last_received_packet = pe_time_since(last_packet_receive_time);
+				float seconds_since_last_received_packet = (float)pe_time_sec(ticks_since_last_received_packet);
+				if (seconds_since_last_received_packet > (float)CONNECTION_REQUEST_TIME_OUT) {
+					fprintf(stdout, "connection request timed out");
+					network_state = peClientNetworkState_Error;
+					break;
+				}
+				float connection_request_send_interval = 1.0f / (float)CONNECTION_REQUEST_SEND_RATE;
+				uint64_t ticks_since_last_sent_packet = pe_time_since(last_packet_send_time);
+				float seconds_since_last_sent_packet = (float)pe_time_sec(ticks_since_last_sent_packet);
+				if (seconds_since_last_sent_packet > connection_request_send_interval) {
+					peMessage message = pe_message_create(pe_heap_allocator(), peMessageType_ConnectionRequest);
+					pe_append_message(&outgoing_packet, message);
+				}
+			} break;
+			case peClientNetworkState_Connected: {
+				peMessage message = pe_message_create(pe_heap_allocator(), peMessageType_InputState);
+				//message.input_state->input.movement.X = pe_input_axis(peGamepadAxis_LeftX);
+				//message.input_state->input.movement.Y = pe_input_axis(peGamepadAxis_LeftY);
+                bool key_d = glfwGetKey(window, GLFW_KEY_D);
+                bool key_a = glfwGetKey(window, GLFW_KEY_A);
+                bool key_w = glfwGetKey(window, GLFW_KEY_W);
+                bool key_s = glfwGetKey(window, GLFW_KEY_S);
+                message.input_state->input.movement.X = (float)key_d - (float)key_a;
+                message.input_state->input.movement.Y = (float)key_s - (float)key_w;
+				pe_append_message(&outgoing_packet, message);
+			} break;
+			default: break;
+		}
+
+		if (outgoing_packet.message_count > 0) {
+			pe_send_packet(client_socket, server_address, &outgoing_packet);
+			last_packet_send_time = pe_time_now();
+			for (int m = 0; m < outgoing_packet.message_count; m += 1) {
+				pe_message_destroy(pe_heap_allocator(), outgoing_packet.messages[m]);
+			}
+			outgoing_packet.message_count = 0;
+		}
 
         pe_clear_background((peColor){ 20, 20, 20, 255 });
 
@@ -549,10 +688,12 @@ int main(int argc, char *argv[]) {
         ID3D11DeviceContext_OMSetDepthStencilState(directx_state.context, directx_state.depth_stencil_state, 0);
         ID3D11DeviceContext_OMSetBlendState(directx_state.context, NULL, NULL, ~(uint32_t)(0));
 
-        //pe_draw_mesh(&mesh, model_position, model_rotation);
-        pe_draw_mesh(&mesh, (HMM_Vec3){ 2.0f, 0.0f, 0.0f }, (HMM_Vec3){0.0f});
-        pe_draw_mesh(&mesh, (HMM_Vec3){ 0.0f, 2.0f, 0.0f }, (HMM_Vec3){0.0f});
-        pe_draw_mesh(&mesh, (HMM_Vec3){ 0.0f, 0.0f, 2.0f }, (HMM_Vec3){0.0f});
+		for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
+			peEntity *entity = &entities[e];
+			if (!entity->active) continue;
+
+			pe_draw_mesh(&mesh, entity->position, (HMM_Vec3){ .Y = entity->angle });
+		}
 
         IDXGISwapChain1_Present(directx_state.swapchain, 1, 0);
     }

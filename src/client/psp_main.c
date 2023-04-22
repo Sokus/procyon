@@ -693,7 +693,7 @@ int main(int argc, char* argv[])
 				}
 				float connection_request_send_interval = 1.0f / (float)CONNECTION_REQUEST_SEND_RATE;
 				uint64_t ticks_since_last_sent_packet = pe_time_since(last_packet_send_time);
-				float seconds_since_last_sent_packet = pe_time_sec(ticks_since_last_sent_packet);
+				float seconds_since_last_sent_packet = (float)pe_time_sec(ticks_since_last_sent_packet);
 				if (seconds_since_last_sent_packet > connection_request_send_interval) {
 					peMessage message = pe_message_create(pe_heap_allocator(), peMessageType_ConnectionRequest);
 					pe_append_message(&outgoing_packet, message);
