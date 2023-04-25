@@ -290,6 +290,7 @@ int main() {
                 peInput *input = &client_data[entity->client_index].input;
                 entity->velocity.X = input->movement.X;
                 entity->velocity.Z = input->movement.Y;
+                entity->angle = input->angle;
             }
 
             // PHYSICS

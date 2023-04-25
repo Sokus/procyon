@@ -44,6 +44,9 @@ struct peDirectXState {
     ID3D11DepthStencilState *depth_stencil_state;
 } directx_state = {0};
 
+int window_width = 960;
+int window_height = 540;
+
 ID3D11Buffer *pe_shader_constant_projection_buffer;
 ID3D11Buffer *pe_shader_constant_view_buffer;
 ID3D11Buffer *pe_shader_constant_model_buffer;
@@ -302,6 +305,7 @@ void pe_destroy_swapchain_resources(void) {
 
 
 HMM_Mat4 pe_mat4_perspective(float w, float h, float n, float f) {
+    // https://github.com/microsoft/DirectXMath/blob/bec07458c994bd7553638e4d499e17cfedd07831/Inc/DirectXMathMatrix.inl#L2350
     HMM_Mat4 result = {
 		2 * n / w,  0,         0,           0,
 		0,          2 * n / h, 0,           0,
@@ -311,39 +315,27 @@ HMM_Mat4 pe_mat4_perspective(float w, float h, float n, float f) {
     return result;
 }
 
-void pe_set_viewport(int width, int height) {
+static void d3d11_set_viewport(int width, int height) {
     D3D11_VIEWPORT viewport = {
-        0, 0,
-        (float)width, (float)height,
-        0, 1
+        .TopLeftX = 0.0f, .TopLeftY = 0.0f,
+        .Width = (float)width, .Height = (float)height,
+        .MinDepth = 0.0f, .MaxDepth = 1.0f
     };
-
-    float w = viewport.Width / viewport.Height;
-    float h = 1.0f;
-    float n = 1.0f;
-    float f = 9.0f;
-
-    peShaderConstant_Projection *projection = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_projection_buffer);
-    projection->matrix = pe_mat4_perspective(w, h, n, f);
-    pe_shader_constant_end_map(directx_state.context, pe_shader_constant_projection_buffer);
-
     ID3D11DeviceContext_RSSetViewports(directx_state.context, 1, &viewport);
 }
 
-void pe_on_resize(int new_width, int new_height) {
-    ID3D11DeviceContext_Flush(directx_state.context);
-
-    pe_destroy_swapchain_resources();
-
-    HRESULT hr = IDXGISwapChain1_ResizeBuffers(directx_state.swapchain, 0, (UINT)new_width, (UINT)new_height, DXGI_FORMAT_UNKNOWN, 0);
-
-    pe_create_swapchain_resources();
-}
-
 void glfw_framebuffer_size_proc(GLFWwindow *window, int width, int height) {
-    pe_on_resize(width, height);
-    pe_set_viewport(width, height);
+    ID3D11DeviceContext_Flush(directx_state.context);
+    pe_destroy_swapchain_resources();
+    HRESULT hr = IDXGISwapChain1_ResizeBuffers(directx_state.swapchain, 0, (UINT)width, (UINT)height, DXGI_FORMAT_UNKNOWN, 0);
+    pe_create_swapchain_resources();
+
+    d3d11_set_viewport(width, height);
+
+    window_width = width;
+    window_height = height;
 }
+
 typedef struct peColor {
     uint8_t r;
     uint8_t g;
@@ -367,6 +359,8 @@ void pe_clear_background(peColor color) {
 //
 // NET CLIENT STUFF
 //
+
+#include <float.h>
 
 #include "pe_net.h"
 #include "pe_protocol.h"
@@ -449,6 +443,96 @@ message_cleanup:
 	}
 }
 
+//
+// MATH
+//
+
+static HMM_Vec3 pe_vec3_unproject(
+    HMM_Vec3 v,
+    float viewport_x, float viewport_y,
+    float viewport_width, float viewport_height,
+    float viewport_min_z, float viewport_max_z,
+    HMM_Mat4 projection,
+    HMM_Mat4 view
+) {
+    // https://github.com/microsoft/DirectXMath/blob/bec07458c994bd7553638e4d499e17cfedd07831/Extensions/DirectXMathFMA4.h#L229
+    HMM_Vec4 d = HMM_V4(-1.0f, 1.0f, 0.0f, 0.0f);
+
+    HMM_Vec4 scale = HMM_V4(viewport_width * 0.5f, -viewport_height * 0.5f, viewport_max_z - viewport_min_z, 1.0f);
+    scale = HMM_V4(1.0f/scale.X, 1.0f/scale.Y, 1.0f/scale.Z, 1.0f/scale.W);
+
+    HMM_Vec4 offset = HMM_V4(-viewport_x, -viewport_y, -viewport_min_z, 0.0f);
+    offset = HMM_AddV4(HMM_MulV4(scale, offset), d);
+
+    HMM_Mat4 transform = HMM_MulM4(projection, view);
+    transform = HMM_InvGeneralM4(transform);
+
+    HMM_Vec4 result = HMM_AddV4(HMM_MulV4(HMM_V4(v.X, v.Y, v.Z, 1.0f), scale), offset);
+    result = HMM_MulM4V4(transform, result);
+
+    if (result.W < FLT_EPSILON) {
+        result.W = FLT_EPSILON;
+    }
+
+    result = HMM_DivV4F(result, result.W);
+
+    return result.XYZ;
+}
+
+typedef struct peCamera {
+    HMM_Vec3 position;
+    HMM_Vec3 target;
+    HMM_Vec3 up;
+    float fovy;
+} peCamera;
+
+static void pe_camera_update(peCamera camera) {
+    peShaderConstant_Projection *projection = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_projection_buffer);
+    projection->matrix = pe_mat4_perspective((float)window_width/(float)window_height, 1.0f, 1.0f, 9.0f);
+    pe_shader_constant_end_map(directx_state.context, pe_shader_constant_projection_buffer);
+
+    peShaderConstant_View *constant_view = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_view_buffer);
+    constant_view->matrix = HMM_LookAt_RH(camera.position, camera.target, camera.up);
+    pe_shader_constant_end_map(directx_state.context, pe_shader_constant_view_buffer);
+}
+
+typedef struct peRay {
+    HMM_Vec3 position;
+    HMM_Vec3 direction;
+} peRay;
+
+static peRay pe_get_mouse_ray(HMM_Vec2 mouse, peCamera camera) {
+    float window_width_float = (float)window_width;
+    float window_height_float = (float)window_height;
+    HMM_Mat4 projection = pe_mat4_perspective(window_width_float/window_height_float, 1.0f, 1.0f, 9.0f);
+    HMM_Mat4 view = HMM_LookAt_RH(camera.position, camera.target, camera.up);
+
+    HMM_Vec3 near_point = pe_vec3_unproject(HMM_V3(mouse.X, mouse.Y, 0.0f), 0.0f, 0.0f, window_width_float, window_height_float, 0.0f, 1.0f, projection, view);
+    HMM_Vec3 far_point = pe_vec3_unproject(HMM_V3(mouse.X, mouse.Y, 1.0f), 0.0f, 0.0f, window_width_float, window_height_float, 0.0f, 1.0f, projection, view);
+    HMM_Vec3 direction = HMM_NormV3(HMM_SubV3(far_point, near_point));
+    peRay ray = {
+        .position = camera.position,
+        .direction = direction,
+    };
+    return ray;
+}
+
+static bool pe_collision_ray_plane(peRay ray, HMM_Vec3 plane_normal, float plane_d, HMM_Vec3 *collision_point) {
+    // https://www.cs.princeton.edu/courses/archive/fall00/cs426/lectures/raycast/sld017.htm
+
+    float dot_product = HMM_DotV3(ray.direction, plane_normal);
+    if (dot_product == 0.0f) {
+        return false;
+    }
+
+    float t = -(HMM_DotV3(ray.position, plane_normal) + plane_d) / dot_product;
+    if (t < 0.0f) {
+        return false;
+    }
+
+    *collision_point = HMM_AddV3(ray.position, HMM_MulV3F(ray.direction, t));
+    return true;
+}
 
 int main(int argc, char *argv[]) {
     pe_time_init();
@@ -459,9 +543,6 @@ int main(int argc, char *argv[]) {
 
     glfwWindowHint(GLFW_SCALE_TO_MONITOR, 0);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
-    int window_width = 960;
-    int window_height = 540;
 
     GLFWwindow *window = glfwCreateWindow(window_width, window_height, "Procyon", NULL, NULL);
     glfwSetFramebufferSizeCallback(window, glfw_framebuffer_size_proc);
@@ -587,7 +668,7 @@ int main(int argc, char *argv[]) {
     pe_shader_constant_buffer_init(directx_state.device, sizeof(peShaderConstant_Model), &pe_shader_constant_model_buffer);
     pe_shader_constant_buffer_init(directx_state.device, sizeof(peShaderConstant_Light), &pe_shader_constant_light_buffer);
 
-    pe_set_viewport(window_width, window_height);
+    d3d11_set_viewport(window_width, window_height);
 
     ID3D11ShaderResourceView *default_texture_view = pe_create_default_texture();
 
@@ -600,18 +681,21 @@ int main(int argc, char *argv[]) {
 
     ///////////////////
 
+
     peMesh mesh = pe_gen_mesh_cube(1.0f, 1.0f, 1.0f);
 
     peShaderConstant_Light *constant_light = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_light_buffer);
     constant_light->vector = (HMM_Vec3){ 1.0f, -1.0f, 1.0f };
     pe_shader_constant_end_map(directx_state.context, pe_shader_constant_light_buffer);
 
-    peShaderConstant_View *constant_view = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_view_buffer);
-    HMM_Vec3 eye = {0.0f, 3.0f, 3.0f};
-    HMM_Vec3 center = {0.0f, 0.0f, 0.0f};
-    HMM_Vec3 up = {0.0f, 1.0f, 0.0f};
-    constant_view->matrix = HMM_LookAt_RH(eye, center, up);
-    pe_shader_constant_end_map(directx_state.context, pe_shader_constant_view_buffer);
+    peCamera camera = {
+        .position = {0.0f, 3.0f, 3.0f},
+        .target = {0.0f, 0.0f, 0.0f},
+        .up = {0.0f, 1.0f, 0.0f},
+        .fovy = 55.0f,
+    };
+
+    float look_angle = 0.0f;
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -619,6 +703,19 @@ int main(int argc, char *argv[]) {
 		if (network_state != peClientNetworkState_Disconnected) {
 			pe_receive_packets();
 		}
+
+        pe_camera_update(camera);
+
+        {
+            double xpos, ypos;
+            glfwGetCursorPos(window, &xpos, &ypos);
+            peRay ray = pe_get_mouse_ray((HMM_Vec2){(float)xpos, (float)ypos}, camera);
+
+            HMM_Vec3 collision_point;
+            if (pe_collision_ray_plane(ray, (HMM_Vec3){.Y = 1.0f}, 0.0f, &collision_point)) {
+                look_angle = atan2f(collision_point.X, collision_point.Z);
+            }
+        }
 
         switch (network_state) {
 			case peClientNetworkState_Disconnected: {
@@ -630,7 +727,7 @@ int main(int argc, char *argv[]) {
 				uint64_t ticks_since_last_received_packet = pe_time_since(last_packet_receive_time);
 				float seconds_since_last_received_packet = (float)pe_time_sec(ticks_since_last_received_packet);
 				if (seconds_since_last_received_packet > (float)CONNECTION_REQUEST_TIME_OUT) {
-					fprintf(stdout, "connection request timed out");
+					//fprintf(stdout, "connection request timed out");
 					network_state = peClientNetworkState_Error;
 					break;
 				}
@@ -652,6 +749,7 @@ int main(int argc, char *argv[]) {
                 bool key_s = glfwGetKey(window, GLFW_KEY_S);
                 message.input_state->input.movement.X = (float)key_d - (float)key_a;
                 message.input_state->input.movement.Y = (float)key_s - (float)key_w;
+                message.input_state->input.angle = look_angle;
 				pe_append_message(&outgoing_packet, message);
 			} break;
 			default: break;
@@ -665,7 +763,6 @@ int main(int argc, char *argv[]) {
 			}
 			outgoing_packet.message_count = 0;
 		}
-
         pe_clear_background((peColor){ 20, 20, 20, 255 });
 
         ID3D11DeviceContext_VSSetShader(directx_state.context, directx_state.vertex_shader, NULL, 0);

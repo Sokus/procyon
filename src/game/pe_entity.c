@@ -28,7 +28,10 @@ peSerializationError pe_serialize_vec3(peBitStream *bs, HMM_Vec3 *value) {
 }
 
 peSerializationError pe_serialize_input(peBitStream *bs, peInput *input) {
-    return pe_serialize_vec2(bs, &input->movement);
+    peSerializationError err = peSerializationError_None;
+    err = pe_serialize_vec2(bs, &input->movement); if (err) return err;
+    err = pe_serialize_float(bs, &input->angle); if (err) return err;
+    return err;
 }
 
 peSerializationError pe_serialize_entity(peBitStream *bs, peEntity *entity) {

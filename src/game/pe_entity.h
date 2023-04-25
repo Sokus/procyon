@@ -30,6 +30,7 @@ typedef struct peEntity {
 
 typedef struct peInput {
     HMM_Vec2 movement;
+    float angle;
 } peInput;
 
 struct peBitStream;
