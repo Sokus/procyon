@@ -82,6 +82,7 @@ void pe_connect_client(int client_index, peAddress address) {
     pe_entity_property_set(entity, peEntityProperty_OwnedByPlayer);
     pe_entity_property_set(entity, peEntityProperty_ControlledByPlayer);
     entity->client_index = client_index;
+    entity->mesh = peEntityMesh_Cube;
 
     client_connected[client_index] = true;
     client_address[client_index] = address;
@@ -271,6 +272,18 @@ int main() {
 
     pe_allocate_entities();
 
+    HMM_Vec3 obstacle_positions[] = {
+        { -3.0f, 0.0f,  2.0f },
+        {  3.0f, 0.0f, -1.0f },
+    };
+
+    for (int i = 0; i < PE_COUNT_OF(obstacle_positions); i += 1) {
+        peEntity *entity = pe_make_entity();
+        entity->active = true;
+        entity->position = obstacle_positions[i];
+        entity->mesh = peEntityMesh_Cube;
+    }
+
     float target_updates_per_second = 30.0f;
     float dt = 1.0f / target_updates_per_second;
     while (true) {
@@ -295,7 +308,6 @@ int main() {
 
             // PHYSICS
             if (entity->velocity.X != 0.0f || entity->velocity.Z != 0.0f) {
-                entity->angle = atan2f(entity->velocity.X, entity->velocity.Z);
                 HMM_Vec3 position_delta = HMM_MulV3F(entity->velocity, dt);
                 entity->position = HMM_AddV3(entity->position, position_delta);
             }

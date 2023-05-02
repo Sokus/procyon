@@ -4,3 +4,6 @@
 [submodule "ext/HandmadeMath"]
 	path = ext/HandmadeMath
 	url = https://github.com/HandmadeMath/HandmadeMath
+[submodule "ext/model3d"]
+	path = ext/model3d
+	url = https://gitlab.com/bztsrc/model3d

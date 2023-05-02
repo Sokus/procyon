@@ -15,6 +15,12 @@ typedef enum peEntityProperty {
     peEntityProperty_Count,
 } peEntityProperty;
 
+typedef enum peEntityMesh {
+    peEntityMesh_Cube,
+    peEntityMesh_Quad,
+    peEntityMesh_Count,
+} peEntityMesh;
+
 typedef struct peEntity {
     uint32_t index;
     bool active;
@@ -26,6 +32,8 @@ typedef struct peEntity {
     float angle;
 
     int client_index; // property: OwnedByPlayer
+
+    peEntityMesh mesh;
 } peEntity;
 
 typedef struct peInput {

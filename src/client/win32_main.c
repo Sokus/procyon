@@ -21,6 +21,9 @@
 
 #include "HandmadeMath.h"
 
+#define M3D_IMPLEMENTATION
+#include "m3d.h"
+
 #include <stdbool.h>
 #include <wchar.h>
 #include <stdio.h>
@@ -52,6 +55,8 @@ ID3D11Buffer *pe_shader_constant_view_buffer;
 ID3D11Buffer *pe_shader_constant_model_buffer;
 ID3D11Buffer *pe_shader_constant_light_buffer;
 
+static peArena temp_arena;
+
 //
 // MESH
 //
@@ -63,7 +68,7 @@ typedef struct peMesh {
     float *vertices;
     float *normals;
     float *texcoords;
-    float *colors;
+    uint32_t *colors;
     uint32_t *indices;
 
     ID3D11Buffer *position_buffer;
@@ -170,6 +175,61 @@ peMesh pe_gen_mesh_cube(float width, float height, float length) {
 	   16, 17, 18, 16, 18, 19,
 	   20, 21, 22, 20, 22, 23,
     };
+
+    peMesh mesh = {0};
+    mesh.vertices = pe_alloc(pe_heap_allocator(), sizeof(vertices));
+    memcpy(mesh.vertices, vertices, sizeof(vertices));
+
+    mesh.normals = pe_alloc(pe_heap_allocator(), sizeof(normals));
+    memcpy(mesh.normals, normals, sizeof(normals));
+
+    mesh.texcoords = pe_alloc(pe_heap_allocator(), sizeof(texcoords));
+    memcpy(mesh.texcoords, texcoords, sizeof(texcoords));
+
+    mesh.colors = pe_alloc(pe_heap_allocator(), sizeof(colors));
+    memcpy(mesh.colors, colors, sizeof(colors));
+
+    mesh.indices = pe_alloc(pe_heap_allocator(), sizeof(indices));
+    memcpy(mesh.indices, indices, sizeof(indices));
+
+    mesh.vertex_count = PE_COUNT_OF(vertices) / 3;
+    mesh.index_count = PE_COUNT_OF(indices);
+
+    pe_upload_mesh(&mesh);
+
+    return mesh;
+}
+
+peMesh pe_gen_mesh_quad(float width, float length) {
+	float vertices[] = {
+		-width/2.0f, 0.0f, -length/2.0f,
+		-width/2.0f, 0.0f,  length/2.0f,
+		 width/2.0f, 0.0f, -length/2.0f,
+		 width/2.0f, 0.0f,  length/2.0f,
+	};
+
+
+    float normals[] = {
+		0.0, 1.0, 0.0,  0.0, 1.0, 0.0,  0.0, 1.0, 0.0,
+		0.0, 1.0, 0.0,  0.0, 1.0, 0.0,  0.0, 1.0, 0.0,
+    };
+
+	float texcoords[] = {
+		0.0f, 0.0f,
+		0.0f, 1.0f,
+		1.0f, 0.0f,
+		1.0f, 1.0f,
+	};
+
+    uint32_t colors[6];
+    for (int i = 0; i < PE_COUNT_OF(colors); i += 1) {
+        colors[i] = 0xffffffff;
+    }
+
+	uint32_t indices[] = {
+		0, 1, 2,
+		1, 3, 2
+	};
 
     peMesh mesh = {0};
     mesh.vertices = pe_alloc(pe_heap_allocator(), sizeof(vertices));
@@ -356,6 +416,58 @@ void pe_clear_background(peColor color) {
     ID3D11DeviceContext_ClearDepthStencilView(directx_state.context, directx_state.depth_stencil_view, D3D11_CLEAR_DEPTH, 1, 0);
 }
 
+// I/O
+
+typedef struct peFileContents {
+    peAllocator allocator;
+    void *data;
+    size_t size;
+} peFileContents;
+
+peFileContents pe_file_read_contents(peAllocator allocator, char *file_path, bool zero_terminate) {
+    peFileContents result = {0};
+    result.allocator = allocator;
+
+    HANDLE file_handle = CreateFileA(file_path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file_handle == INVALID_HANDLE_VALUE) {
+        return result;
+    }
+
+    DWORD file_size;
+    if ((file_size = GetFileSize(file_handle, &file_size)) == INVALID_FILE_SIZE) {
+        CloseHandle(file_handle);
+        return result;
+    }
+
+    size_t total_size = zero_terminate ? file_size + 1 : file_size;
+    void *data = pe_alloc(allocator, total_size);
+    if (data == NULL) {
+        CloseHandle(file_handle);
+        return result;
+    }
+
+    DWORD bytes_read = 0;
+    if (!ReadFile(file_handle, data, file_size, &bytes_read, NULL)) {
+        CloseHandle(file_handle);
+        pe_free(allocator, data);
+        return result;
+    }
+    PE_ASSERT(bytes_read == file_size);
+    CloseHandle(file_handle);
+
+    result.data = data;
+    result.size = total_size;
+    if (zero_terminate) {
+        ((uint8_t*)data)[file_size] = 0;
+    }
+
+    return result;
+}
+
+void pe_file_free_contents(peFileContents contents) {
+    pe_free(contents.allocator, contents.data);
+}
+
 //
 // NET CLIENT STUFF
 //
@@ -534,9 +646,89 @@ static bool pe_collision_ray_plane(peRay ray, HMM_Vec3 plane_normal, float plane
     return true;
 }
 
+//
+// MODELS
+//
+
+
+
+unsigned char *pe_m3d_read_callback(char *filename, unsigned int *size) {
+    printf("m3d read: %s\n", filename);
+    return NULL;
+}
+
+typedef struct peModel {
+    int num_mesh;
+    peMesh *mesh;
+} peModel;
+
+peModel pe_model_load(char *file_path) {
+    peModel model = {0};
+
+    peFileContents m3d_data = pe_file_read_contents(pe_heap_allocator(), file_path, false);
+    m3d_t *m3d = m3d_load(m3d_data.data, pe_m3d_read_callback, NULL, NULL);
+
+    //model.mesh.vertex_count = m3d->numvertex;
+    //model.mesh.index_count = 3*m3d->numface;
+
+    /*
+    model.mesh.vertices = pe_alloc(pe_heap_allocator(), 3*m3d->numvertex*sizeof(float));
+    model.mesh.normals = pe_alloc(pe_heap_allocator(), 3*m3d->numvertex*sizeof(float));
+    model.mesh.texcoords = pe_alloc(pe_heap_allocator(), 2*m3d->numvertex*sizeof(float));
+    model.mesh.colors = pe_alloc(pe_heap_allocator(), m3d->numvertex*sizeof(uint32_t));
+    model.mesh.indices = pe_alloc(pe_heap_allocator(), 3*m3d->numface*sizeof(uint32_t));
+    */
+    peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(&temp_arena);
+    peAllocator temp_allocator = pe_arena_allocator(&temp_arena);
+
+    int *num_vertex = pe_alloc(temp_allocator, m3d->nummaterial*sizeof(int));
+    pe_zero_size(num_vertex, m3d->nummaterial*sizeof(int));
+    int num_no_mat_vertex = 0;
+    int total_vertices = 0;
+
+    struct peMaterialVertexPair {
+        uint32_t materialid;
+        uint32_t vertexid;
+    };
+    struct peMaterialVertexPair *pair = pe_alloc(pe_arena_allocator(&temp_arena), m3d->numvertex*sizeof(struct peMaterialVertexPair));
+    for (unsigned int i = 0; i < m3d->numvertex; i += 1) {
+        pair[i].materialid = 0xFFFFFFFE;
+    }
+    for (unsigned int f = 0; f < m3d->numface; f += 1) {
+        for (int v = 0; v < 3; v += 1) {
+            pair[m3d->face[f].vertex[v]].materialid = m3d->face[f].materialid;
+        }
+    }
+    for (unsigned int i = 0; i < m3d->numvertex; i += 1) {
+        if (pair[i].materialid < 0xFFFFFFFE) {
+            pair[i].vertexid = num_vertex[pair[i].materialid];
+            num_vertex[pair[i].materialid] += 1;
+        } else if (pair[i].materialid == 0xFFFFFFFF) {
+            pair[i].vertexid = num_no_mat_vertex;
+            num_no_mat_vertex += 1;
+        }
+    }
+    total_vertices += num_no_mat_vertex;
+    printf("no mat vertices: %d\n", num_no_mat_vertex);
+    for(unsigned int i = 0; i < m3d->nummaterial; i += 1) {
+        total_vertices += num_vertex[i];
+        printf("mat %d vertices: %d\n", i, num_vertex[i]);
+    }
+    printf("total vertices: %d\n", total_vertices);
+
+    pe_temp_arena_memory_end(temp_arena_memory);
+
+
+    return model;
+}
+
+
 int main(int argc, char *argv[]) {
     pe_time_init();
     pe_net_init();
+
+    pe_arena_init_from_allocator(&temp_arena, pe_heap_allocator(), PE_MEGABYTES(4));
+
     pe_allocate_entities();
 
     glfwInit();
@@ -681,19 +873,22 @@ int main(int argc, char *argv[]) {
 
     ///////////////////
 
+    peModel model = pe_model_load("./res/model.m3d");
 
     peMesh mesh = pe_gen_mesh_cube(1.0f, 1.0f, 1.0f);
+    peMesh quad = pe_gen_mesh_quad(1.0f, 1.0f);
 
     peShaderConstant_Light *constant_light = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_light_buffer);
     constant_light->vector = (HMM_Vec3){ 1.0f, -1.0f, 1.0f };
     pe_shader_constant_end_map(directx_state.context, pe_shader_constant_light_buffer);
 
+    HMM_Vec3 camera_offset = { 0.0f, 3.0f, 3.0f };
     peCamera camera = {
-        .position = {0.0f, 3.0f, 3.0f},
         .target = {0.0f, 0.0f, 0.0f},
         .up = {0.0f, 1.0f, 0.0f},
         .fovy = 55.0f,
     };
+    camera.position = HMM_AddV3(camera.target, camera_offset);
 
     float look_angle = 0.0f;
 
@@ -704,6 +899,16 @@ int main(int argc, char *argv[]) {
 			pe_receive_packets();
 		}
 
+        for (int i = 0; i < MAX_ENTITY_COUNT; i += 1) {
+            peEntity *entity = &entities[i];
+            if (!entity->active) continue;
+
+            if (pe_entity_property_get(entity, peEntityProperty_OwnedByPlayer) && entity->client_index == client_index) {
+                camera.target = entity->position;
+                camera.position = HMM_AddV3(camera.target, camera_offset);
+            }
+        };
+
         pe_camera_update(camera);
 
         {
@@ -713,7 +918,8 @@ int main(int argc, char *argv[]) {
 
             HMM_Vec3 collision_point;
             if (pe_collision_ray_plane(ray, (HMM_Vec3){.Y = 1.0f}, 0.0f, &collision_point)) {
-                look_angle = atan2f(collision_point.X, collision_point.Z);
+                HMM_Vec3 relative_collision_point = HMM_SubV3(camera.target, collision_point);
+                look_angle = atan2f(relative_collision_point.X, relative_collision_point.Z);
             }
         }
 
@@ -789,10 +995,19 @@ int main(int argc, char *argv[]) {
 			peEntity *entity = &entities[e];
 			if (!entity->active) continue;
 
-			pe_draw_mesh(&mesh, entity->position, (HMM_Vec3){ .Y = entity->angle });
+            peMesh *entity_mesh = NULL;
+            switch (entity->mesh) {
+                case peEntityMesh_Cube: entity_mesh = &mesh; break;
+                case peEntityMesh_Quad: entity_mesh = &quad; break;
+                default: PE_PANIC(); break;
+            }
+
+			pe_draw_mesh(entity_mesh, entity->position, (HMM_Vec3){ .Y = entity->angle });
 		}
 
         IDXGISwapChain1_Present(directx_state.swapchain, 1, 0);
+
+        pe_free_all(pe_arena_allocator(&temp_arena));
     }
 
 

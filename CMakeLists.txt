@@ -21,7 +21,7 @@ if(WIN32)
         src/client/win32/win32_shader.c
     )
     target_include_directories(procyon PRIVATE src)
-    target_link_libraries(procyon shared glfw handmade-math)
+    target_link_libraries(procyon shared glfw handmade-math model3d)
 
     add_executable(server
         src/server/win32_main.c

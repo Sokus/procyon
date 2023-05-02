@@ -50,6 +50,8 @@ peSerializationError pe_serialize_entity(peBitStream *bs, peEntity *entity) {
         if (err) return err;
     }
 
+    err = pe_serialize_enum(bs, &entity->mesh, peEntityMesh_Count); if (err) return err;
+
     return err;
 }
 
