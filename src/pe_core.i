@@ -47,8 +47,7 @@ size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFla
         } break;
 
         case peAllocation_Resize: {
-            // TODO: Implementation
-            PE_UNIMPLEMENTED();
+            ptr = _aligned_realloc(old_memory, size, alignment);
         } break;
 
         default: break;
@@ -130,9 +129,6 @@ size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFla
             uintptr_t result_offset = (uintptr_t)arena->total_allocated + (uintptr_t)alignment_offset;
             ptr = (void *)((uintptr_t)arena->physical_start + result_offset);
             arena->total_allocated += allocation_size;
-            if (flags & peAllocatorFlag_ClearToZero) {
-                pe_zero_size(ptr, size);
-            }
         } break;
 
         case peAllocation_FreeAll: {

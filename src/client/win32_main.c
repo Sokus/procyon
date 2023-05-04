@@ -21,12 +21,22 @@
 
 #include "HandmadeMath.h"
 
+void *pe_m3d_malloc(size_t size);
+void  pe_m3d_free(void *ptr);
+void *pe_m3d_realloc(void *ptr, size_t new_size) { PE_PANIC(); return NULL; }
+
+// TODO: pe_realloc
+//#define M3D_MALLOC(sz) pe_m3d_malloc(sz)
+//#define M3D_FREE(ptr) pe_m3d_free(ptr)
+//#define M3D_REALLOC(p,nsz) pe_m3d_realloc(p, nsz)
+
 #define M3D_IMPLEMENTATION
 #include "m3d.h"
 
 #include <stdbool.h>
 #include <wchar.h>
 #include <stdio.h>
+#include <math.h>
 
 #include "win32/win32_shader.h"
 
@@ -45,6 +55,8 @@ struct peDirectXState {
     ID3D11RasterizerState *rasterizer_state;
     ID3D11SamplerState *sampler_state;
     ID3D11DepthStencilState *depth_stencil_state;
+
+    ID3D11ShaderResourceView *default_texture_view;
 } directx_state = {0};
 
 int window_width = 960;
@@ -54,70 +66,147 @@ ID3D11Buffer *pe_shader_constant_projection_buffer;
 ID3D11Buffer *pe_shader_constant_view_buffer;
 ID3D11Buffer *pe_shader_constant_model_buffer;
 ID3D11Buffer *pe_shader_constant_light_buffer;
+ID3D11Buffer *pe_shader_constant_material_buffer;
 
 static peArena temp_arena;
+
+//
+// TEXTURE
+//
+
+ID3D11ShaderResourceView *pe_texture_upload(void *data, unsigned width, unsigned height, int format) {
+    DXGI_FORMAT dxgi_format = DXGI_FORMAT_UNKNOWN;
+    int bytes_per_pixel = 0;
+    switch (format) {
+        case 1:
+            dxgi_format = DXGI_FORMAT_R8_UNORM;
+            bytes_per_pixel = 1;
+            break;
+        case 4:
+            dxgi_format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+            bytes_per_pixel = 4;
+            break;
+        default: PE_PANIC_MSG("Unsupported message format: %d\n", format); break;
+    }
+    D3D11_TEXTURE2D_DESC texture_desc = {
+        .Width = width,
+        .Height = height,
+        .MipLevels = 1,
+        .ArraySize = 1,
+        .Format = dxgi_format,
+        .SampleDesc = {
+            .Count = 1,
+        },
+        .Usage = D3D11_USAGE_IMMUTABLE,
+        .BindFlags = D3D11_BIND_SHADER_RESOURCE,
+    };
+    D3D11_SUBRESOURCE_DATA subresource_data = {
+        .pSysMem = data,
+        .SysMemPitch = bytes_per_pixel * width,
+    };
+    HRESULT hr;
+    ID3D11Texture2D *texture;
+    hr = ID3D11Device_CreateTexture2D(directx_state.device, &texture_desc, &subresource_data, &texture);
+    ID3D11ShaderResourceView *texture_view;
+    hr = ID3D11Device_CreateShaderResourceView(directx_state.device, (ID3D11Resource*)texture, NULL, &texture_view);
+    ID3D11Texture2D_Release(texture);
+    return texture_view;
+}
+
+ID3D11ShaderResourceView *pe_create_default_texture(void) {
+    uint32_t texture_data[1] = { 0xFFFFFFFF };
+    return pe_texture_upload(texture_data, 1, 1, 4);
+};
+
+ID3D11ShaderResourceView *pe_create_grid_texture(void) {
+    uint32_t texture_data[2*2] = {
+        0xFFFFFFFF, 0xFF7F7F7F,
+        0xFF7F7F7F, 0xFFFFFFFF,
+    };
+    return pe_texture_upload(texture_data, 2, 2, 4);
+}
+
+void pe_bind_texture(ID3D11ShaderResourceView *texture) {
+    ID3D11DeviceContext_PSSetShaderResources(directx_state.context, 0, 1, &texture);
+}
 
 //
 // MESH
 //
 
+typedef struct peColor {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+} peColor;
+
+#define PE_COLOR_WHITE (peColor){ 255, 255, 255, 255 }
+
+HMM_Vec4 pe_color_to_vec4(peColor color) {
+    HMM_Vec4 vec4 = {
+        .R = (float)color.r / 255.0f,
+        .G = (float)color.g / 255.0f,
+        .B = (float)color.b / 255.0f,
+        .A = (float)color.a / 255.0f,
+    };
+    return vec4;
+}
+
+peColor pe_color_uint32(uint32_t color_uint32) {
+    peColor color = {
+        .r = (uint8_t)((color_uint32 >>  0) & 0xFF),
+        .g = (uint8_t)((color_uint32 >>  8) & 0xFF),
+        .b = (uint8_t)((color_uint32 >> 16) & 0xFF),
+        .a = (uint8_t)((color_uint32 >> 24) & 0xFF),
+    };
+    return color;
+}
+
+
+typedef struct peMaterial {
+    bool has_diffuse;
+    peColor diffuse_color;
+    ID3D11ShaderResourceView *diffuse_map;
+} peMaterial;
+
+peMaterial pe_default_material(void) {
+    peMaterial material = {
+        .has_diffuse = false,
+        .diffuse_color = PE_COLOR_WHITE,
+        .diffuse_map = directx_state.default_texture_view,
+    };
+    return material;
+}
+
 typedef struct peMesh {
-    int vertex_count;
-    int index_count;
+    int num_vertex;
+    int num_index;
 
-    float *vertices;
-    float *normals;
-    float *texcoords;
-    uint32_t *colors;
-    uint32_t *indices;
-
-    ID3D11Buffer *position_buffer;
-    ID3D11Buffer *normal_buffer;
-    ID3D11Buffer *texcoord_buffer;
+    ID3D11Buffer *pos_buffer;
+    ID3D11Buffer *norm_buffer;
+    ID3D11Buffer *tex_buffer;
     ID3D11Buffer *color_buffer;
     ID3D11Buffer *index_buffer;
 } peMesh;
 
-void pe_upload_mesh(peMesh *mesh) {
-    D3D11_BUFFER_DESC vertex_buffer_desc = {
-        .Usage = D3D11_USAGE_IMMUTABLE,
-        .BindFlags = D3D11_BIND_VERTEX_BUFFER,
+ID3D11Buffer *pe_d3d11_create_buffer(void *data, UINT byte_width, D3D11_USAGE usage, UINT bind_flags) {
+    D3D11_BUFFER_DESC buffer_desc = {
+        .ByteWidth = byte_width,
+        .Usage = usage,
+        .BindFlags = bind_flags,
     };
-    HRESULT hr;
-    D3D11_SUBRESOURCE_DATA subresource_data;
-
-    UINT vertices_size = 3 * mesh->vertex_count * sizeof(float);
-    vertex_buffer_desc.ByteWidth = vertices_size;
-    subresource_data = (D3D11_SUBRESOURCE_DATA){ .pSysMem = mesh->vertices, .SysMemPitch = vertices_size };
-    hr = ID3D11Device_CreateBuffer(directx_state.device, &vertex_buffer_desc, &subresource_data, &mesh->position_buffer);
-
-    UINT texcoords_size = 2 * mesh->vertex_count * sizeof(float);
-    vertex_buffer_desc.ByteWidth = texcoords_size;
-    subresource_data = (D3D11_SUBRESOURCE_DATA){ .pSysMem = mesh->texcoords, .SysMemPitch = texcoords_size };
-    hr = ID3D11Device_CreateBuffer(directx_state.device, &vertex_buffer_desc, &subresource_data, &mesh->texcoord_buffer);
-
-    UINT normals_size = 3 * mesh->vertex_count * sizeof(float);
-    vertex_buffer_desc.ByteWidth = normals_size;
-    subresource_data = (D3D11_SUBRESOURCE_DATA){ .pSysMem = mesh->normals, .SysMemPitch = normals_size };
-    hr = ID3D11Device_CreateBuffer(directx_state.device, &vertex_buffer_desc, &subresource_data, &mesh->normal_buffer);
-
-    UINT colors_size = mesh->vertex_count * sizeof(uint32_t);
-    vertex_buffer_desc.ByteWidth = colors_size;
-    subresource_data = (D3D11_SUBRESOURCE_DATA){ .pSysMem = mesh->colors, .SysMemPitch = colors_size };
-    hr = ID3D11Device_CreateBuffer(directx_state.device, &vertex_buffer_desc, &subresource_data, &mesh->color_buffer);
-
-    UINT indices_size = mesh->index_count * sizeof(uint32_t);
-    D3D11_BUFFER_DESC index_buffer_desc = {
-        .Usage = D3D11_USAGE_IMMUTABLE,
-        .BindFlags = D3D11_BIND_INDEX_BUFFER,
-        .ByteWidth = indices_size,
+    D3D11_SUBRESOURCE_DATA subresource_data = {
+        .pSysMem = data,
+        .SysMemPitch = byte_width,
     };
-    subresource_data = (D3D11_SUBRESOURCE_DATA){ .pSysMem = mesh->indices, .SysMemPitch = indices_size };
-    hr = ID3D11Device_CreateBuffer(directx_state.device, &index_buffer_desc, &subresource_data, &mesh->index_buffer);
+    ID3D11Buffer *buffer = NULL;
+    HRESULT hr = ID3D11Device_CreateBuffer(directx_state.device, &buffer_desc, &subresource_data, &buffer);
+    return buffer;
 }
 
 peMesh pe_gen_mesh_cube(float width, float height, float length) {
-    float vertices[] = {
+    float pos[] = {
 		-width/2.0f, -height/2.0f,  length/2.0f,
 		 width/2.0f, -height/2.0f,  length/2.0f,
 		 width/2.0f,  height/2.0f,  length/2.0f,
@@ -144,7 +233,7 @@ peMesh pe_gen_mesh_cube(float width, float height, float length) {
 		-width/2.0f,  height/2.0f, -length/2.0f,
     };
 
-    float normals[] = {
+    float norm[] = {
 		 0.0, 0.0, 1.0,  0.0, 0.0, 1.0,  0.0, 0.0, 1.0,  0.0, 0.0, 1.0,
 		 0.0, 0.0,-1.0,  0.0, 0.0,-1.0,  0.0, 0.0,-1.0,  0.0, 0.0,-1.0,
 		 0.0, 1.0, 0.0,  0.0, 1.0, 0.0,  0.0, 1.0, 0.0,  0.0, 1.0, 0.0,
@@ -153,7 +242,7 @@ peMesh pe_gen_mesh_cube(float width, float height, float length) {
 		-1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0,
     };
 
-    float texcoords[] = {
+    float tex[] = {
 		0.0, 0.0,  1.0, 0.0,  1.0, 1.0,  0.0, 1.0,
 		1.0, 0.0,  1.0, 1.0,  0.0, 1.0,  0.0, 0.0,
 		0.0, 1.0,  0.0, 0.0,  1.0, 0.0,  1.0, 1.0,
@@ -162,12 +251,12 @@ peMesh pe_gen_mesh_cube(float width, float height, float length) {
 		0.0, 0.0,  1.0, 0.0,  1.0, 1.0,  0.0, 1.0,
     };
 
-    uint32_t colors[24];
-    for (int i = 0; i < PE_COUNT_OF(colors); i += 1) {
-        colors[i] = 0xffffffff;
+    uint32_t color[24];
+    for (int i = 0; i < PE_COUNT_OF(color); i += 1) {
+        color[i] = 0xffffffff;
     }
 
-    uint32_t indices[] = {
+    uint32_t index[] = {
 		0,  1,  2,  0,  2,  3,
 		4,  5,  6,  4,  6,  7,
 		8,  9, 10,  8, 10, 11,
@@ -177,31 +266,20 @@ peMesh pe_gen_mesh_cube(float width, float height, float length) {
     };
 
     peMesh mesh = {0};
-    mesh.vertices = pe_alloc(pe_heap_allocator(), sizeof(vertices));
-    memcpy(mesh.vertices, vertices, sizeof(vertices));
-
-    mesh.normals = pe_alloc(pe_heap_allocator(), sizeof(normals));
-    memcpy(mesh.normals, normals, sizeof(normals));
-
-    mesh.texcoords = pe_alloc(pe_heap_allocator(), sizeof(texcoords));
-    memcpy(mesh.texcoords, texcoords, sizeof(texcoords));
-
-    mesh.colors = pe_alloc(pe_heap_allocator(), sizeof(colors));
-    memcpy(mesh.colors, colors, sizeof(colors));
-
-    mesh.indices = pe_alloc(pe_heap_allocator(), sizeof(indices));
-    memcpy(mesh.indices, indices, sizeof(indices));
-
-    mesh.vertex_count = PE_COUNT_OF(vertices) / 3;
-    mesh.index_count = PE_COUNT_OF(indices);
-
-    pe_upload_mesh(&mesh);
-
+    int num_vertex = PE_COUNT_OF(pos)/3;
+    int num_index = PE_COUNT_OF(index);
+    mesh.pos_buffer = pe_d3d11_create_buffer(pos, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.norm_buffer = pe_d3d11_create_buffer(norm, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.tex_buffer = pe_d3d11_create_buffer(tex, 2*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.color_buffer = pe_d3d11_create_buffer(color, num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.index_buffer = pe_d3d11_create_buffer(index, num_index*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER);
+    mesh.num_vertex = num_vertex;
+    mesh.num_index = num_index;
     return mesh;
 }
 
 peMesh pe_gen_mesh_quad(float width, float length) {
-	float vertices[] = {
+	float pos[] = {
 		-width/2.0f, 0.0f, -length/2.0f,
 		-width/2.0f, 0.0f,  length/2.0f,
 		 width/2.0f, 0.0f, -length/2.0f,
@@ -209,53 +287,42 @@ peMesh pe_gen_mesh_quad(float width, float length) {
 	};
 
 
-    float normals[] = {
+    float norm[] = {
 		0.0, 1.0, 0.0,  0.0, 1.0, 0.0,  0.0, 1.0, 0.0,
 		0.0, 1.0, 0.0,  0.0, 1.0, 0.0,  0.0, 1.0, 0.0,
     };
 
-	float texcoords[] = {
+	float tex[] = {
 		0.0f, 0.0f,
 		0.0f, 1.0f,
 		1.0f, 0.0f,
 		1.0f, 1.0f,
 	};
 
-    uint32_t colors[6];
-    for (int i = 0; i < PE_COUNT_OF(colors); i += 1) {
-        colors[i] = 0xffffffff;
+    uint32_t color[6];
+    for (int i = 0; i < PE_COUNT_OF(color); i += 1) {
+        color[i] = 0xffffffff;
     }
 
-	uint32_t indices[] = {
+	uint32_t index[] = {
 		0, 1, 2,
 		1, 3, 2
 	};
 
     peMesh mesh = {0};
-    mesh.vertices = pe_alloc(pe_heap_allocator(), sizeof(vertices));
-    memcpy(mesh.vertices, vertices, sizeof(vertices));
-
-    mesh.normals = pe_alloc(pe_heap_allocator(), sizeof(normals));
-    memcpy(mesh.normals, normals, sizeof(normals));
-
-    mesh.texcoords = pe_alloc(pe_heap_allocator(), sizeof(texcoords));
-    memcpy(mesh.texcoords, texcoords, sizeof(texcoords));
-
-    mesh.colors = pe_alloc(pe_heap_allocator(), sizeof(colors));
-    memcpy(mesh.colors, colors, sizeof(colors));
-
-    mesh.indices = pe_alloc(pe_heap_allocator(), sizeof(indices));
-    memcpy(mesh.indices, indices, sizeof(indices));
-
-    mesh.vertex_count = PE_COUNT_OF(vertices) / 3;
-    mesh.index_count = PE_COUNT_OF(indices);
-
-    pe_upload_mesh(&mesh);
-
+    int num_vertex = PE_COUNT_OF(pos)/3;
+    int num_index = PE_COUNT_OF(index);
+    mesh.pos_buffer = pe_d3d11_create_buffer(pos, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.norm_buffer = pe_d3d11_create_buffer(norm, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.tex_buffer = pe_d3d11_create_buffer(tex, 2*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.color_buffer = pe_d3d11_create_buffer(color, num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.index_buffer = pe_d3d11_create_buffer(index, num_index*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER);
+    mesh.num_vertex = num_vertex;
+    mesh.num_index = num_index;
     return mesh;
 }
 
-void pe_draw_mesh(peMesh *mesh, HMM_Vec3 position, HMM_Vec3 rotation) {
+void pe_draw_mesh(peMesh *mesh, peMaterial material, HMM_Vec3 position, HMM_Vec3 rotation) {
     HMM_Mat4 rotate_x = HMM_Rotate_RH(rotation.X, (HMM_Vec3){1.0f, 0.0f, 0.0f});
     HMM_Mat4 rotate_y = HMM_Rotate_RH(rotation.Y, (HMM_Vec3){0.0f, 1.0f, 0.0f});
     HMM_Mat4 rotate_z = HMM_Rotate_RH(rotation.Z, (HMM_Vec3){0.0f, 0.0f, 1.0f});
@@ -266,10 +333,17 @@ void pe_draw_mesh(peMesh *mesh, HMM_Vec3 position, HMM_Vec3 rotation) {
     constant_model->matrix = model_matrix;
     pe_shader_constant_end_map(directx_state.context, pe_shader_constant_model_buffer);
 
+    peShaderConstant_Material *constant_material = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_material_buffer);
+    constant_material->has_diffuse = material.has_diffuse;
+    constant_material->diffuse_color = pe_color_to_vec4(material.diffuse_color);
+    pe_shader_constant_end_map(directx_state.context, pe_shader_constant_material_buffer);
+
+    pe_bind_texture(material.diffuse_map);
+
     ID3D11Buffer *vertex_buffers[] = {
-        mesh->position_buffer,
-        mesh->normal_buffer,
-        mesh->texcoord_buffer,
+        mesh->pos_buffer,
+        mesh->norm_buffer,
+        mesh->tex_buffer,
         mesh->color_buffer,
     };
     uint32_t vertex_buffer_strides[] = {
@@ -286,46 +360,7 @@ void pe_draw_mesh(peMesh *mesh, HMM_Vec3 position, HMM_Vec3 rotation) {
         vertex_buffers, vertex_buffer_strides, vertex_buffer_offsets);
     ID3D11DeviceContext_IASetIndexBuffer(directx_state.context, mesh->index_buffer, DXGI_FORMAT_R32_UINT, 0);
 
-    ID3D11DeviceContext_DrawIndexed(directx_state.context, mesh->index_count, 0, 0);
-}
-
-//
-// TEXTURE
-//
-
-ID3D11ShaderResourceView *pe_create_default_texture(void) {
-    uint32_t texture_data[2*2] = {
-        0xFFFFFFFF, 0xFF7F7F7F,
-        0xFF7F7F7F, 0xFFFFFFFF,
-    };
-    D3D11_TEXTURE2D_DESC texture_desc = {
-        .Width = 2,
-        .Height = 2,
-        .MipLevels = 1,
-        .ArraySize = 1,
-        .Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
-        .SampleDesc = {
-            .Count = 1,
-        },
-        .Usage = D3D11_USAGE_IMMUTABLE,
-        .BindFlags = D3D11_BIND_SHADER_RESOURCE,
-    };
-    D3D11_SUBRESOURCE_DATA subresource_data = {
-        .pSysMem = texture_data,
-        .SysMemPitch = 2 * sizeof(uint32_t),
-    };
-
-    HRESULT hr;
-    ID3D11Texture2D *texture;
-    hr = ID3D11Device_CreateTexture2D(directx_state.device, &texture_desc, &subresource_data, &texture);
-    ID3D11ShaderResourceView *texture_view;
-    hr = ID3D11Device_CreateShaderResourceView(directx_state.device, (ID3D11Resource*)texture, NULL, &texture_view);
-    ID3D11Texture2D_Release(texture);
-    return texture_view;
-}
-
-void pe_bind_texture(ID3D11ShaderResourceView *texture) {
-    ID3D11DeviceContext_PSSetShaderResources(directx_state.context, 0, 1, &texture);
+    ID3D11DeviceContext_DrawIndexed(directx_state.context, mesh->num_index, 0, 0);
 }
 
 //
@@ -396,21 +431,12 @@ void glfw_framebuffer_size_proc(GLFWwindow *window, int width, int height) {
     window_height = height;
 }
 
-typedef struct peColor {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-    uint8_t a;
-} peColor;
-
-#include <math.h>
-
 void pe_clear_background(peColor color) {
     float r = (float)color.r / 255.0f;
     float g = (float)color.g / 255.0f;
     float b = (float)color.b / 255.0f;
 
-    // FIXME: this is a hack, render a sprite to get exact background color
+    // FIXME: render a sprite to get exact background color
     FLOAT clear_color[4] = { powf(r, 2.0f), powf(g, 2.0f), powf(b, 2.0f), 1.0f };
     ID3D11DeviceContext_ClearRenderTargetView(directx_state.context, directx_state.render_target_view, clear_color);
     ID3D11DeviceContext_ClearDepthStencilView(directx_state.context, directx_state.depth_stencil_view, D3D11_CLEAR_DEPTH, 1, 0);
@@ -650,76 +676,259 @@ static bool pe_collision_ray_plane(peRay ray, HMM_Vec3 plane_normal, float plane
 // MODELS
 //
 
+static char *pe_m3d_current_path = NULL;
+static peAllocator m3d_allocator = {0};
 
+void *pe_m3d_malloc(size_t size) {
+    return pe_alloc(m3d_allocator, size);
+};
 
-unsigned char *pe_m3d_read_callback(char *filename, unsigned int *size) {
-    printf("m3d read: %s\n", filename);
-    return NULL;
+void pe_m3d_free(void *ptr) {
+    pe_free(m3d_allocator, ptr);
 }
 
+unsigned char *pe_m3d_read_callback(char *filename, unsigned int *size) {
+    char file_path[512] = "\0";
+    int file_path_length = 0;
+    if (pe_m3d_current_path != NULL) {
+        int one_past_last_slash_offset = 0;
+        for (int i = 0; i < PE_COUNT_OF(file_path)-1; i += 1) {
+            if (pe_m3d_current_path[i] == '\0') break;
+            if (pe_m3d_current_path[i] == '/') {
+                one_past_last_slash_offset = i + 1;
+            }
+        }
+        memcpy(file_path, pe_m3d_current_path, one_past_last_slash_offset);
+        file_path_length += one_past_last_slash_offset;
+    }
+    strcat_s(file_path+file_path_length, sizeof(file_path)-file_path_length-1, filename);
+
+    printf("M3D read callback: %s\n", file_path);
+    peFileContents file_contents = pe_file_read_contents(m3d_allocator, file_path, false);
+    *size = (unsigned int)file_contents.size;
+    return file_contents.data;
+}
+
+
 typedef struct peModel {
+    peArena arena;
+
+    int num_vertex;
     int num_mesh;
-    peMesh *mesh;
+    int *num_index;
+    int *index_offset;
+
+    peMaterial *material;
+
+    ID3D11Buffer *pos_buffer;
+    ID3D11Buffer *norm_buffer;
+    ID3D11Buffer *tex_buffer;
+    ID3D11Buffer *color_buffer;
+    ID3D11Buffer *index_buffer;
 } peModel;
 
 peModel pe_model_load(char *file_path) {
-    peModel model = {0};
-
-    peFileContents m3d_data = pe_file_read_contents(pe_heap_allocator(), file_path, false);
-    m3d_t *m3d = m3d_load(m3d_data.data, pe_m3d_read_callback, NULL, NULL);
-
-    //model.mesh.vertex_count = m3d->numvertex;
-    //model.mesh.index_count = 3*m3d->numface;
-
-    /*
-    model.mesh.vertices = pe_alloc(pe_heap_allocator(), 3*m3d->numvertex*sizeof(float));
-    model.mesh.normals = pe_alloc(pe_heap_allocator(), 3*m3d->numvertex*sizeof(float));
-    model.mesh.texcoords = pe_alloc(pe_heap_allocator(), 2*m3d->numvertex*sizeof(float));
-    model.mesh.colors = pe_alloc(pe_heap_allocator(), m3d->numvertex*sizeof(uint32_t));
-    model.mesh.indices = pe_alloc(pe_heap_allocator(), 3*m3d->numface*sizeof(uint32_t));
-    */
     peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(&temp_arena);
     peAllocator temp_allocator = pe_arena_allocator(&temp_arena);
+    m3d_allocator = temp_allocator;
 
-    int *num_vertex = pe_alloc(temp_allocator, m3d->nummaterial*sizeof(int));
-    pe_zero_size(num_vertex, m3d->nummaterial*sizeof(int));
-    int num_no_mat_vertex = 0;
-    int total_vertices = 0;
+    pe_m3d_current_path = file_path;
+    peFileContents m3d_data = pe_file_read_contents(temp_allocator, file_path, false);
+    m3d_t *m3d = m3d_load(m3d_data.data, pe_m3d_read_callback, NULL, NULL);
 
-    struct peMaterialVertexPair {
-        uint32_t materialid;
-        uint32_t vertexid;
-    };
-    struct peMaterialVertexPair *pair = pe_alloc(pe_arena_allocator(&temp_arena), m3d->numvertex*sizeof(struct peMaterialVertexPair));
-    for (unsigned int i = 0; i < m3d->numvertex; i += 1) {
-        pair[i].materialid = 0xFFFFFFFE;
-    }
-    for (unsigned int f = 0; f < m3d->numface; f += 1) {
+    M3D_INDEX min_index = M3D_INDEXMAX;
+    M3D_INDEX max_index = 0;
+    bool missing_material = false;
+    for (M3D_INDEX f = 0; f < m3d->numface; f += 1) {
         for (int v = 0; v < 3; v += 1) {
-            pair[m3d->face[f].vertex[v]].materialid = m3d->face[f].materialid;
+            min_index = PE_MIN(min_index, m3d->face[f].vertex[v]);
+            min_index = PE_MIN(min_index, m3d->face[f].normal[v]);
+            max_index = PE_MAX(max_index, m3d->face[f].vertex[v]);
+            max_index = PE_MAX(max_index, m3d->face[f].normal[v]);
+        }
+        if (m3d->face[f].materialid == M3D_UNDEF) {
+            missing_material = true;
         }
     }
-    for (unsigned int i = 0; i < m3d->numvertex; i += 1) {
-        if (pair[i].materialid < 0xFFFFFFFE) {
-            pair[i].vertexid = num_vertex[pair[i].materialid];
-            num_vertex[pair[i].materialid] += 1;
-        } else if (pair[i].materialid == 0xFFFFFFFF) {
-            pair[i].vertexid = num_no_mat_vertex;
-            num_no_mat_vertex += 1;
+
+    peModel model = {0};
+    model.num_mesh = missing_material ? m3d->nummaterial+1 : m3d->nummaterial;
+    model.num_vertex = (max_index-min_index)/2 + 1;
+    int num_index = 3*m3d->numface;
+
+    size_t num_index_size = model.num_mesh*sizeof(int);
+    size_t index_offset_size = model.num_mesh*sizeof(int);
+    size_t material_size = model.num_mesh*sizeof(peMaterial);
+
+    size_t estimated_memory_size = num_index_size + index_offset_size + material_size + 2*(PE_DEFAULT_MEMORY_ALIGNMENT-1);
+    pe_arena_init_from_allocator(&model.arena, pe_heap_allocator(), estimated_memory_size);
+    peAllocator model_allocator = pe_arena_allocator(&model.arena);
+
+    model.num_index = pe_alloc(model_allocator, num_index_size);
+    pe_zero_size(model.num_index, num_index_size);
+    model.index_offset = pe_alloc(model_allocator, index_offset_size);
+
+    model.material = pe_alloc(model_allocator, material_size);
+    for (int i = 0; i < model.num_mesh; i += 1) {
+        model.material[i] = pe_default_material();
+    }
+
+    for (M3D_INDEX m = 0; m < m3d->nummaterial; m += 1) {
+        printf("[%d] name: %s, numprops: %u\n", m, m3d->material[m].name, m3d->material[m].numprop);
+        int num_ignored_prop = 0;
+        for (M3D_INDEX p = 0; p < m3d->material[m].numprop; p += 1) {
+            uint8_t type = m3d->material[m].prop[p].type;
+            switch(type) {
+                case m3dp_Kd: {
+                    model.material[m].has_diffuse = true;
+                    model.material[m].diffuse_color = pe_color_uint32(m3d->material[m].prop[p].value.color);
+                } break;
+
+                case m3dp_map_Kd: { /* diffuse map */
+                    m3dtx_t *m3d_texture = &m3d->texture[m3d->material[m].prop[p].value.textureid];
+                    void *data;
+                    int format;
+                    if (m3d_texture->f == 3) {
+                        uint32_t *data_uint32 = pe_alloc(temp_allocator, m3d_texture->w * m3d_texture->h * sizeof(uint32_t));
+                        for (int y = 0; y < m3d_texture->h; y += 1) {
+                            for (int x = 0; x < m3d_texture->w; x += 1) {
+                                int m3d_data_offset = (y*m3d_texture->w+x)*3;
+                                uint32_t m3d_r = (uint32_t)m3d_texture->d[m3d_data_offset];
+                                uint32_t m3d_g = (uint32_t)m3d_texture->d[m3d_data_offset + 1];
+                                uint32_t m3d_b = (uint32_t)m3d_texture->d[m3d_data_offset + 2];
+                                data_uint32[y*m3d_texture->w + x] = m3d_r | m3d_g << 8 | m3d_b << 16 | 0xFF << 24;
+                            }
+                        }
+                        data = data_uint32;
+                        format = 4;
+                    } else {
+                        data = m3d_texture->d;
+                        format = m3d_texture->f;
+                    }
+                    model.material[m].diffuse_map = pe_texture_upload(data, m3d_texture->w, m3d_texture->h, format);
+                } break;
+
+                // UNUSED PROPERTIES
+                case m3dp_Ka: { uint32_t ambient = m3d->material[m].prop[p].value.color; } break;
+                case m3dp_Ks: { uint32_t specular = m3d->material[m].prop[p].value.color; } break;
+                case m3dp_Pr: { float roughness = m3d->material[m].prop[p].value.fnum; } break;
+                case m3dp_Pm: { float metallic = m3d->material[m].prop[p].value.fnum; } break;
+                case m3dp_Ni: { float refraction = m3d->material[m].prop[p].value.fnum; } break;
+
+                // IGNORED PROPERTIES
+                case m3dp_Km:     // [6] bump
+                case m3dp_d:      // [7] dissolve (obsolete)
+                case m3dp_il:     // [8] illumination model
+                case m3dp_map_Km: // [134] bump map
+                case m3dp_map_D:  // [135] disolve map (obsolete)
+                    num_ignored_prop += 1;
+                    break;
+                default: printf("    [%d] unknown\n", type); break;
+            }
         }
     }
-    total_vertices += num_no_mat_vertex;
-    printf("no mat vertices: %d\n", num_no_mat_vertex);
-    for(unsigned int i = 0; i < m3d->nummaterial; i += 1) {
-        total_vertices += num_vertex[i];
-        printf("mat %d vertices: %d\n", i, num_vertex[i]);
+
+    float *pos = pe_alloc(temp_allocator, 3*model.num_vertex*sizeof(float));
+    float *norm = pe_alloc(temp_allocator, 3*model.num_vertex*sizeof(float));
+    float *tex = pe_alloc(temp_allocator, 2*model.num_vertex*sizeof(float));
+    uint32_t *color = pe_alloc(temp_allocator, model.num_vertex*sizeof(uint32_t));
+    uint32_t *index = pe_alloc(temp_allocator, num_index*sizeof(uint32_t));
+
+    int index_offset = 0;
+    M3D_INDEX mesh_index = 0;
+    int material_id = 0;
+    while(true) {
+        if (mesh_index == m3d->nummaterial) {
+            if (missing_material) {
+                material_id = M3D_UNDEF;
+            } else {
+                break;
+            }
+        } else if (mesh_index > m3d->nummaterial) {
+            break;
+        } else {
+            material_id = mesh_index;
+        }
+
+        model.index_offset[mesh_index] = index_offset;
+        for (M3D_INDEX f = 0; f < m3d->numface; f += 1) {
+            if (m3d->face[f].materialid == material_id) {
+                for (int v = 0; v < 3; v += 1) {
+                    int m3d_vertex_index = m3d->face[f].vertex[v];
+                    int m3d_normal_index = m3d->face[f].normal[v];
+                    int our_vertex_index = (m3d_vertex_index-min_index+1)/2;
+                    pos[3*our_vertex_index + 0] = m3d->vertex[m3d_vertex_index].x * m3d->scale;
+                    pos[3*our_vertex_index + 1] = m3d->vertex[m3d_vertex_index].y * m3d->scale;
+                    pos[3*our_vertex_index + 2] = m3d->vertex[m3d_vertex_index].z * m3d->scale;
+                    norm[3*our_vertex_index + 0] = m3d->vertex[m3d_normal_index].x;
+                    norm[3*our_vertex_index + 1] = m3d->vertex[m3d_normal_index].y;
+                    norm[3*our_vertex_index + 2] = m3d->vertex[m3d_normal_index].z;
+                    if (m3d->face[f].texcoord[0] != M3D_UNDEF) {
+                        tex[2*our_vertex_index + 0] = m3d->tmap[m3d->face[f].texcoord[v]].u;
+                        tex[2*our_vertex_index + 1] = 1.0f - m3d->tmap[m3d->face[f].texcoord[v]].v;
+                    }
+                    color[our_vertex_index] = m3d->vertex[m3d_vertex_index].color;
+                    index[index_offset] = our_vertex_index;
+                    index_offset += 1;
+                    model.num_index[mesh_index] += 1;
+                }
+            }
+        }
+        mesh_index += 1;
     }
-    printf("total vertices: %d\n", total_vertices);
+
+    m3d_free(m3d);
+
+    model.pos_buffer = pe_d3d11_create_buffer(pos, 3*model.num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    model.norm_buffer = pe_d3d11_create_buffer(norm, 3*model.num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    model.tex_buffer = pe_d3d11_create_buffer(tex, 2*model.num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    model.color_buffer = pe_d3d11_create_buffer(color, model.num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    model.index_buffer = pe_d3d11_create_buffer(index, num_index*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER);
 
     pe_temp_arena_memory_end(temp_arena_memory);
 
-
     return model;
+}
+
+void pe_draw_model(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
+    HMM_Mat4 rotate_x = HMM_Rotate_RH(rotation.X, (HMM_Vec3){1.0f, 0.0f, 0.0f});
+    HMM_Mat4 rotate_y = HMM_Rotate_RH(rotation.Y, (HMM_Vec3){0.0f, 1.0f, 0.0f});
+    HMM_Mat4 rotate_z = HMM_Rotate_RH(rotation.Z, (HMM_Vec3){0.0f, 0.0f, 1.0f});
+    HMM_Mat4 translate = HMM_Translate(position);
+
+    HMM_Mat4 model_matrix = HMM_MulM4(HMM_MulM4(HMM_MulM4(translate, rotate_z), rotate_y), rotate_x);
+    peShaderConstant_Model *constant_model = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_model_buffer);
+    constant_model->matrix = model_matrix;
+    pe_shader_constant_end_map(directx_state.context, pe_shader_constant_model_buffer);
+
+    ID3D11Buffer *buffs[] = {
+        model->pos_buffer,
+        model->norm_buffer,
+        model->tex_buffer,
+        model->color_buffer,
+    };
+    uint32_t strides[] = {
+        3*sizeof(float),
+        3*sizeof(float),
+        2*sizeof(float),
+        sizeof(uint32_t),
+    };
+    uint32_t offsets[4] = {0, 0, 0, 0};
+
+    ID3D11DeviceContext_IASetPrimitiveTopology(directx_state.context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    ID3D11DeviceContext_IASetInputLayout(directx_state.context, directx_state.input_layout);
+    ID3D11DeviceContext_IASetVertexBuffers(directx_state.context, 0, 4, buffs, strides, offsets);
+    ID3D11DeviceContext_IASetIndexBuffer(directx_state.context, model->index_buffer, DXGI_FORMAT_R32_UINT, 0);
+
+    for (int m = 0; m < model->num_mesh; m += 1) {
+        peShaderConstant_Material *constant_material = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_material_buffer);
+        constant_material->has_diffuse = model->material[m].has_diffuse;
+        constant_material->diffuse_color = pe_color_to_vec4(model->material[m].diffuse_color);
+        pe_bind_texture(model->material[m].diffuse_map);
+        pe_shader_constant_end_map(directx_state.context, pe_shader_constant_material_buffer);
+
+        ID3D11DeviceContext_DrawIndexed(directx_state.context, model->num_index[m], model->index_offset[m], 0);
+    }
 }
 
 
@@ -727,7 +936,7 @@ int main(int argc, char *argv[]) {
     pe_time_init();
     pe_net_init();
 
-    pe_arena_init_from_allocator(&temp_arena, pe_heap_allocator(), PE_MEGABYTES(4));
+    pe_arena_init_from_allocator(&temp_arena, pe_heap_allocator(), PE_MEGABYTES(128));
 
     pe_allocate_entities();
 
@@ -859,10 +1068,11 @@ int main(int argc, char *argv[]) {
     pe_shader_constant_buffer_init(directx_state.device, sizeof(peShaderConstant_View), &pe_shader_constant_view_buffer);
     pe_shader_constant_buffer_init(directx_state.device, sizeof(peShaderConstant_Model), &pe_shader_constant_model_buffer);
     pe_shader_constant_buffer_init(directx_state.device, sizeof(peShaderConstant_Light), &pe_shader_constant_light_buffer);
+    pe_shader_constant_buffer_init(directx_state.device, sizeof(peShaderConstant_Material), &pe_shader_constant_material_buffer);
 
     d3d11_set_viewport(window_width, window_height);
 
-    ID3D11ShaderResourceView *default_texture_view = pe_create_default_texture();
+    directx_state.default_texture_view = pe_create_default_texture();
 
     ///////////////////
 
@@ -873,7 +1083,7 @@ int main(int argc, char *argv[]) {
 
     ///////////////////
 
-    peModel model = pe_model_load("./res/model.m3d");
+    peModel model = pe_model_load("./res/ybot.m3d");
 
     peMesh mesh = pe_gen_mesh_cube(1.0f, 1.0f, 1.0f);
     peMesh quad = pe_gen_mesh_quad(1.0f, 1.0f);
@@ -882,7 +1092,12 @@ int main(int argc, char *argv[]) {
     constant_light->vector = (HMM_Vec3){ 1.0f, -1.0f, 1.0f };
     pe_shader_constant_end_map(directx_state.context, pe_shader_constant_light_buffer);
 
-    HMM_Vec3 camera_offset = { 0.0f, 3.0f, 3.0f };
+    peShaderConstant_Material *constant_material = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_material_buffer);
+    constant_material->has_diffuse = true;
+    constant_material->diffuse_color = HMM_V4(0.0f, 0.0f, 255.0f, 255.0f);
+    pe_shader_constant_end_map(directx_state.context, pe_shader_constant_material_buffer);
+
+    HMM_Vec3 camera_offset = { 0.0f, 0.7f, 1.0f };
     peCamera camera = {
         .target = {0.0f, 0.0f, 0.0f},
         .up = {0.0f, 1.0f, 0.0f},
@@ -904,7 +1119,7 @@ int main(int argc, char *argv[]) {
             if (!entity->active) continue;
 
             if (pe_entity_property_get(entity, peEntityProperty_OwnedByPlayer) && entity->client_index == client_index) {
-                camera.target = entity->position;
+                camera.target = HMM_AddV3(entity->position, HMM_V3(0.0f, 0.7f, 0.0f));
                 camera.position = HMM_AddV3(camera.target, camera_offset);
             }
         };
@@ -972,19 +1187,20 @@ int main(int argc, char *argv[]) {
         pe_clear_background((peColor){ 20, 20, 20, 255 });
 
         ID3D11DeviceContext_VSSetShader(directx_state.context, directx_state.vertex_shader, NULL, 0);
+        ID3D11DeviceContext_PSSetShader(directx_state.context, directx_state.pixel_shader, NULL, 0);
 
         ID3D11Buffer *constant_buffers[] = {
             pe_shader_constant_projection_buffer,
             pe_shader_constant_view_buffer,
             pe_shader_constant_model_buffer,
             pe_shader_constant_light_buffer,
+            pe_shader_constant_material_buffer,
         };
         ID3D11DeviceContext_VSSetConstantBuffers(directx_state.context, 0, PE_COUNT_OF(constant_buffers), constant_buffers);
 
         ID3D11DeviceContext_RSSetState(directx_state.context, directx_state.rasterizer_state);
 
-        ID3D11DeviceContext_PSSetShader(directx_state.context, directx_state.pixel_shader, NULL, 0);
-        pe_bind_texture(default_texture_view);
+        pe_bind_texture(directx_state.default_texture_view);
         ID3D11DeviceContext_PSSetSamplers(directx_state.context, 0, 1, &directx_state.sampler_state);
 
         ID3D11DeviceContext_OMSetRenderTargets(directx_state.context, 1, &directx_state.render_target_view, directx_state.depth_stencil_view);
@@ -995,14 +1211,11 @@ int main(int argc, char *argv[]) {
 			peEntity *entity = &entities[e];
 			if (!entity->active) continue;
 
-            peMesh *entity_mesh = NULL;
-            switch (entity->mesh) {
-                case peEntityMesh_Cube: entity_mesh = &mesh; break;
-                case peEntityMesh_Quad: entity_mesh = &quad; break;
-                default: PE_PANIC(); break;
+            if (entity->mesh == peEntityMesh_Cube) {
+                pe_draw_model(&model, entity->position, (HMM_Vec3){ .Y = entity->angle });
+            } else if (entity->mesh == peEntityMesh_Quad) {
+                //pe_draw_mesh(&quad, entity->position, (HMM_Vec3){ .Y = entity->angle });
             }
-
-			pe_draw_mesh(entity_mesh, entity->position, (HMM_Vec3){ .Y = entity->angle });
 		}
 
         IDXGISwapChain1_Present(directx_state.swapchain, 1, 0);

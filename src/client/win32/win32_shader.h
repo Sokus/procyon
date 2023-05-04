@@ -19,9 +19,14 @@ typedef __declspec(align(16)) struct peShaderConstant_Model {
     HMM_Mat4 matrix;
 } peShaderConstant_Model;
 
-typedef __declspec(align(16)) struct peShaderConstant_Light  {
+typedef __declspec(align(16)) struct peShaderConstant_Light {
     HMM_Vec3 vector;
 } peShaderConstant_Light;
+
+typedef __declspec(align(16)) struct peShaderConstant_Material {
+    bool has_diffuse;
+    HMM_Vec4 diffuse_color;
+} peShaderConstant_Material;
 
 typedef struct ID3D11DeviceContext ID3D11DeviceContext;
 typedef struct ID3D11Buffer ID3D11Buffer;

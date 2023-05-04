@@ -18,6 +18,11 @@ cbuffer constant_light : register(b3)
     float3 lightvector;
 }
 
+cbuffer constant_material : register(b4) {
+    bool has_diffuse;
+    float4 diffuse_color;
+}
+
 struct vs_in
 {
     float3 position : POS;
@@ -44,7 +49,8 @@ vs_out vs_main(vs_in input)
     vs_out output;
     output.position = mul(projection, float4(input.position, 1.0f));
     output.texcoord = input.texcoord;
-    output.color    = float4(input.color * light, 1.0f);
+    float4 base_color = has_diffuse ? diffuse_color : float4(input.color, 1.0f);
+    output.color    = base_color * light;
 
     return output;
 }
