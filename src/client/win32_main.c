@@ -23,12 +23,7 @@
 
 void *pe_m3d_malloc(size_t size);
 void  pe_m3d_free(void *ptr);
-void *pe_m3d_realloc(void *ptr, size_t new_size) { PE_PANIC(); return NULL; }
-
-// TODO: pe_realloc
-//#define M3D_MALLOC(sz) pe_m3d_malloc(sz)
-//#define M3D_FREE(ptr) pe_m3d_free(ptr)
-//#define M3D_REALLOC(p,nsz) pe_m3d_realloc(p, nsz)
+void *pe_m3d_realloc(void *ptr, size_t new_size);
 
 #define M3D_IMPLEMENTATION
 #include "m3d.h"
@@ -677,15 +672,7 @@ static bool pe_collision_ray_plane(peRay ray, HMM_Vec3 plane_normal, float plane
 //
 
 static char *pe_m3d_current_path = NULL;
-static peAllocator m3d_allocator = {0};
-
-void *pe_m3d_malloc(size_t size) {
-    return pe_alloc(m3d_allocator, size);
-};
-
-void pe_m3d_free(void *ptr) {
-    pe_free(m3d_allocator, ptr);
-}
+static peAllocator pe_m3d_allocator = {0};
 
 unsigned char *pe_m3d_read_callback(char *filename, unsigned int *size) {
     char file_path[512] = "\0";
@@ -704,7 +691,7 @@ unsigned char *pe_m3d_read_callback(char *filename, unsigned int *size) {
     strcat_s(file_path+file_path_length, sizeof(file_path)-file_path_length-1, filename);
 
     printf("M3D read callback: %s\n", file_path);
-    peFileContents file_contents = pe_file_read_contents(m3d_allocator, file_path, false);
+    peFileContents file_contents = pe_file_read_contents(pe_m3d_allocator, file_path, false);
     *size = (unsigned int)file_contents.size;
     return file_contents.data;
 }
@@ -730,7 +717,7 @@ typedef struct peModel {
 peModel pe_model_load(char *file_path) {
     peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(&temp_arena);
     peAllocator temp_allocator = pe_arena_allocator(&temp_arena);
-    m3d_allocator = temp_allocator;
+    pe_m3d_allocator = temp_allocator;
 
     pe_m3d_current_path = file_path;
     peFileContents m3d_data = pe_file_read_contents(temp_allocator, file_path, false);

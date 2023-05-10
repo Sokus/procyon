@@ -108,15 +108,11 @@ typedef enum peAllocationType {
 	peAllocation_Resize,
 } peAllocationType;
 
-typedef enum peAllocatorFlag {
-	peAllocatorFlag_ClearToZero = 1 << 0,
-} peAllocatorFlag;
-
 typedef void *peAllocatorProc(
     void *allocator_data, peAllocationType type,
     size_t size, size_t alignment,
-    void *old_memory, size_t old_size,
-    peAllocatorFlag flags);
+    void *old_memory, size_t old_size
+);
 
 typedef struct peAllocator {
 	peAllocatorProc *proc;
@@ -130,16 +126,12 @@ typedef struct peAllocator {
 #define PE_DEFAULT_MEMORY_ALIGNMENT (2 * sizeof(void *))
 #endif
 
-#ifndef PE_DEFAULT_ALLOCATOR_FLAGS
-#define PE_DEFAULT_ALLOCATOR_FLAGS (peAllocatorFlag_ClearToZero)
-#endif
-
 void *pe_alloc_align (peAllocator a, size_t size, size_t aligmnent);
 void *pe_alloc       (peAllocator a, size_t size);
 void  pe_free        (peAllocator a, void *ptr);
 void  pe_free_all    (peAllocator a);
-//void *pe_resize_align(peAllocator a, void *ptr, size_t old_size, size_t new_size, size_t alignment);
-//void *pe_resize      (peAllocator a, void *ptr, size_t old_size, size_t new_size);
+void *pe_resize_align(peAllocator a, void *ptr, size_t old_size, size_t new_size, size_t alignment);
+void *pe_resize      (peAllocator a, void *ptr, size_t old_size, size_t new_size);
 
 #ifndef PE_ALLOC_ITEM
 #define PE_ALLOC_ITEM(allocator, Type)         (Type *)pe_alloc(allocator, sizeof(Type))

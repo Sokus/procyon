@@ -4,7 +4,7 @@
 #include <malloc.h>
 
 PE_INLINE void *pe_alloc_align(peAllocator a, size_t size, size_t alignment) {
-    return a.proc(a.data, peAllocation_Alloc, size, alignment, NULL, 0, PE_DEFAULT_ALLOCATOR_FLAGS);
+    return a.proc(a.data, peAllocation_Alloc, size, alignment, NULL, 0);
 }
 
 PE_INLINE void *pe_alloc(peAllocator a, size_t size) {
@@ -13,16 +13,51 @@ PE_INLINE void *pe_alloc(peAllocator a, size_t size) {
 
 PE_INLINE void pe_free(peAllocator a, void *ptr) {
     if (ptr != NULL) {
-        a.proc(a.data, peAllocation_Free, 0, 0, ptr, 0, PE_DEFAULT_ALLOCATOR_FLAGS);
+        a.proc(a.data, peAllocation_Free, 0, 0, ptr, 0);
     }
 }
 
 PE_INLINE void pe_free_all(peAllocator a) {
-    a.proc(a.data, peAllocation_FreeAll, 0, 0, NULL, 0, PE_DEFAULT_ALLOCATOR_FLAGS);
+    a.proc(a.data, peAllocation_FreeAll, 0, 0, NULL, 0);
+}
+
+PE_INLINE void *pe_resize_align(peAllocator a, void *ptr, size_t old_size, size_t new_size, size_t alignment) {
+    return a.proc(a.data, peAllocation_Resize, new_size, alignment, ptr, old_size);
+}
+
+PE_INLINE void *pe_resize(peAllocator a, void *ptr, size_t old_size, size_t new_size) {
+    return pe_resize_align(a, ptr, old_size, new_size, PE_DEFAULT_MEMORY_ALIGNMENT);
+}
+
+PE_INLINE void *pe_default_resize_align(peAllocator a, void *old_memory, size_t old_size, size_t new_size, size_t alignment) {
+    if (!old_memory) {
+        return pe_alloc_align(a, new_size, alignment);
+    }
+
+    if (new_size == 0) {
+        pe_free(a, old_memory);
+        return NULL;
+    }
+
+    if (new_size < old_size) {
+        new_size = old_size;
+    }
+
+    if (new_size == old_size) {
+        return old_memory;
+    } else {
+        void *new_memory = pe_alloc_align(a, new_size, alignment);
+        if (!new_memory) {
+            return NULL;
+        }
+        memcpy(new_memory, old_memory, PE_MIN(new_size, old_size));
+        pe_free(a, old_memory);
+        return new_memory;
+    }
 }
 
 static void *pe_heap_allocator_proc(void *allocator_data, peAllocationType type,
-size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFlag flags) {
+size_t size, size_t alignment, void *old_memory, size_t old_size) {
     void *ptr = NULL;
     switch (type) {
         case peAllocation_Alloc: {
@@ -33,9 +68,6 @@ size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFla
 #else
             PE_UNIMPLEMENTED();
 #endif
-            if (flags & peAllocatorFlag_ClearToZero) {
-                pe_zero_size(ptr, size);
-            }
         } break;
 
         case peAllocation_Free: {
@@ -47,7 +79,11 @@ size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFla
         } break;
 
         case peAllocation_Resize: {
+        #if defined(_WIN32)
             ptr = _aligned_realloc(old_memory, size, alignment);
+        #else
+            ptr = pe_default_resize_align(pe_heap_allocator(), old_memory, old_size, size, alignment);
+        #endif
         } break;
 
         default: break;
@@ -115,7 +151,7 @@ PE_INLINE size_t pe_arena_size_remaining(peArena *arena, size_t alignment) {
 }
 
 static void *pe_arena_allocator_proc(void *allocator_data, peAllocationType type,
-size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFlag flags) {
+size_t size, size_t alignment, void *old_memory, size_t old_size) {
     peArena *arena = (peArena *)allocator_data;
     void *ptr = NULL;
     switch (type) {
@@ -136,8 +172,8 @@ size_t size, size_t alignment, void *old_memory, size_t old_size, peAllocatorFla
         } break;
 
         case peAllocation_Resize: {
-            // TODO: Implementation
-            PE_UNIMPLEMENTED();
+            peAllocator allocator = pe_arena_allocator(arena);
+            ptr = pe_default_resize_align(allocator, old_memory, old_size, size, alignment);
         } break;
 
         default: break;

@@ -29,6 +29,12 @@ if(WIN32)
     target_include_directories(server PRIVATE src)
     target_link_libraries(server shared)
 
+    add_executable(p3dconv
+        src/p3dconv/win32_main.c
+    )
+    target_include_directories(p3dconv PRIVATE src)
+    target_link_libraries(p3dconv shared model3d)
+
     if(MSVC)
         add_compile_options(-WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127)
     endif()
@@ -43,7 +49,7 @@ if (PSP)
     target_include_directories(procyon PRIVATE src)
     target_link_libraries(procyon
         PUBLIC
-            shared handmade-math
+            shared handmade-math model3d
             pspdebug pspdisplay pspge pspgu pspgum pspctrl
             pspnet pspnet_apctl pspnet_resolver
     )

@@ -81,6 +81,59 @@ int pe_setup_callbacks(void) {
 	return thid;
 }
 
+//
+// I/O
+//
+
+typedef struct peFileContents {
+    peAllocator allocator;
+    void *data;
+    size_t size;
+} peFileContents;
+
+peFileContents pe_file_read_contents(peAllocator allocator, char *file_path, bool zero_terminate) {
+	peFileContents result = {0};
+	result.allocator = allocator;
+
+	SceUID fuid = sceIoOpen(file_path, PSP_O_RDONLY, 0);
+	if (fuid < 0) {
+		return result;
+	}
+
+	SceIoStat io_stat;
+	if (sceIoGetstat(file_path, &io_stat) < 0) {
+		sceIoClose(fuid);
+		return result;
+	}
+
+	size_t total_size = (size_t)(zero_terminate ? io_stat.st_size+1 : io_stat.st_size);
+	void *data = pe_alloc(allocator, total_size);
+	if (data == NULL) {
+		sceIoClose(fuid);
+		return result;
+	}
+
+	int bytes_read = sceIoRead(fuid, data, io_stat.st_size);
+	sceIoClose(fuid);
+	PE_ASSERT(bytes_read == io_stat.st_size);
+
+	result.data = data;
+	result.size = total_size;
+	if (zero_terminate) {
+		((uint8_t*)data)[io_stat.st_size] = 0;
+	}
+
+	return result;
+}
+
+void pe_file_free_contents(peFileContents contents) {
+	pe_free(contents.allocator, contents.data);
+}
+
+//
+//
+//
+
 static unsigned int bytes_per_pixel(unsigned int psm) {
 	switch (psm) {
 		case GU_PSM_T4: return 0; // FIXME: It's actually 4 bits
@@ -133,7 +186,7 @@ uint32_t pe_color_to_8888(peColor color) {
 	return result;
 }
 
-typedef struct Texture {
+typedef struct peTexture {
 	void *data;
 	int width;
 	int height;
@@ -141,8 +194,8 @@ typedef struct Texture {
 	int power_of_two_height;
 	bool vram;
 	int format;
-} Texture;
-static Texture default_texture;
+} peTexture;
+static peTexture default_texture;
 
 static void copy_texture_data(void *dest, const void *src, const int pW, const int width, const int height)
 {
@@ -183,8 +236,8 @@ void swizzle_fast(u8 *out, const u8 *in, unsigned int width, unsigned int height
 	}
 }
 
-Texture create_texture(void *data, int width, int height, int format, bool vram) {
-	Texture texture = {0};
+peTexture pe_texture_create(void *data, int width, int height, int format, bool vram) {
+	peTexture texture = {0};
 
 	int power_of_two_width = closest_greater_power_of_two(width);
 	int power_of_two_height = closest_greater_power_of_two(height);
@@ -214,7 +267,7 @@ Texture create_texture(void *data, int width, int height, int format, bool vram)
     return texture;
 }
 
-void destroy_texture(Texture texture) {
+void destroy_texture(peTexture texture) {
 	if (texture.vram) {
 		// TODO: freeing VRAM
 	} else {
@@ -240,12 +293,12 @@ void pe_default_texture_init(void) {
 				}
 			}
 		}
-		default_texture = create_texture(texture_data, texture_width, texture_height, GU_PSM_5650, true);
+		default_texture = pe_texture_create(texture_data, texture_width, texture_height, GU_PSM_5650, true);
 	}
 	pe_temp_arena_memory_end(temp_arena_memory);
 }
 
-void use_texture(Texture texture) {
+void use_texture(peTexture texture) {
  	sceGuTexMode(texture.format, 0, 0, 1);
 	sceGuTexImage(0, texture.power_of_two_width, texture.power_of_two_height, texture.power_of_two_width, texture.data);
 	//sceGuTexEnvColor(0x00FFFFFF);
@@ -254,6 +307,20 @@ void use_texture(Texture texture) {
 	sceGuTexFilter(GU_NEAREST,GU_NEAREST);
 	sceGuTexScale(1.0f,1.0f);
 	sceGuTexOffset(0.0f,0.0f);
+}
+
+typedef struct peMaterial {
+	bool has_diffuse;
+	peColor diffuse_color;
+	peTexture diffuse_map;
+} peMaterial;
+
+peMaterial pe_default_material(void) {
+	peMaterial material = {
+		.has_diffuse = false,
+		.diffuse_map = default_texture,
+	};
+	return material;
 }
 
 typedef struct VertexTCP
@@ -423,6 +490,116 @@ void pe_draw_mesh(Mesh mesh, HMM_Vec3 position, HMM_Vec3 rotation) {
 	int count = (mesh.indices != NULL) ? mesh.index_count : mesh.vertex_count;
 	sceGumDrawArray(GU_TRIANGLES, mesh.vertex_type, count, mesh.indices, mesh.vertices);
 	sceGumPopMatrix();
+}
+
+//
+// MODELS
+//
+
+#pragma GCC diagnostic push
+//#pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
+#define M3D_IMPLEMENTATION
+#include "m3d.h"
+#pragma GCC diagnostic pop
+
+static char *pe_m3d_current_path = NULL;
+static peAllocator m3d_allocator = {0};
+
+unsigned char *pe_m3d_read_callback(char *filename, unsigned int *size) {
+	char file_path[256] = "\0";
+    int file_path_length = 0;
+    if (pe_m3d_current_path != NULL) {
+        int one_past_last_slash_offset = 0;
+        for (int i = 0; i < PE_COUNT_OF(file_path)-1; i += 1) {
+            if (pe_m3d_current_path[i] == '\0') break;
+            if (pe_m3d_current_path[i] == '/') {
+                one_past_last_slash_offset = i + 1;
+            }
+        }
+        memcpy(file_path, pe_m3d_current_path, one_past_last_slash_offset);
+        file_path_length += one_past_last_slash_offset;
+    }
+	fprintf(stdout, "M3D read callback: %s\n", file_path);
+	PE_PANIC();
+    //strcat_s(file_path+file_path_length, sizeof(file_path)-file_path_length-1, filename);
+
+	peFileContents file_contents = pe_file_read_contents(m3d_allocator, file_path, false);
+	*size = (unsigned int)file_contents.size;
+	return file_contents.data;
+}
+
+typedef struct peModel {
+	peArena arena;
+
+	int num_mesh;
+	int *num_index;
+
+	int *vertex_type;
+	void **index;
+	void **vertex;
+
+	uint8_t zero;
+} peModel;
+
+peModel pe_model_load(char *file_path) {
+	peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(&temp_arena);
+	peAllocator temp_allocator = pe_arena_allocator(&temp_arena);
+
+	peFileContents m3d_data = pe_file_read_contents(temp_allocator, file_path, false);
+	m3d_t *m3d = m3d_load(m3d_data.data, pe_m3d_read_callback, NULL, NULL);
+	fprintf(stdout, "m3d error code: %d\n", m3d->errcode);
+	fprintf(stdout, "name: %s\n", m3d->name);
+
+	struct peTempVertexInfo {
+		int8_t material_id;
+		uint16_t vertex_index;
+	};
+	struct peTempVertexInfo *temp_vertex_info = pe_alloc(temp_allocator, m3d->numvertex*sizeof(struct peTempVertexInfo));
+	for (M3D_INDEX i = 0; i < m3d->numvertex; i += 1) {
+		temp_vertex_info[i].material_id = -2;
+		temp_vertex_info[i].vertex_index = UINT16_MAX;
+	}
+
+	struct peTempMeshInfo {
+		unsigned int vertex_count;
+		unsigned int index_count;
+		bool has_any_textures;
+		bool has_diffuse_color;
+	};
+	struct peTempMeshInfo *temp_mesh_info = pe_alloc(temp_allocator, (m3d->nummaterial+1)*sizeof(struct peTempMeshInfo));
+	pe_zero_size(temp_mesh_info, (m3d->nummaterial+1)*sizeof(struct peTempMeshInfo));
+
+	for (M3D_INDEX f = 0; f < m3d->numface; f += 1) {
+		M3D_INDEX mesh_index = (m3d->face[f].materialid == M3D_UNDEF ? m3d->nummaterial : m3d->face[f].materialid);
+		temp_mesh_info[mesh_index].index_count += 3;
+		for (int v = 0; v < 3; v += 1) {
+			temp_vertex_info[m3d->face[f].vertex[v]].material_id = m3d->face[f].materialid;
+			if (temp_vertex_info[m3d->face[f].vertex[v]].vertex_index == UINT16_MAX) {
+				temp_vertex_info[m3d->face[f].vertex[v]].vertex_index = temp_mesh_info[mesh_index].vertex_count;
+				temp_mesh_info[mesh_index].vertex_count += 1;
+			}
+		}
+		if (m3d->face[f].texcoord[0] != M3D_UNDEF) {
+			temp_mesh_info[mesh_index].has_any_textures == true;
+		}
+	}
+
+	for (M3D_INDEX m = 0; m < (m3d->nummaterial+1); m += 1) {
+		fprintf(stdout, "%u vert: %u index: %u uvs: %d\n", m, temp_mesh_info[m].vertex_count, temp_mesh_info[m].index_count, temp_mesh_info[m].has_any_textures);
+	}
+
+	peModel model = {0};
+
+
+
+	m3d_free(m3d);
+	pe_file_free_contents(m3d_data);
+
+	pe_temp_arena_memory_end(temp_arena_memory);
+}
+
+void pe_model_free(peModel *model) {
+	pe_arena_free(&model->arena);
 }
 
 void pe_perspective(float fovy, float aspect, float near, float far) {
@@ -611,7 +788,7 @@ void pe_receive_packets(void) {
 				case peMessageType_ConnectionClosed: {
 					if (network_state == peClientNetworkState_Connected) {
 						fprintf(stdout, "connection closed (reason = %d)\n", message.connection_closed->reason);
-						network_state = peClientNetworkState_Error;
+						network_state = peClientNetworkState_Error	;
 					}
 				} break;
 				case peMessageType_WorldState: {
@@ -643,6 +820,11 @@ int main(int argc, char* argv[])
 	pe_net_init();
 	pe_time_init();
 	pe_input_init();
+
+	peModel model = pe_model_load("./res/ybot.m3d");
+
+	should_quit = true;
+
 
 	pe_allocate_entities();
 
@@ -687,7 +869,7 @@ int main(int argc, char* argv[])
 				uint64_t ticks_since_last_received_packet = pe_time_since(last_packet_receive_time);
 				float seconds_since_last_received_packet = (float)pe_time_sec(ticks_since_last_received_packet);
 				if (seconds_since_last_received_packet > (float)CONNECTION_REQUEST_TIME_OUT) {
-					fprintf(stdout, "connection request timed out");
+					fprintf(stdout, "connection request timed out\n");
 					network_state = peClientNetworkState_Error;
 					break;
 				}
@@ -728,6 +910,8 @@ int main(int argc, char* argv[])
 		pe_draw_line(zero, (HMM_Vec3){1.0f, 0.0f, 0.0f}, PE_COLOR_RED);
 		pe_draw_line(zero, (HMM_Vec3){0.0f, 1.0f, 0.0f}, PE_COLOR_GREEN);
 		pe_draw_line(zero, (HMM_Vec3){0.0f, 0.0f, 1.0f}, PE_COLOR_BLUE);
+
+		pe_draw_mesh(cube, HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 0.0f, 0.0f));
 
 		for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
 			peEntity *entity = &entities[e];
