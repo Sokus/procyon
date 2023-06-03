@@ -33,7 +33,7 @@ if(WIN32)
         src/p3dconv/win32_main.c
     )
     target_include_directories(p3dconv PRIVATE src)
-    target_link_libraries(p3dconv shared model3d)
+    target_link_libraries(p3dconv shared handmade-math model3d)
 
     if(MSVC)
         add_compile_options(-WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127)
