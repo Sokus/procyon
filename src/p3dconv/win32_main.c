@@ -227,13 +227,13 @@ void pe_p3d_convert(char *source, char *destination) {
         return;
     }
 
-    // scale
+    // scale;
     WriteFile(dest_file_handle, &m3d->scale, sizeof(m3d->scale), NULL, NULL);
 
-    // # of vertices
-    WriteFile(dest_file_handle, &num_vertex, sizeof(uint32_t), NULL, NULL);
+    // num_vertex
+    WriteFile(dest_file_handle, &num_vertex, sizeof(num_vertex), NULL, NULL);
 
-    // positions
+    // position
     for (M3D_INDEX v = 0; v < m3d->numvertex; v += 1) {
         if (temp_vertex_info[v].vertex_index_all != UINT32_MAX) {
             int16_t write_position_x = (int16_t)(temp_vertex_info[v].position.X * (float)INT16_MAX);
@@ -245,7 +245,7 @@ void pe_p3d_convert(char *source, char *destination) {
         }
     }
 
-    // normals
+    // normal
     for (M3D_INDEX v = 0; v < m3d->numvertex; v += 1) {
         if (temp_vertex_info[v].vertex_index_all != UINT32_MAX) {
             int16_t write_normal_x = (int16_t)(temp_vertex_info[v].normal.X * (float)INT16_MAX);
@@ -257,7 +257,7 @@ void pe_p3d_convert(char *source, char *destination) {
         }
     }
 
-    // texcoords
+    // texcoord
     for (M3D_INDEX v = 0; v < m3d->numvertex; v += 1) {
         if (temp_vertex_info[v].vertex_index_all != UINT32_MAX) {
             int16_t write_texcoord_x = (int16_t)(temp_vertex_info[v].uv.X * (float)INT16_MAX);
@@ -267,14 +267,14 @@ void pe_p3d_convert(char *source, char *destination) {
         }
     }
 
-    // colors
+    // color
     for (M3D_INDEX v = 0; v < m3d->numvertex; v += 1) {
         if (temp_vertex_info[v].vertex_index_all != UINT32_MAX) {
             WriteFile(dest_file_handle, &temp_vertex_info[v].color, sizeof(peColor), NULL, NULL);
         }
     }
 
-    // # of indices
+    // num_index
     {
         uint32_t write_num_index = 3 * m3d->numface;
         WriteFile(dest_file_handle, &write_num_index, sizeof(uint32_t), NULL, NULL);
@@ -287,12 +287,12 @@ void pe_p3d_convert(char *source, char *destination) {
         }
     }
 
-    // # of meshes
+    // num_meshes
     uint16_t write_num_meshes = (uint16_t)(temp_mesh_info[m3d->nummaterial].num_index > 0 ? m3d->nummaterial+1 : m3d->nummaterial);
     WriteFile(dest_file_handle, &write_num_meshes, sizeof(uint16_t), NULL, NULL);
 
     for (uint16_t m = 0; m < write_num_meshes; m += 1) {
-        // # of indices
+        // num_index
         WriteFile(dest_file_handle, &temp_mesh_info[m].num_index, sizeof(uint32_t), NULL, NULL);
 
         // index offset
@@ -311,8 +311,9 @@ void pe_p3d_convert(char *source, char *destination) {
         WriteFile(dest_file_handle, &write_has_diffuse_texture, sizeof(uint8_t), NULL, NULL);
         if (temp_mesh_info[m].has_diffuse_texture) {
             if (temp_mesh_info[m].diffuse_texture_name != NULL) {
-                size_t diffuse_texture_name_length = strnlen(temp_mesh_info[m].diffuse_texture_name, 512);
-                WriteFile(dest_file_handle, temp_mesh_info[m].diffuse_texture_name, (DWORD)(diffuse_texture_name_length*sizeof(char)), NULL, NULL);
+                uint8_t diffuse_texture_name_length = (uint8_t)strnlen(temp_mesh_info[m].diffuse_texture_name, UINT8_MAX-1);
+                WriteFile(dest_file_handle, &diffuse_texture_name_length, sizeof(diffuse_texture_name_length), NULL, NULL);
+                WriteFile(dest_file_handle, temp_mesh_info[m].diffuse_texture_name, (diffuse_texture_name_length+1)*sizeof(char), NULL, NULL);
             }
         }
     }
