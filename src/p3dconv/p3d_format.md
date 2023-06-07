@@ -1,29 +1,33 @@
 
 ## P3D
 ```c
-float scale;
-uint32_t num_vertex;
+struct p3dStaticInfo {
+    float scale;
+    uint32_t num_vertex;
+    uint32_t num_index;
+    uint16_t num_meshes;
+};
+
 uint16_t position[3*num_vertex];
 uint16_t normal[3*num_vertex];
 uint16_t texcoord[2*num_vertex];
 uint32_t color[num_vertex];
 
-uint32_t num_index;
 uint32_t index[num_index];
 
-uint_16_t num_meshes;
-struct p3d_mesh {
-  uint32_t num_index;
-  uint32_t index_offset;
+struct p3dMesh {
+    uint32_t num_index;
+    uint32_t index_offset;
 
-  uint8_t has_diffuse_color;
-  uint32_t diffuse_color;
+    uint8_t has_diffuse_color;
+    uint32_t diffuse_color;
 
-  uint8_t has_diffuse_texture;
-  uint8_t diffuse_texture_name_length;
-  char *diffuse_texture_name;
-}
-struct p3d_mesh meshes[num_meshes];
+    uint8_t has_diffuse_texture;
+    uint16_t diffuse_map_data_offset;
+}  meshes[num_meshes];
+
+uint8_t binary_data[binary_data_size];
+
 ```
 
 ## PP3D

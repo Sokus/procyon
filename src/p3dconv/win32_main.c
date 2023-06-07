@@ -1,5 +1,7 @@
 #include "pe_core.h"
 
+#include "p3d.h"
+
 #define M3D_IMPLEMENTATION
 #include "m3d.h"
 #include "HandmadeMath.h"
@@ -55,40 +57,41 @@ peFileContents pe_file_read_contents(peAllocator allocator, char *file_path, boo
     return result;
 }
 
-static char *pe_m3d_current_path = NULL;
-static peAllocator pe_m3d_allocator = {0};
-
-unsigned char *pe_m3d_read_callback(char *filename, unsigned int *size) {
-    char file_path[512] = "\0";
-    int file_path_length = 0;
-    if (pe_m3d_current_path != NULL) {
-        int one_past_last_slash_offset = 0;
-        for (int i = 0; i < PE_COUNT_OF(file_path)-1; i += 1) {
-            if (pe_m3d_current_path[i] == '\0') break;
-            if (pe_m3d_current_path[i] == '/') {
-                one_past_last_slash_offset = i + 1;
-            }
+char *pe_file_name_directory(char *file_name, char *buffer, size_t buffer_size) {
+    int last_slash_offset = 0;
+    for (int offset = 0; offset < buffer_size-1; offset += 1) {
+        if (file_name[offset] == '\0') {
+            break;
         }
-        memcpy(file_path, pe_m3d_current_path, one_past_last_slash_offset);
-        file_path_length += one_past_last_slash_offset;
+        if (file_name[offset] == '/') {
+            last_slash_offset = offset + 1;
+        }
     }
-    strcat_s(file_path+file_path_length, sizeof(file_path)-file_path_length-1, filename);
-
-    printf("M3D read callback: %s\n", file_path);
-    peFileContents file_contents = pe_file_read_contents(pe_m3d_allocator, file_path, false);
-    *size = (unsigned int)file_contents.size;
-    return file_contents.data;
+    memcpy(buffer, file_name, last_slash_offset*sizeof(char));
+    buffer[last_slash_offset+1] = '\0';
+    return buffer;
 }
 
-void pe_m3d_free_callback(void *buffer) {
-    pe_free(pe_m3d_allocator, buffer);
+char *pe_concat(char *buffer, size_t buffer_size, char *source) {
+    if (buffer != NULL && buffer_size > 0 && source != NULL) {
+        size_t dest_length = 0;
+        while (buffer[dest_length] != '\0' && dest_length < buffer_size) {
+            dest_length += 1;
+        }
+        size_t source_length = 0;
+        while (source[source_length] != '\0') {
+            source_length += 1;
+        }
+        if (source_length+dest_length < buffer_size) {
+            memcpy(buffer+dest_length, source, source_length+1);
+        }
+    }
+    return buffer;
 }
 
-typedef struct peColor {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-    uint8_t a;
+typedef union peColor {
+    struct { uint8_t r, g, b, a; };
+    struct { uint32_t rgba; };
 } peColor;
 
 #define PE_COLOR_WHITE (peColor){ 255, 255, 255, 255 }
@@ -117,11 +120,9 @@ void pe_p3d_convert(char *source, char *destination) {
     peArena temp_arena;
     pe_arena_init_from_allocator(&temp_arena, pe_heap_allocator(), PE_MEGABYTES(32));
     peAllocator temp_allocator = pe_arena_allocator(&temp_arena);
-    pe_m3d_allocator = temp_allocator;
-    pe_m3d_current_path = source;
 
     peFileContents m3d_file_contents = pe_file_read_contents(temp_allocator, source, false);
-    m3d_t *m3d = m3d_load(m3d_file_contents.data, /*pe_m3d_read_callback*/NULL, pe_m3d_free_callback, NULL);
+    m3d_t *m3d = m3d_load(m3d_file_contents.data, NULL, NULL, NULL);
 
     struct peTempVertexInfo {
         HMM_Vec3 position;
@@ -148,7 +149,8 @@ void pe_p3d_convert(char *source, char *destination) {
         peColor diffuse_color;
         bool has_texture_coordinates;
         bool has_diffuse_texture;
-        char *diffuse_texture_name;
+        peFileContents diffuse_texture;
+        uint16_t diffuse_texture_data_offset;
     };
     struct peTempMeshInfo *temp_mesh_info = pe_alloc(temp_allocator, (m3d->nummaterial+1)*sizeof(struct peTempMeshInfo));
     pe_zero_size(temp_mesh_info, (m3d->nummaterial+1)*sizeof(struct peTempMeshInfo));
@@ -188,7 +190,11 @@ void pe_p3d_convert(char *source, char *destination) {
         }
     }
 
+    size_t binary_data_offset = 0;
+
     for (M3D_INDEX m = 0; m < m3d->nummaterial; m += 1) {
+        temp_mesh_info[m].diffuse_texture_data_offset = (uint16_t)binary_data_offset;
+
         for (M3D_INDEX p = 0; p < m3d->material[m].numprop; p += 1) {
             switch (m3d->material[m].prop[p].type) {
                 case m3dp_Kd: {
@@ -198,7 +204,13 @@ void pe_p3d_convert(char *source, char *destination) {
 
                 case m3dp_map_Kd: { /* diffuse map */
                     m3dtx_t *m3d_texture = &m3d->texture[m3d->material[m].prop[p].value.textureid];
-                    temp_mesh_info[m].diffuse_texture_name = m3d_texture->name;
+                    char path_buffer[256] = {'\0'};
+                    pe_file_name_directory(source, path_buffer, sizeof(path_buffer));
+                    pe_concat(path_buffer, sizeof(path_buffer), m3d_texture->name);
+                    pe_concat(path_buffer, sizeof(path_buffer), ".png");
+                    temp_mesh_info[m].has_diffuse_texture = true;
+                    temp_mesh_info[m].diffuse_texture = pe_file_read_contents(temp_allocator, path_buffer, false);
+                    binary_data_offset += temp_mesh_info[m].diffuse_texture.size;
                 } break;
 
                 // UNUSED PROPERTIES
@@ -221,17 +233,21 @@ void pe_p3d_convert(char *source, char *destination) {
         }
     }
 
+    int num_meshes = (int)(temp_mesh_info[m3d->nummaterial].num_index > 0 ? m3d->nummaterial+1 : m3d->nummaterial);
+
     HANDLE dest_file_handle = CreateFileA(destination, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (dest_file_handle == INVALID_HANDLE_VALUE) {
         printf("could not create file\n");
         return;
     }
 
-    // scale;
-    WriteFile(dest_file_handle, &m3d->scale, sizeof(m3d->scale), NULL, NULL);
-
-    // num_vertex
-    WriteFile(dest_file_handle, &num_vertex, sizeof(num_vertex), NULL, NULL);
+    p3dStaticInfo static_info = {
+        .scale = m3d->scale,
+        .num_vertex = num_vertex,
+        .num_index = m3d->numface * 3,
+        .num_meshes = num_meshes,
+    };
+    WriteFile(dest_file_handle, &static_info, sizeof(p3dStaticInfo), NULL, NULL);
 
     // position
     for (M3D_INDEX v = 0; v < m3d->numvertex; v += 1) {
@@ -274,52 +290,35 @@ void pe_p3d_convert(char *source, char *destination) {
         }
     }
 
-    // num_index
-    {
-        uint32_t write_num_index = 3 * m3d->numface;
-        WriteFile(dest_file_handle, &write_num_index, sizeof(uint32_t), NULL, NULL);
-    }
-
     // index
-    for (M3D_INDEX v = 0; v < m3d->numvertex; v += 1) {
-        if (temp_vertex_info[v].vertex_index_all != UINT32_MAX) {
-            WriteFile(dest_file_handle, &temp_vertex_info[v].vertex_index_all, sizeof(uint32_t), NULL, NULL);
+    for (M3D_INDEX f = 0; f < m3d->numface; f += 1) {
+        for (int v = 0; v < 3; v += 1) {
+            M3D_INDEX vert_index = m3d->face[f].vertex[v];
+            WriteFile(dest_file_handle, &temp_vertex_info[vert_index].vertex_index_all, sizeof(uint32_t), NULL, NULL);
         }
     }
 
-    // num_meshes
-    uint16_t write_num_meshes = (uint16_t)(temp_mesh_info[m3d->nummaterial].num_index > 0 ? m3d->nummaterial+1 : m3d->nummaterial);
-    WriteFile(dest_file_handle, &write_num_meshes, sizeof(uint16_t), NULL, NULL);
 
-    for (uint16_t m = 0; m < write_num_meshes; m += 1) {
-        // num_index
-        WriteFile(dest_file_handle, &temp_mesh_info[m].num_index, sizeof(uint32_t), NULL, NULL);
+    for (int m = 0; m < num_meshes; m += 1) {
+        p3dMesh write_mesh = {
+            .num_index = temp_mesh_info[m].num_index,
+            .index_offset = temp_mesh_info[m].index_offset,
+            .has_diffuse_color = temp_mesh_info[m].has_diffuse_color,
+            .diffuse_color = temp_mesh_info[m].diffuse_color.rgba,
+            .has_diffuse_texture = temp_mesh_info[m].has_diffuse_texture,
+            .diffuse_map_data_offset = temp_mesh_info[m].diffuse_texture_data_offset,
+        };
+        WriteFile(dest_file_handle, &write_mesh, sizeof(p3dMesh), NULL, NULL);
+    }
 
-        // index offset
-        WriteFile(dest_file_handle, &temp_mesh_info[m].index_offset, sizeof(uint32_t), NULL, NULL);
-
-        // has diffuse color?
-        uint8_t write_has_diffuse = temp_mesh_info[m].has_diffuse_color ? 1 : 0;
-        WriteFile(dest_file_handle, &write_has_diffuse, sizeof(uint8_t), NULL, NULL);
-        if (temp_mesh_info[m].has_diffuse_color) {
-            // diffuse color
-            WriteFile(dest_file_handle, &temp_mesh_info[m].diffuse_color, sizeof(peColor), NULL, NULL);
-        }
-
-        // has diffuse texture?
-        uint8_t write_has_diffuse_texture = temp_mesh_info[m].has_diffuse_texture ? 1 : 0;
-        WriteFile(dest_file_handle, &write_has_diffuse_texture, sizeof(uint8_t), NULL, NULL);
+    for (int m = 0; m < num_meshes; m += 1) {
         if (temp_mesh_info[m].has_diffuse_texture) {
-            if (temp_mesh_info[m].diffuse_texture_name != NULL) {
-                uint8_t diffuse_texture_name_length = (uint8_t)strnlen(temp_mesh_info[m].diffuse_texture_name, UINT8_MAX-1);
-                WriteFile(dest_file_handle, &diffuse_texture_name_length, sizeof(diffuse_texture_name_length), NULL, NULL);
-                WriteFile(dest_file_handle, temp_mesh_info[m].diffuse_texture_name, (diffuse_texture_name_length+1)*sizeof(char), NULL, NULL);
-            }
+            peFileContents *diffuse_texture = &temp_mesh_info[m].diffuse_texture;
+            WriteFile(dest_file_handle, diffuse_texture->data, (DWORD)diffuse_texture->size, NULL, NULL);
         }
     }
 
     CloseHandle(dest_file_handle);
-
 
     m3d_free(m3d);
     pe_arena_free(&temp_arena);

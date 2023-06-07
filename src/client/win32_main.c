@@ -1,6 +1,8 @@
 #include "pe_time.h"
 #include "pe_core.h"
 
+#include "p3dconv/p3d.h"
+
 #include "GLFW/glfw3.h"
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include "GLFW/glfw3native.h"
@@ -129,11 +131,9 @@ void pe_bind_texture(ID3D11ShaderResourceView *texture) {
 // MESH
 //
 
-typedef struct peColor {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-    uint8_t a;
+typedef union peColor {
+    struct { uint8_t r, g, b, a; };
+    struct { uint32_t rgba; };
 } peColor;
 
 #define PE_COLOR_WHITE (peColor){ 255, 255, 255, 255 }
@@ -671,32 +671,6 @@ static bool pe_collision_ray_plane(peRay ray, HMM_Vec3 plane_normal, float plane
 // MODELS
 //
 
-static char *pe_m3d_current_path = NULL;
-static peAllocator pe_m3d_allocator = {0};
-
-unsigned char *pe_m3d_read_callback(char *filename, unsigned int *size) {
-    char file_path[512] = "\0";
-    int file_path_length = 0;
-    if (pe_m3d_current_path != NULL) {
-        int one_past_last_slash_offset = 0;
-        for (int i = 0; i < PE_COUNT_OF(file_path)-1; i += 1) {
-            if (pe_m3d_current_path[i] == '\0') break;
-            if (pe_m3d_current_path[i] == '/') {
-                one_past_last_slash_offset = i + 1;
-            }
-        }
-        memcpy(file_path, pe_m3d_current_path, one_past_last_slash_offset);
-        file_path_length += one_past_last_slash_offset;
-    }
-    strcat_s(file_path+file_path_length, sizeof(file_path)-file_path_length-1, filename);
-
-    printf("M3D read callback: %s\n", file_path);
-    peFileContents file_contents = pe_file_read_contents(pe_m3d_allocator, file_path, false);
-    *size = (unsigned int)file_contents.size;
-    return file_contents.data;
-}
-
-
 typedef struct peModel {
     peArena arena;
 
@@ -717,37 +691,45 @@ typedef struct peModel {
 peModel pe_model_load(char *file_path) {
     peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(&temp_arena);
     peAllocator temp_allocator = pe_arena_allocator(&temp_arena);
-    pe_m3d_allocator = temp_allocator;
 
-    pe_m3d_current_path = file_path;
-    peFileContents m3d_data = pe_file_read_contents(temp_allocator, file_path, false);
-    m3d_t *m3d = m3d_load(m3d_data.data, pe_m3d_read_callback, NULL, NULL);
+    peFileContents p3d_file_contents = pe_file_read_contents(temp_allocator, file_path, false);
+    uint8_t *p3d_file_pointer = p3d_file_contents.data;
 
-    M3D_INDEX min_index = M3D_INDEXMAX;
-    M3D_INDEX max_index = 0;
-    bool missing_material = false;
-    for (M3D_INDEX f = 0; f < m3d->numface; f += 1) {
-        for (int v = 0; v < 3; v += 1) {
-            min_index = PE_MIN(min_index, m3d->face[f].vertex[v]);
-            min_index = PE_MIN(min_index, m3d->face[f].normal[v]);
-            max_index = PE_MAX(max_index, m3d->face[f].vertex[v]);
-            max_index = PE_MAX(max_index, m3d->face[f].normal[v]);
-        }
-        if (m3d->face[f].materialid == M3D_UNDEF) {
-            missing_material = true;
-        }
-    }
+    p3dStaticInfo *p3d_static_info = (void*)p3d_file_pointer;
+    p3d_file_pointer += sizeof(p3dStaticInfo);
+
+    int16_t *p3d_position = (int16_t*)p3d_file_pointer;
+    p3d_file_pointer += 3 * p3d_static_info->num_vertex * sizeof(int16_t);
+
+    int16_t *p3d_normal = (int16_t*)p3d_file_pointer;
+    p3d_file_pointer += 3 * p3d_static_info->num_vertex * sizeof(int16_t);
+
+    int16_t *p3d_texcoord = (int16_t*)p3d_file_pointer;
+    p3d_file_pointer += 2 * p3d_static_info->num_vertex * sizeof(int16_t);
+
+    uint32_t *p3d_color = (uint32_t*)p3d_file_pointer;
+    p3d_file_pointer += p3d_static_info->num_vertex * sizeof(uint32_t);
+
+    uint32_t *p3d_index = (uint32_t*)p3d_file_pointer;
+    p3d_file_pointer += p3d_static_info->num_index * sizeof(uint32_t);
+
+    p3dMesh *p3d_mesh = (p3dMesh*)p3d_file_pointer;
+    p3d_file_pointer += p3d_static_info->num_meshes * sizeof(p3dMesh);
+
+    uint8_t *p3d_binary_data = p3d_file_pointer;
+
 
     peModel model = {0};
-    model.num_mesh = missing_material ? m3d->nummaterial+1 : m3d->nummaterial;
-    model.num_vertex = (max_index-min_index)/2 + 1;
-    int num_index = 3*m3d->numface;
+    model.num_mesh = p3d_static_info->num_meshes;
+    model.num_vertex = p3d_static_info->num_vertex;
+    int num_index = p3d_static_info->num_index;
 
     size_t num_index_size = model.num_mesh*sizeof(int);
     size_t index_offset_size = model.num_mesh*sizeof(int);
     size_t material_size = model.num_mesh*sizeof(peMaterial);
 
     size_t estimated_memory_size = num_index_size + index_offset_size + material_size + 2*(PE_DEFAULT_MEMORY_ALIGNMENT-1);
+
     pe_arena_init_from_allocator(&model.arena, pe_heap_allocator(), estimated_memory_size);
     peAllocator model_allocator = pe_arena_allocator(&model.arena);
 
@@ -760,117 +742,36 @@ peModel pe_model_load(char *file_path) {
         model.material[i] = pe_default_material();
     }
 
-    for (M3D_INDEX m = 0; m < m3d->nummaterial; m += 1) {
-        printf("[%d] name: %s, numprops: %u\n", m, m3d->material[m].name, m3d->material[m].numprop);
-        int num_ignored_prop = 0;
-        for (M3D_INDEX p = 0; p < m3d->material[m].numprop; p += 1) {
-            uint8_t type = m3d->material[m].prop[p].type;
-            switch(type) {
-                case m3dp_Kd: {
-                    model.material[m].has_diffuse = true;
-                    model.material[m].diffuse_color = pe_color_uint32(m3d->material[m].prop[p].value.color);
-                } break;
-
-                case m3dp_map_Kd: { /* diffuse map */
-                    m3dtx_t *m3d_texture = &m3d->texture[m3d->material[m].prop[p].value.textureid];
-                    void *data;
-                    int format;
-                    if (m3d_texture->f == 3) {
-                        uint32_t *data_uint32 = pe_alloc(temp_allocator, m3d_texture->w * m3d_texture->h * sizeof(uint32_t));
-                        for (int y = 0; y < m3d_texture->h; y += 1) {
-                            for (int x = 0; x < m3d_texture->w; x += 1) {
-                                int m3d_data_offset = (y*m3d_texture->w+x)*3;
-                                uint32_t m3d_r = (uint32_t)m3d_texture->d[m3d_data_offset];
-                                uint32_t m3d_g = (uint32_t)m3d_texture->d[m3d_data_offset + 1];
-                                uint32_t m3d_b = (uint32_t)m3d_texture->d[m3d_data_offset + 2];
-                                data_uint32[y*m3d_texture->w + x] = m3d_r | m3d_g << 8 | m3d_b << 16 | 0xFF << 24;
-                            }
-                        }
-                        data = data_uint32;
-                        format = 4;
-                    } else {
-                        data = m3d_texture->d;
-                        format = m3d_texture->f;
-                    }
-                    model.material[m].diffuse_map = pe_texture_upload(data, m3d_texture->w, m3d_texture->h, format);
-                } break;
-
-                // UNUSED PROPERTIES
-                case m3dp_Ka: { uint32_t ambient = m3d->material[m].prop[p].value.color; } break;
-                case m3dp_Ks: { uint32_t specular = m3d->material[m].prop[p].value.color; } break;
-                case m3dp_Pr: { float roughness = m3d->material[m].prop[p].value.fnum; } break;
-                case m3dp_Pm: { float metallic = m3d->material[m].prop[p].value.fnum; } break;
-                case m3dp_Ni: { float refraction = m3d->material[m].prop[p].value.fnum; } break;
-
-                // IGNORED PROPERTIES
-                case m3dp_Km:     // [6] bump
-                case m3dp_d:      // [7] dissolve (obsolete)
-                case m3dp_il:     // [8] illumination model
-                case m3dp_map_Km: // [134] bump map
-                case m3dp_map_D:  // [135] disolve map (obsolete)
-                    num_ignored_prop += 1;
-                    break;
-                default: printf("    [%d] unknown\n", type); break;
-            }
-        }
-    }
-
     float *pos = pe_alloc(temp_allocator, 3*model.num_vertex*sizeof(float));
     float *norm = pe_alloc(temp_allocator, 3*model.num_vertex*sizeof(float));
     float *tex = pe_alloc(temp_allocator, 2*model.num_vertex*sizeof(float));
-    uint32_t *color = pe_alloc(temp_allocator, model.num_vertex*sizeof(uint32_t));
-    uint32_t *index = pe_alloc(temp_allocator, num_index*sizeof(uint32_t));
+    //uint32_t *color = pe_alloc(temp_allocator, model.num_vertex*sizeof(uint32_t));
+    //uint32_t *index = pe_alloc(temp_allocator, p3d_static_info->num_index*sizeof(uint32_t));
 
-    int index_offset = 0;
-    M3D_INDEX mesh_index = 0;
-    int material_id = 0;
-    while(true) {
-        if (mesh_index == m3d->nummaterial) {
-            if (missing_material) {
-                material_id = M3D_UNDEF;
-            } else {
-                break;
-            }
-        } else if (mesh_index > m3d->nummaterial) {
-            break;
-        } else {
-            material_id = mesh_index;
-        }
-
-        model.index_offset[mesh_index] = index_offset;
-        for (M3D_INDEX f = 0; f < m3d->numface; f += 1) {
-            if (m3d->face[f].materialid == material_id) {
-                for (int v = 0; v < 3; v += 1) {
-                    int m3d_vertex_index = m3d->face[f].vertex[v];
-                    int m3d_normal_index = m3d->face[f].normal[v];
-                    int our_vertex_index = (m3d_vertex_index-min_index+1)/2;
-                    pos[3*our_vertex_index + 0] = m3d->vertex[m3d_vertex_index].x * m3d->scale;
-                    pos[3*our_vertex_index + 1] = m3d->vertex[m3d_vertex_index].y * m3d->scale;
-                    pos[3*our_vertex_index + 2] = m3d->vertex[m3d_vertex_index].z * m3d->scale;
-                    norm[3*our_vertex_index + 0] = m3d->vertex[m3d_normal_index].x;
-                    norm[3*our_vertex_index + 1] = m3d->vertex[m3d_normal_index].y;
-                    norm[3*our_vertex_index + 2] = m3d->vertex[m3d_normal_index].z;
-                    if (m3d->face[f].texcoord[0] != M3D_UNDEF) {
-                        tex[2*our_vertex_index + 0] = m3d->tmap[m3d->face[f].texcoord[v]].u;
-                        tex[2*our_vertex_index + 1] = 1.0f - m3d->tmap[m3d->face[f].texcoord[v]].v;
-                    }
-                    color[our_vertex_index] = m3d->vertex[m3d_vertex_index].color;
-                    index[index_offset] = our_vertex_index;
-                    index_offset += 1;
-                    model.num_index[mesh_index] += 1;
-                }
-            }
-        }
-        mesh_index += 1;
+    for (int p = 0; p < 3*model.num_vertex; p += 1) {
+        pos[p] = (float)p3d_position[p] / (float)INT16_MAX * p3d_static_info->scale;
     }
 
-    m3d_free(m3d);
+    for (int n = 0; n < 3*model.num_vertex; n += 1) {
+        norm[n] = (float)p3d_normal[n] / (float)INT16_MAX;
+    }
+
+    for (int t = 0; t < 2*model.num_vertex; t += 1) {
+        tex[t] = (float)p3d_texcoord[t] / (float)INT16_MAX;
+    }
+
+    for (int m = 0; m < model.num_mesh; m += 1) {
+        model.num_index[m] = p3d_mesh[m].num_index;
+        model.index_offset[m] = p3d_mesh[m].index_offset;
+        model.material[m].has_diffuse = p3d_mesh[m].has_diffuse_color;
+        model.material[m].diffuse_color.rgba = p3d_mesh[m].diffuse_color;
+    }
 
     model.pos_buffer = pe_d3d11_create_buffer(pos, 3*model.num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
     model.norm_buffer = pe_d3d11_create_buffer(norm, 3*model.num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
     model.tex_buffer = pe_d3d11_create_buffer(tex, 2*model.num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    model.color_buffer = pe_d3d11_create_buffer(color, model.num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    model.index_buffer = pe_d3d11_create_buffer(index, num_index*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER);
+    model.color_buffer = pe_d3d11_create_buffer(p3d_color, model.num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    model.index_buffer = pe_d3d11_create_buffer(p3d_index, num_index*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER);
 
     pe_temp_arena_memory_end(temp_arena_memory);
 
@@ -1070,7 +971,7 @@ int main(int argc, char *argv[]) {
 
     ///////////////////
 
-    peModel model = pe_model_load("./res/ybot.m3d");
+    peModel model = pe_model_load("./res/ybot.p3d");
 
     peMesh mesh = pe_gen_mesh_cube(1.0f, 1.0f, 1.0f);
     peMesh quad = pe_gen_mesh_quad(1.0f, 1.0f);

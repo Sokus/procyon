@@ -7,3 +7,6 @@
 [submodule "ext/model3d"]
 	path = ext/model3d
 	url = https://gitlab.com/bztsrc/model3d
+[submodule "ext/stb"]
+	path = ext/stb
+	url = https://github.com/nothings/stb
