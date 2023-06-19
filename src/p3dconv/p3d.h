@@ -16,7 +16,7 @@ typedef struct p3dStaticInfo {
 // 2. vertices
 // int16_t position[3*num_vertex];
 // int16_t normal[3*num_vertex];
-// int16_t texcoord[2*num_vertex];
+// uint16_t texcoord[2*num_vertex];
 // uint32_t color[num_vertex];
 
 // 3. indices
@@ -31,10 +31,22 @@ typedef struct p3dMesh {
     uint32_t diffuse_color;
 
     bool has_diffuse_texture;
-    uint16_t diffuse_map_data_offset;
+    uint32_t diffuse_map_data_offset;
+    uint32_t diffuse_map_data_size;
 } p3dMesh; // meshes[static_info.num_meshes];
 
 // 5. binary data
 // uint8_t binary_data[...]
+
+// PP3D FORMAT:
+
+//[scale]
+//[# of meshes]
+//  [vertex type]
+//  [vertices] (size dependent on vertex type)
+//  [indices] (size dependent on vertex type)
+//  [has diffuse color?]
+//    [diffuse color]
+//  TODO: diffuse color map
 
 #endif // PROCYON_3D_FORMAT_H

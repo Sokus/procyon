@@ -1,8 +1,8 @@
 bl_info = {
-    "name": "Procyon Asset Exporter",
-    "author": "Sokus",
-    "version": (0, 0, 1),
-    "blender": (3, 2, 0),
+    "name": "Game Asset Exporter",
+    "author": "Jacob Bell",
+    "version": (2022, 7, 18),
+    "blender": (3, 2, 1),
     "location": "Properties > Object > Export",
     "description": "One-click export game asset files.",
     "category": "Export"}
@@ -16,17 +16,15 @@ from bpy.utils import (register_class, unregister_class)
 from bpy.types import (Panel, PropertyGroup)
 from bpy.props import (StringProperty, BoolProperty, IntProperty, FloatProperty, FloatVectorProperty, EnumProperty, PointerProperty)
 from bpy_extras.io_utils import (axis_conversion)
-from bpy_extras.node_shader_utils import (PrincipledBSDFWrapper)
 
 # Set to "wb" to output binary, or "w" to output plain text
 fileWriteMode = "wb"
 
 class Vertex:
-    def __init__(self, position, uv, normal, color, jointIndices, jointWeights):
+    def __init__(self, position, uv, normal, jointIndices, jointWeights):
         self.position = position
         self.uv = uv
         self.normal = normal
-        self.color = color
         self.jointIndices = jointIndices
         self.jointWeights = jointWeights
 
@@ -38,12 +36,6 @@ class Vertex:
 class Face:
     def __init__(self, vertexIndices):
         self.vertexIndices = vertexIndices
-
-class Mesh:
-    def __init__(self):
-        self.vertices = {}
-        self.faces = []
-        self.diffuse_color = []
 
 def writeUint32(file, value):
     if fileWriteMode == "wb": file.write(struct.pack("I", value))
@@ -100,13 +92,6 @@ def getDataFromMeshObjects(objects, armature, transformMatrix):
     vertices = {}
     faces = []
     sceneWithAppliedModifiers = bpy.context.evaluated_depsgraph_get()
-
-    meshes = {}
-
-    dummy_color = [0.8, 0.8, 0.8, 1.0]
-    dummy_material = bpy.data.materials.new("Dummy")
-    dummy_material.diffuse_color = dummy_color
-
     for object in objects:
         # Make a copy of the mesh with applied modifiers
         mesh = object.evaluated_get(sceneWithAppliedModifiers).to_mesh(preserve_all_data_layers=True, depsgraph=bpy.context.evaluated_depsgraph_get())
@@ -115,32 +100,8 @@ def getDataFromMeshObjects(objects, armature, transformMatrix):
         triangulateMesh(mesh)
         mesh.calc_normals_split()
 
-        if len(mesh.vertex_colors) > 0 and len(mesh.vertex_colors[mesh.vertex_colors.active_index].data) > 0:
-            vertex_colors = mesh.vertex_colors[mesh.vertex_colors.active_index].data
-        else:
-            vertex_colors = []
-
         for polygon in mesh.polygons:
             if len(polygon.loop_indices) == 3:
-
-                if bpy.context.scene.exportProperties.useMaterials == True and len(mesh.materials) > 0:
-                    material = mesh.materials[polygon.material_index]
-                else:
-                    material = dummy_material
-
-                if meshes.get(material) == None:
-                    meshes[material] = Mesh()
-                    material_bsdf = PrincipledBSDFWrapper(material)
-                    if material_bsdf:
-                        if material_bsdf.base_color and len(material_bsdf.base_color) > 3:
-                            alpha = material_bsdf.base_color[3]
-                        else:
-                            alpha = material_bsdf.alpha
-                        meshes[material].diffuse_color = [material_bsdf.base_color[0], material_bsdf.base_color[1], material_bsdf.base_color[2], alpha]
-                        print("material color:", meshes[material].diffuse_color[:])
-                    else:
-                        self.report({"ERROR"}, "Material '", material.name, "' does not use PrincipledBSDF surface, not parsing.")
-
                 faceIndices = []
                 for loopIndex in polygon.loop_indices:
                     loop = mesh.loops[loopIndex]
@@ -148,11 +109,6 @@ def getDataFromMeshObjects(objects, armature, transformMatrix):
                     uv = mesh.uv_layers.active.data[loop.index].uv
                     uv.y = 1-uv.y
                     normal = loop.normal
-
-                    if len(vertex_colors) > 0:
-                        color = vertex_colors[loop.vertex_index].color
-                    else:
-                        color = dummy_color
 
                     jointIndices = [0,0,0,0]
                     jointWeights = [0,0,0,0]
@@ -164,16 +120,13 @@ def getDataFromMeshObjects(objects, armature, transformMatrix):
                                 jointIndices[jointBindingIndex] = armature.data.bones.find(boneName)
                                 jointWeights[jointBindingIndex] = group.weight
 
-                    vertex = Vertex(position, uv, normal, color, jointIndices, normalizeJointWeights(jointWeights))
+                    vertex = Vertex(position, uv, normal, jointIndices, normalizeJointWeights(jointWeights))
+                    if vertices.get(vertex) == None:
+                        vertices[vertex] = len(vertices)
+                    faceIndices.append(vertices[vertex])
+                faces.append(Face(faceIndices))
 
-                    # TODO: ability to turn indexed vertices on/off
-                    mesh_vertices_length = len(meshes[material].vertices)
-                    if meshes[material].vertices.get(vertex) == None:
-                        meshes[material].vertices[vertex] = mesh_vertices_length
-                    faceIndices.append(mesh_vertices_length)
-                meshes[material].faces.append(Face(faceIndices))
-
-    return meshes.values()
+    return vertices.keys(), faces
 
 def writeFaces(file, faces):
     for face in faces:
@@ -246,18 +199,14 @@ def setArmaturePosition(armature, position):
 axesEnum = [("X","X","",1),("-X","-X","",2),("Y","Y","",3),("-Y","-Y","",4),("Z","Z","",5),("-Z","-Z","",6)]
 
 class ExportProperties(bpy.types.PropertyGroup):
-    standardPath: bpy.props.StringProperty(name="P3D", description="Path for standard (P3D) file", subtype='FILE_PATH')
-    portablePath: bpy.props.StringProperty(name="PP3D", description="Path for portable (PP3D) file", subtype='FILE_PATH')
+    meshPath: bpy.props.StringProperty(name="Mesh Path", subtype='FILE_PATH')
+    skeletonPath: bpy.props.StringProperty(name="Skeleton+animations Path", subtype='FILE_PATH')
+    forwardAxis: bpy.props.EnumProperty(name="Forward", items=axesEnum, default="-Y")
+    upAxis: bpy.props.EnumProperty(name="Up", items=axesEnum, default="Z")
 
-    forwardAxis: bpy.props.EnumProperty(name="", items=axesEnum, default="-Y")
-    upAxis: bpy.props.EnumProperty(name="", items=axesEnum, default="Z")
-
-    useColors: bpy.props.BoolProperty(name="Use Colors", description="Include Vertex Colors", default=False)
-    useMaterials: bpy.props.BoolProperty(name="Use Materials", description="Include Mesh Materials", default=True)
-
-class ExportStandardOperator(bpy.types.Operator):
-    bl_idname = "object.export_standard"
-    bl_label = "Export"
+class ExportMeshOperator(bpy.types.Operator):
+    bl_idname = "object.export_mesh"
+    bl_label = "Export Mesh"
 
     def execute(self, context):
         armature = getSelectedArmature()
@@ -270,14 +219,13 @@ class ExportStandardOperator(bpy.types.Operator):
 
         objects = getSelectedMeshObjects()
         if len(objects) > 0:
-            meshes = getDataFromMeshObjects(objects, armature, getAxisMappingMatrix())
-            print("mesh count:", len(meshes))
-            #file = open(bpy.path.abspath(context.scene.exportProperties.standardPath), fileWriteMode)
-            #writeBool(file, armature!=0)
-            #writeUint16(file, len(faces))
-            #writeUint16(file, len(vertices))
-            #writeFaces(file, faces)
-            #writeVertices(file, vertices, armature)
+            vertices, faces = getDataFromMeshObjects(objects, armature, getAxisMappingMatrix())
+            file = open(bpy.path.abspath(context.scene.exportProperties.meshPath), fileWriteMode)
+            writeBool(file, armature!=0)
+            writeUint16(file, len(faces))
+            writeUint16(file, len(vertices))
+            writeFaces(file, faces)
+            writeVertices(file, vertices, armature)
 
         # Change armature back to the pose it was in.
         if armature:
@@ -285,11 +233,28 @@ class ExportStandardOperator(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class ExportPortableOperator(bpy.types.Operator):
-    bl_idname = "object.export_portable"
-    bl_label = "Export"
+class ExportSkeletonOperator(bpy.types.Operator):
+    bl_idname = "object.export_skeleton"
+    bl_label = "Export Skeleton and Animations"
 
     def execute(self, context):
+        armature = getSelectedArmature()
+        originalArmaturePosition = armature.data.pose_position
+        originalAnimation = armature.animation_data.action
+        originalFrame = bpy.context.scene.frame_current
+
+        setArmaturePosition(armature, "POSE")
+        skeletonFile = open(bpy.path.abspath(context.scene.exportProperties.skeletonPath), fileWriteMode)
+        writeUint8(skeletonFile, len(armature.data.bones))
+        writeJoints(skeletonFile, armature, getAxisMappingMatrix())
+
+        writeUint32(skeletonFile, len(bpy.data.actions))
+        for animation in bpy.data.actions:
+            writeAnimation(skeletonFile, armature, animation, getAxisMappingMatrix())
+
+        bpy.context.scene.frame_set(originalFrame)
+        armature.animation_data.action = originalAnimation
+        setArmaturePosition(armature, originalArmaturePosition)
         return {'FINISHED'}
 
 class ExportPanel(bpy.types.Panel):
@@ -300,36 +265,24 @@ class ExportPanel(bpy.types.Panel):
     bl_context = "object"
 
     def draw(self, context):
-        split = self.layout.row().split(factor=0.33)
-        split.column().label(text="Properties:")
-        right = split.split().column()
-        right.prop(context.scene.exportProperties, "useColors")
-        right.prop(context.scene.exportProperties, "useMaterials")
-
-
-        axes_row = self.layout.row(align=False, heading="Forward / Up:")
-        axes_row.prop(context.scene.exportProperties, "forwardAxis")
-        axes_row.prop(context.scene.exportProperties, "upAxis")
-
-        standard_row = self.layout.row(align=False)
-        standard_row.prop(context.scene.exportProperties, "standardPath")
-        standard_row.operator('object.export_standard')
-
-        standard_row = self.layout.row(align=False)
-        standard_row.prop(context.scene.exportProperties, "portablePath")
-        standard_row.operator('object.export_portable')
+        self.layout.prop(context.scene.exportProperties, "meshPath")
+        self.layout.prop(context.scene.exportProperties, "skeletonPath")
+        self.layout.prop(context.scene.exportProperties, "forwardAxis")
+        self.layout.prop(context.scene.exportProperties, "upAxis")
+        self.layout.operator('object.export_mesh')
+        self.layout.operator('object.export_skeleton')
 
 def register():
     bpy.utils.register_class(ExportProperties)
-    bpy.utils.register_class(ExportStandardOperator)
-    bpy.utils.register_class(ExportPortableOperator)
+    bpy.utils.register_class(ExportMeshOperator)
+    bpy.utils.register_class(ExportSkeletonOperator)
     bpy.utils.register_class(ExportPanel)
     bpy.types.Scene.exportProperties = bpy.props.PointerProperty(type=ExportProperties)
 
 def unregister():
     bpy.utils.unregister_class(ExportProperties)
-    bpy.utils.unregister_class(ExportStandardOperator)
-    bpy.utils.unregister_class(ExportPortableOperator)
+    bpy.utils.unregister_class(ExportMeshOperator)
+    bpy.utils.unregister_class(ExportSkeletonOperator)
     bpy.utils.unregister_class(ExportPanel)
     del bpy.types.Scene.exportProperties
 
