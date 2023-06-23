@@ -19,89 +19,82 @@ from bpy_extras.io_utils import (axis_conversion)
 from bpy_extras.node_shader_utils import (PrincipledBSDFWrapper)
 
 # Set to "wb" to output binary, or "w" to output plain text
-fileWriteMode = "wb"
+file_write_mode = "wb"
 
 class Vertex:
-    def __init__(self, position, uv, normal, color, jointIndices, jointWeights):
+    def __init__(self, position, uv, normal, color, joint_indices, joint_weights):
         self.position = position
         self.uv = uv
         self.normal = normal
         self.color = color
-        self.jointIndices = jointIndices
-        self.jointWeights = jointWeights
+        self.joint_indices = joint_indices
+        self.joint_weights = joint_weights
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
     def __hash__(self):
         return hash(self.position.x)
 
-class Face:
-    def __init__(self, vertexIndices):
-        self.vertexIndices = vertexIndices
 
 class Mesh:
     def __init__(self):
         self.vertices = {}
-        self.faces = []
+        self.indices = []
+        self.index_offset = 0
         self.diffuse_color = []
 
-def writeUint32(file, value):
-    if fileWriteMode == "wb": file.write(struct.pack("I", value))
+def write_int32(file, value):
+    if file_write_mode == "wb": file.write(struct.pack("i", value))
     else: file.write(str(value) + ' ')
 
-def writeUint16(file, value):
-    if fileWriteMode == "wb": file.write(struct.pack("H", value))
+def write_uint32(file, value):
+    if file_write_mode == "wb": file.write(struct.pack("I", value))
     else: file.write(str(value) + ' ')
 
-def writeUint8(file, value):
-    if fileWriteMode == "wb": file.write(struct.pack("B", value))
+def write_int16(file, value):
+    if file_write_mode == "wb": file.write(struct.pack("h", value))
     else: file.write(str(value) + ' ')
 
-def writeFloat(file, value):
-    if fileWriteMode == "wb": file.write(struct.pack("f", value))
+def write_uint16(file, value):
+    if file_write_mode == "wb": file.write(struct.pack("H", value))
     else: file.write(str(value) + ' ')
 
-def writeBool(file, value):
-    if fileWriteMode == "wb": file.write(struct.pack("?", value))
+def write_uint8(file, value):
+    if file_write_mode == "wb": file.write(struct.pack("B", value))
     else: file.write(str(value) + ' ')
 
-def writeString(file, text):
-    if fileWriteMode == "wb": file.write(text.encode('ascii'))
+def write_float(file, value):
+    if file_write_mode == "wb": file.write(struct.pack("f", value))
+    else: file.write(str(value) + ' ')
+
+def write_bool(file, value):
+    if file_write_mode == "wb": file.write(struct.pack("?", value))
+    else: file.write(str(value) + ' ')
+
+def write_string(file, text):
+    if file_write_mode == "wb": file.write(text.encode('ascii'))
     else: file.write(text)
 
-def writeVertices(file, vertices, writeJointBindings):
-    for vertex in vertices:
-        writeFloat(file, vertex.position.x)
-        writeFloat(file, vertex.position.y)
-        writeFloat(file, vertex.position.z)
-        writeFloat(file, vertex.uv[0])
-        writeFloat(file, vertex.uv[1])
-        writeFloat(file, vertex.normal.x)
-        writeFloat(file, vertex.normal.y)
-        writeFloat(file, vertex.normal.z)
-        if writeJointBindings:
-            for i in range(4): writeUint8(file, vertex.jointIndices[i])
-            for i in range(4): writeFloat(file, vertex.jointWeights[i])
-
-def normalizeJointWeights(weights):
-    totalWeights = sum(weights)
+def normalize_joint_weights(weights):
+    total_weights = sum(weights)
     result = [0,0,0,0]
-    if totalWeights != 0:
-        for i, weight in enumerate(weights): result[i] = weight/totalWeights
+    if total_weights != 0:
+        for i, weight in enumerate(weights):
+            result[i] = weight / total_weights
     return result
 
-def triangulateMesh(mesh):
+def triangulate_mesh(mesh):
     bm = bmesh.new()
     bm.from_mesh(mesh)
     bmesh.ops.triangulate(bm, faces=bm.faces)
     bm.to_mesh(mesh)
 
-def getDataFromMeshObjects(objects, armature, transformMatrix):
-    vertices = {}
-    faces = []
-    sceneWithAppliedModifiers = bpy.context.evaluated_depsgraph_get()
+def get_data_from_mesh_objects(objects, armature, transformMatrix):
+    scene_with_applied_modifiers = bpy.context.evaluated_depsgraph_get()
 
     meshes = {}
+    num_vertex = 0
+    num_index = 0
 
     dummy_color = [0.8, 0.8, 0.8, 1.0]
     dummy_material = bpy.data.materials.new("Dummy")
@@ -109,12 +102,13 @@ def getDataFromMeshObjects(objects, armature, transformMatrix):
 
     for object in objects:
         # Make a copy of the mesh with applied modifiers
-        mesh = object.evaluated_get(sceneWithAppliedModifiers).to_mesh(preserve_all_data_layers=True, depsgraph=bpy.context.evaluated_depsgraph_get())
+        mesh = object.evaluated_get(scene_with_applied_modifiers).to_mesh(preserve_all_data_layers=True, depsgraph=bpy.context.evaluated_depsgraph_get())
 
         mesh.transform(transformMatrix @ object.matrix_world)
-        triangulateMesh(mesh)
+        triangulate_mesh(mesh)
         mesh.calc_normals_split()
 
+        # Get vertex color palette
         if len(mesh.vertex_colors) > 0 and len(mesh.vertex_colors[mesh.vertex_colors.active_index].data) > 0:
             vertex_colors = mesh.vertex_colors[mesh.vertex_colors.active_index].data
         else:
@@ -123,11 +117,13 @@ def getDataFromMeshObjects(objects, armature, transformMatrix):
         for polygon in mesh.polygons:
             if len(polygon.loop_indices) == 3:
 
-                if bpy.context.scene.exportProperties.useMaterials == True and len(mesh.materials) > 0:
+                # Get mesh material
+                if bpy.context.scene.export_properties.use_materials == True and len(mesh.materials) > 0:
                     material = mesh.materials[polygon.material_index]
                 else:
                     material = dummy_material
 
+                # Add mesh to dictionary and extract material properties
                 if meshes.get(material) == None:
                     meshes[material] = Mesh()
                     material_bsdf = PrincipledBSDFWrapper(material)
@@ -137,13 +133,13 @@ def getDataFromMeshObjects(objects, armature, transformMatrix):
                         else:
                             alpha = material_bsdf.alpha
                         meshes[material].diffuse_color = [material_bsdf.base_color[0], material_bsdf.base_color[1], material_bsdf.base_color[2], alpha]
-                        print("material color:", meshes[material].diffuse_color[:])
                     else:
                         self.report({"ERROR"}, "Material '", material.name, "' does not use PrincipledBSDF surface, not parsing.")
 
-                faceIndices = []
-                for loopIndex in polygon.loop_indices:
-                    loop = mesh.loops[loopIndex]
+                # Get mesh vertices, indices and joint info
+                face_indices = []
+                for loop_index in polygon.loop_indices:
+                    loop = mesh.loops[loop_index]
                     position = mesh.vertices[loop.vertex_index].undeformed_co
                     uv = mesh.uv_layers.active.data[loop.index].uv
                     uv.y = 1-uv.y
@@ -154,51 +150,76 @@ def getDataFromMeshObjects(objects, armature, transformMatrix):
                     else:
                         color = dummy_color
 
-                    jointIndices = [0,0,0,0]
-                    jointWeights = [0,0,0,0]
+                    joint_indices = [0,0,0,0]
+                    joint_weights = [0,0,0,0]
                     if armature:
-                        for jointBindingIndex, group in enumerate(mesh.vertices[loop.vertex_index].groups):
-                            if jointBindingIndex < 4:
-                                groupIndex = group.group
-                                boneName = object.vertex_groups[groupIndex].name
-                                jointIndices[jointBindingIndex] = armature.data.bones.find(boneName)
-                                jointWeights[jointBindingIndex] = group.weight
+                        for joint_binding_index, group in enumerate(mesh.vertices[loop.vertex_index].groups):
+                            if joint_binding_index < 4:
+                                group_index = group.group
+                                bone_name = object.vertex_groups[group_index].name
+                                joint_indices[joint_binding_index] = armature.data.bones.find(bone_name)
+                                joint_weights[joint_binding_index] = group.weight
 
-                    vertex = Vertex(position, uv, normal, color, jointIndices, normalizeJointWeights(jointWeights))
+                    vertex = Vertex(position, uv, normal, color, joint_indices, normalize_joint_weights(joint_weights))
 
-                    # TODO: ability to turn indexed vertices on/off
-                    mesh_vertices_length = len(meshes[material].vertices)
+                    meshes[material].indices.append(len(meshes[material].vertices))
                     if meshes[material].vertices.get(vertex) == None:
-                        meshes[material].vertices[vertex] = mesh_vertices_length
-                    faceIndices.append(mesh_vertices_length)
-                meshes[material].faces.append(Face(faceIndices))
+                        meshes[material].vertices[vertex] = len(meshes[material].vertices)
 
-    return meshes.values()
+    min_vector = [sys.float_info.max, sys.float_info.max, sys.float_info.max]
+    max_vector = [sys.float_info.min, sys.float_info.min, sys.float_info.min]
+    for mesh in meshes.values():
+        for vertex in mesh.vertices.keys():
+            for e in range(0, 3):
+                if vertex.position[e] < min_vector[e]:
+                    min_vector[e] = vertex.position[e]
+                if vertex.position[e] > max_vector[e]:
+                    max_vector[e] = vertex.position[e]
+    scale = max(abs(min(min_vector)), abs(max(max_vector)))
 
-def writeFaces(file, faces):
-    for face in faces:
-        for vertexIndex in face.vertexIndices:
-            writeUint16(file, vertexIndex)
+    index_offset = 0
+    for mesh in meshes.values():
+        num_vertex += len(mesh.vertices)
+        num_index += len(mesh.indices)
+        mesh.index_offset = index_offset
+        index_offset += len(mesh.indices)
 
-def writeJoints(file, armature, transform):
+    return scale, num_vertex, num_index, meshes.values()
+
+def float_to_int16(value):
+    INT16_MAX = 32767
+    return int(value * float(INT16_MAX))
+
+def float_to_uint16(value):
+    UINT16_MAX = 65535
+    return int(value * float(UINT16_MAX))
+
+def color_to_uint32(value):
+    r = int(value[0] * 255)
+    g = int(value[1] * 255)
+    b = int(value[2] * 255)
+    a = int(value[3] * 255)
+    return r << 24 | g << 16 | b << 8 | a
+
+def write_joints(file, armature, transform):
     for bone in armature.data.bones:
-        writeUint8(file, armature.data.bones.find(bone.parent.name) if bone.parent else 0)
-        modelSpacePose = transform @ bone.matrix_local
-        inverseModelSpacePose = modelSpacePose.inverted()
-        for vector in inverseModelSpacePose:
+        write_uint8(file, armature.data.bones.find(bone.parent.name) if bone.parent else 0)
+        model_space_pose = transform @ bone.matrix_local
+        inverse_model_space_pose = model_space_pose.inverted()
+        for vector in inverse_model_space_pose:
             for float in vector:
-                writeFloat(file, float)
+                write_float(file, float)
 
-def writeAnimation(file, armature, animation, transform):
-    startFrame = int(animation.frame_range.x)
-    endFrame = int(animation.frame_range.y)
+def write_animation(file, armature, animation, transform):
+    start_frame = int(animation.frame_range.x)
+    end_frame = int(animation.frame_range.y)
     armature.animation_data.action = animation
 
-    writeUint32(file, endFrame-startFrame + 1)
-    print(endFrame-startFrame + 1)
-    writeUint32(file, len(animation.name))
-    writeString(file, animation.name)
-    for frame in range(startFrame, endFrame+1):
+    write_uint32(file, end_frame-start_frame + 1)
+    print(end_frame-start_frame + 1)
+    write_uint32(file, len(animation.name))
+    write_string(file, animation.name)
+    for frame in range(start_frame, end_frame+1):
         bpy.context.scene.frame_set(frame)
         for bone in armature.pose.bones:
             parentSpacePose = bone.matrix
@@ -207,81 +228,141 @@ def writeAnimation(file, armature, animation, transform):
             else:
                 parentSpacePose = transform @ bone.matrix
             translation = parentSpacePose.to_translation()
-            writeFloat(file, translation.x)
-            writeFloat(file, translation.y)
-            writeFloat(file, translation.z)
+            write_float(file, translation.x)
+            write_float(file, translation.y)
+            write_float(file, translation.z)
             rotation = parentSpacePose.to_quaternion()
-            writeFloat(file, rotation.w)
-            writeFloat(file, rotation.x)
-            writeFloat(file, rotation.y)
-            writeFloat(file, rotation.z)
+            write_float(file, rotation.w)
+            write_float(file, rotation.x)
+            write_float(file, rotation.y)
+            write_float(file, rotation.z)
             # Does not support negative scales
             scale = parentSpacePose.to_scale()
-            writeFloat(file, scale.x)
-            writeFloat(file, scale.y)
-            writeFloat(file, scale.z)
+            write_float(file, scale.x)
+            write_float(file, scale.y)
+            write_float(file, scale.z)
 
 
-def getSelectedMeshObjects():
-    meshList = []
+def get_selected_mesh_objects():
+    mesh_list = []
     for object in bpy.context.selected_objects:
         if object.type == "MESH":
-            meshList.append(object)
-    return meshList
+            mesh_list.append(object)
+    return mesh_list
 
-def getSelectedArmature():
+def get_selected_armature():
     for object in bpy.context.selected_objects:
         if object.type == "ARMATURE":
             return object
     return 0
 
-def getAxisMappingMatrix():
-    return axis_conversion("-Y", "Z", bpy.context.scene.exportProperties.forwardAxis, bpy.context.scene.exportProperties.upAxis).to_4x4()
+def get_axis_mapping_matrix():
+    return axis_conversion("-Y", "Z", bpy.context.scene.export_properties.forward_axis, bpy.context.scene.export_properties.up_axis).to_4x4()
 
-def setArmaturePosition(armature, position):
+def set_armature_position(armature, position):
     armature.data.pose_position = position
     armature.data.update_tag()
     bpy.context.scene.frame_set(bpy.context.scene.frame_current)
 
-axesEnum = [("X","X","",1),("-X","-X","",2),("Y","Y","",3),("-Y","-Y","",4),("Z","Z","",5),("-Z","-Z","",6)]
+axes_enum = [("X","X","",1),("-X","-X","",2),("Y","Y","",3),("-Y","-Y","",4),("Z","Z","",5),("-Z","-Z","",6)]
+
+indices_enum = [
+    ("always", "Always"  , "Always include indexed vertices"       , 1),
+    ("p3d_only", "P3D Only", "Include indexed vertices in P3D format", 2),
+    ("never", "Never"   , "Never include indexed vertices"        , 3)]
 
 class ExportProperties(bpy.types.PropertyGroup):
-    standardPath: bpy.props.StringProperty(name="P3D", description="Path for standard (P3D) file", subtype='FILE_PATH')
-    portablePath: bpy.props.StringProperty(name="PP3D", description="Path for portable (PP3D) file", subtype='FILE_PATH')
+    use_colors: bpy.props.BoolProperty(name="Use Colors", description="Include Vertex Colors", default=False)
+    use_materials: bpy.props.BoolProperty(name="Use Materials", description="Include Mesh Materials", default=True)
 
-    forwardAxis: bpy.props.EnumProperty(name="", items=axesEnum, default="-Y")
-    upAxis: bpy.props.EnumProperty(name="", items=axesEnum, default="Z")
+    use_indices: bpy.props.EnumProperty(name="", items=indices_enum, default="always")
 
-    useColors: bpy.props.BoolProperty(name="Use Colors", description="Include Vertex Colors", default=False)
-    useMaterials: bpy.props.BoolProperty(name="Use Materials", description="Include Mesh Materials", default=True)
+    forward_axis: bpy.props.EnumProperty(name="", items=axes_enum, default="-Y")
+    up_axis: bpy.props.EnumProperty(name="", items=axes_enum, default="Z")
+
+    standard_path: bpy.props.StringProperty(name="P3D", description="Path for standard (P3D) file", subtype='FILE_PATH')
+    portable_path: bpy.props.StringProperty(name="PP3D", description="Path for portable (PP3D) file", subtype='FILE_PATH')
+
 
 class ExportStandardOperator(bpy.types.Operator):
     bl_idname = "object.export_standard"
     bl_label = "Export"
 
     def execute(self, context):
-        armature = getSelectedArmature()
+        armature = get_selected_armature()
 
         # If the mesh has an armature modifier, the current pose will be applied to vertices, so change it to rest position
-        originalArmaturePosition = "REST"
+        original_armature_position = "REST"
         if armature:
-            originalArmaturePosition = armature.data.pose_position
-            setArmaturePosition(armature, "REST")
+            original_armature_position = armature.data.pose_position
+            set_armature_position(armature, "REST")
 
-        objects = getSelectedMeshObjects()
+        objects = get_selected_mesh_objects()
         if len(objects) > 0:
-            meshes = getDataFromMeshObjects(objects, armature, getAxisMappingMatrix())
-            print("mesh count:", len(meshes))
-            #file = open(bpy.path.abspath(context.scene.exportProperties.standardPath), fileWriteMode)
-            #writeBool(file, armature!=0)
-            #writeUint16(file, len(faces))
-            #writeUint16(file, len(vertices))
-            #writeFaces(file, faces)
-            #writeVertices(file, vertices, armature)
+            scale, num_vertex, num_index, meshes = get_data_from_mesh_objects(objects, armature, get_axis_mapping_matrix())
+            file = open(bpy.path.abspath(context.scene.export_properties.standard_path), file_write_mode)
+            use_indices = context.scene.export_properties.use_indices in {"always", "p3d_only"}
+
+            # Write header
+            write_string(file, " P3D")
+            write_float(file, scale)
+            if use_indices:
+                write_int32(file, num_vertex)
+                write_int32(file, num_index)
+            else:
+                write_int32(file, num_index)
+                write_int32(file, 0)
+            write_uint16(file, len(meshes))
+
+            # Write vertex data
+            for mesh in meshes:
+                if use_indices:
+                    for vertex in mesh.vertices.keys():
+                        for e in range(0, 3):
+                            vertex_position_element_int16 = float_to_int16(vertex.position[e] / scale)
+                            write_int16(file, vertex_position_element_int16)
+                    for vertex in mesh.vertices.keys():
+                        for e in range(0, 3):
+                            vertex_normal_element_int16 = float_to_int16(vertex.normal[e])
+                            write_int16(file, vertex_normal_element_int16)
+                    for vertex in mesh.vertices.keys():
+                        for e in range(0, 2):
+                            vertex_texcoord_element_uint16 = float_to_uint16(vertex.uv[e])
+                            write_uint16(file, vertex_texcoord_element_uint16)
+                    for vertex in mesh.vertices.keys():
+                        write_uint32(file, color_to_uint32(vertex.color))
+                    for index in mesh.indices:
+                        write_uint32(file, index)
+                else:
+                    vertices = list(mesh.vertices.keys())
+                    for index in mesh.indices:
+                        print(index,", ")
+                        for e in range(0, 3):
+                            vertex_position_element_int16 = float_to_int16(vertices[index].position[e] / scale)
+                            write_int16(file, vertex_position_element_int16)
+                    for index in mesh.indices:
+                        for e in range(0, 3):
+                            vertex_normal_element_int16 = float_to_int16(vertices[index].normal[e])
+                            write_int16(file, vertex_normal_element_int16)
+                    for index in mesh.indices:
+                        for e in range(0, 2):
+                            vertex_texcoord_element_uint16 = float_to_uint16(vertices[index].uv[e])
+                            write_uint16(file, vertex_texcoord_element_uint16)
+                    for index in mesh.indices:
+                        write_uint32(file, color_to_uint32(vertices[index].color))
+
+            # Write meshes
+            for mesh in meshes:
+                if use_indices:
+                    write_uint32(file, len(mesh.indices))
+                else:
+                    write_uint32(file, len(mesh.vertices))
+                write_uint32(file, mesh.index_offset)
+                write_uint32(file, color_to_uint32(mesh.diffuse_color))
 
         # Change armature back to the pose it was in.
         if armature:
-            setArmaturePosition(armature, originalArmaturePosition)
+            set_armature_position(armature, original_armature_position)
 
         return {'FINISHED'}
 
@@ -299,24 +380,34 @@ class ExportPanel(bpy.types.Panel):
     bl_region_type = 'WINDOW'
     bl_context = "object"
 
+    def split_columns(self, factor):
+        new_split = self.layout.row().split(factor=factor)
+        return new_split.column(), new_split.split().column()
+
     def draw(self, context):
-        split = self.layout.row().split(factor=0.33)
-        split.column().label(text="Properties:")
-        right = split.split().column()
-        right.prop(context.scene.exportProperties, "useColors")
-        right.prop(context.scene.exportProperties, "useMaterials")
+        split_factor = 0.33
 
+        properties_left_column, properties_right_column = self.split_columns(factor=split_factor)
+        properties_left_column.label(text="Properties")
+        properties_right_column.prop(context.scene.export_properties, "use_colors")
+        properties_right_column.prop(context.scene.export_properties, "use_materials")
 
-        axes_row = self.layout.row(align=False, heading="Forward / Up:")
-        axes_row.prop(context.scene.exportProperties, "forwardAxis")
-        axes_row.prop(context.scene.exportProperties, "upAxis")
+        indices_left_column, indices_right_column = self.split_columns(factor=split_factor)
+        indices_left_column.label(text="Indexed")
+        indices_right_column.prop(context.scene.export_properties, "use_indices")
+
+        axes_left_column, axes_right_column = self.split_columns(factor=split_factor)
+        axes_left_column.label(text="Forward / Up")
+        axes_right_column_row = axes_right_column.row()
+        axes_right_column_row.prop(context.scene.export_properties, "forward_axis")
+        axes_right_column_row.prop(context.scene.export_properties, "up_axis")
 
         standard_row = self.layout.row(align=False)
-        standard_row.prop(context.scene.exportProperties, "standardPath")
+        standard_row.prop(context.scene.export_properties, "standard_path")
         standard_row.operator('object.export_standard')
 
         standard_row = self.layout.row(align=False)
-        standard_row.prop(context.scene.exportProperties, "portablePath")
+        standard_row.prop(context.scene.export_properties, "portable_path")
         standard_row.operator('object.export_portable')
 
 def register():
@@ -324,14 +415,14 @@ def register():
     bpy.utils.register_class(ExportStandardOperator)
     bpy.utils.register_class(ExportPortableOperator)
     bpy.utils.register_class(ExportPanel)
-    bpy.types.Scene.exportProperties = bpy.props.PointerProperty(type=ExportProperties)
+    bpy.types.Scene.export_properties = bpy.props.PointerProperty(type=ExportProperties)
 
 def unregister():
     bpy.utils.unregister_class(ExportProperties)
     bpy.utils.unregister_class(ExportStandardOperator)
     bpy.utils.unregister_class(ExportPortableOperator)
     bpy.utils.unregister_class(ExportPanel)
-    del bpy.types.Scene.exportProperties
+    del bpy.types.Scene.export_properties
 
 if __name__ == "__main__":
     register()

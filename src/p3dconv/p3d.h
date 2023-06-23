@@ -26,17 +26,9 @@ typedef struct p3dStaticInfo {
 typedef struct p3dMesh {
     uint32_t num_index;
     uint32_t index_offset;
-
-    bool has_diffuse_color;
     uint32_t diffuse_color;
-
-    bool has_diffuse_texture;
-    uint32_t diffuse_map_data_offset;
-    uint32_t diffuse_map_data_size;
 } p3dMesh; // meshes[static_info.num_meshes];
 
-// 5. binary data
-// uint8_t binary_data[...]
 
 // PP3D FORMAT:
 
