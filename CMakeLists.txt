@@ -21,19 +21,13 @@ if(WIN32)
         src/client/win32/win32_shader.c
     )
     target_include_directories(procyon PRIVATE src)
-    target_link_libraries(procyon shared glfw handmade-math stb model3d)
+    target_link_libraries(procyon shared glfw handmade-math stb)
 
     add_executable(server
         src/server/win32_main.c
     )
     target_include_directories(server PRIVATE src)
     target_link_libraries(server shared)
-
-    add_executable(p3dconv
-        src/p3dconv/win32_main.c
-    )
-    target_include_directories(p3dconv PRIVATE src)
-    target_link_libraries(p3dconv shared handmade-math model3d)
 
     if(MSVC)
         add_compile_options(-WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127)

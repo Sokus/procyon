@@ -7,6 +7,7 @@
 
 // 1. static info header
 typedef struct p3dStaticInfo {
+    char extension_magic[4];
     float scale;
     int32_t num_vertex;
     int32_t num_index;
@@ -17,7 +18,6 @@ typedef struct p3dStaticInfo {
 // int16_t position[3*num_vertex];
 // int16_t normal[3*num_vertex];
 // uint16_t texcoord[2*num_vertex];
-// uint32_t color[num_vertex];
 
 // 3. indices
 // uint32_t index[num_index];
@@ -26,6 +26,7 @@ typedef struct p3dStaticInfo {
 typedef struct p3dMesh {
     uint32_t num_index;
     uint32_t index_offset;
+    uint32_t vertex_offset;
     uint32_t diffuse_color;
 } p3dMesh; // meshes[static_info.num_meshes];
 

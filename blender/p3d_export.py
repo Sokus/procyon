@@ -38,9 +38,11 @@ class Vertex:
 
 class Mesh:
     def __init__(self):
+        # self.has_vertex_colors = False
         self.vertices = {}
         self.indices = []
         self.index_offset = 0
+        self.vertex_offset = 0
         self.diffuse_color = []
 
 def write_int32(file, value):
@@ -96,7 +98,7 @@ def get_data_from_mesh_objects(objects, armature, transformMatrix):
     num_vertex = 0
     num_index = 0
 
-    dummy_color = [0.8, 0.8, 0.8, 1.0]
+    dummy_color = [1.0, 1.0, 1.0, 1.0]
     dummy_material = bpy.data.materials.new("Dummy")
     dummy_material.diffuse_color = dummy_color
 
@@ -108,17 +110,24 @@ def get_data_from_mesh_objects(objects, armature, transformMatrix):
         triangulate_mesh(mesh)
         mesh.calc_normals_split()
 
+        """
+        NOTE: Commenting out this block because I was thinking too much if I need vertex colors or not.
+              I will continue working on it when I actually need them :p
         # Get vertex color palette
-        if len(mesh.vertex_colors) > 0 and len(mesh.vertex_colors[mesh.vertex_colors.active_index].data) > 0:
+        use_colors = bpy.context.scene.export_properties.use_colors == True
+        vertex_colors_available = len(mesh.vertex_colors) > 0 and len(mesh.vertex_colors[mesh.vertex_colors.active_index].data) > 0
+        if use_colors == True and vertex_colors_available == True:
             vertex_colors = mesh.vertex_colors[mesh.vertex_colors.active_index].data
         else:
             vertex_colors = []
+        """
 
         for polygon in mesh.polygons:
             if len(polygon.loop_indices) == 3:
 
                 # Get mesh material
-                if bpy.context.scene.export_properties.use_materials == True and len(mesh.materials) > 0:
+                use_materials = bpy.context.scene.export_properties.use_materials == True
+                if  use_materials == True and len(mesh.materials) > 0:
                     material = mesh.materials[polygon.material_index]
                 else:
                     material = dummy_material
@@ -126,6 +135,13 @@ def get_data_from_mesh_objects(objects, armature, transformMatrix):
                 # Add mesh to dictionary and extract material properties
                 if meshes.get(material) == None:
                     meshes[material] = Mesh()
+
+                    """
+                    NOTE: Vertex colors not needed for now
+                    if len(vertex_colors) > 0:
+                        meshes[material].has_vertex_colors = True
+                    """
+
                     material_bsdf = PrincipledBSDFWrapper(material)
                     if material_bsdf:
                         if material_bsdf.base_color and len(material_bsdf.base_color) > 3:
@@ -145,10 +161,14 @@ def get_data_from_mesh_objects(objects, armature, transformMatrix):
                     uv.y = 1-uv.y
                     normal = loop.normal
 
+                    """
+                    NOTE: Vertex colors not needef for now
                     if len(vertex_colors) > 0:
                         color = vertex_colors[loop.vertex_index].color
                     else:
                         color = dummy_color
+                    """
+                    color = dummy_color
 
                     joint_indices = [0,0,0,0]
                     joint_weights = [0,0,0,0]
@@ -162,9 +182,9 @@ def get_data_from_mesh_objects(objects, armature, transformMatrix):
 
                     vertex = Vertex(position, uv, normal, color, joint_indices, normalize_joint_weights(joint_weights))
 
-                    meshes[material].indices.append(len(meshes[material].vertices))
                     if meshes[material].vertices.get(vertex) == None:
                         meshes[material].vertices[vertex] = len(meshes[material].vertices)
+                    meshes[material].indices.append(meshes[material].vertices[vertex])
 
     min_vector = [sys.float_info.max, sys.float_info.max, sys.float_info.max]
     max_vector = [sys.float_info.min, sys.float_info.min, sys.float_info.min]
@@ -178,11 +198,14 @@ def get_data_from_mesh_objects(objects, armature, transformMatrix):
     scale = max(abs(min(min_vector)), abs(max(max_vector)))
 
     index_offset = 0
+    vertex_offset = 0
     for mesh in meshes.values():
         num_vertex += len(mesh.vertices)
         num_index += len(mesh.indices)
         mesh.index_offset = index_offset
+        mesh.vertex_offset = vertex_offset
         index_offset += len(mesh.indices)
+        vertex_offset += len(mesh.vertices)
 
     return scale, num_vertex, num_index, meshes.values()
 
@@ -199,7 +222,7 @@ def color_to_uint32(value):
     g = int(value[1] * 255)
     b = int(value[2] * 255)
     a = int(value[3] * 255)
-    return r << 24 | g << 16 | b << 8 | a
+    return r | g << 8 | b << 16 | a << 24
 
 def write_joints(file, armature, transform):
     for bone in armature.data.bones:
@@ -266,16 +289,10 @@ def set_armature_position(armature, position):
 
 axes_enum = [("X","X","",1),("-X","-X","",2),("Y","Y","",3),("-Y","-Y","",4),("Z","Z","",5),("-Z","-Z","",6)]
 
-indices_enum = [
-    ("always", "Always"  , "Always include indexed vertices"       , 1),
-    ("p3d_only", "P3D Only", "Include indexed vertices in P3D format", 2),
-    ("never", "Never"   , "Never include indexed vertices"        , 3)]
-
 class ExportProperties(bpy.types.PropertyGroup):
-    use_colors: bpy.props.BoolProperty(name="Use Colors", description="Include Vertex Colors", default=False)
+    # use_colors: bpy.props.BoolProperty(name="Use Colors", description="Include Vertex Colors", default=False)
     use_materials: bpy.props.BoolProperty(name="Use Materials", description="Include Mesh Materials", default=True)
-
-    use_indices: bpy.props.EnumProperty(name="", items=indices_enum, default="always")
+    use_indices: bpy.props.BoolProperty(name="Use Indices (P3D)", description="Include Indices in P3D file", default=True)
 
     forward_axis: bpy.props.EnumProperty(name="", items=axes_enum, default="-Y")
     up_axis: bpy.props.EnumProperty(name="", items=axes_enum, default="Z")
@@ -301,64 +318,46 @@ class ExportStandardOperator(bpy.types.Operator):
         if len(objects) > 0:
             scale, num_vertex, num_index, meshes = get_data_from_mesh_objects(objects, armature, get_axis_mapping_matrix())
             file = open(bpy.path.abspath(context.scene.export_properties.standard_path), file_write_mode)
-            use_indices = context.scene.export_properties.use_indices in {"always", "p3d_only"}
 
             # Write header
             write_string(file, " P3D")
             write_float(file, scale)
-            if use_indices:
-                write_int32(file, num_vertex)
-                write_int32(file, num_index)
-            else:
-                write_int32(file, num_index)
-                write_int32(file, 0)
+            write_int32(file, num_vertex)
+            write_int32(file, num_index)
             write_uint16(file, len(meshes))
+            write_uint16(file, 0) # alignment
 
             # Write vertex data
             for mesh in meshes:
-                if use_indices:
-                    for vertex in mesh.vertices.keys():
-                        for e in range(0, 3):
-                            vertex_position_element_int16 = float_to_int16(vertex.position[e] / scale)
-                            write_int16(file, vertex_position_element_int16)
-                    for vertex in mesh.vertices.keys():
-                        for e in range(0, 3):
-                            vertex_normal_element_int16 = float_to_int16(vertex.normal[e])
-                            write_int16(file, vertex_normal_element_int16)
-                    for vertex in mesh.vertices.keys():
-                        for e in range(0, 2):
-                            vertex_texcoord_element_uint16 = float_to_uint16(vertex.uv[e])
-                            write_uint16(file, vertex_texcoord_element_uint16)
-                    for vertex in mesh.vertices.keys():
-                        write_uint32(file, color_to_uint32(vertex.color))
-                    for index in mesh.indices:
-                        write_uint32(file, index)
-                else:
-                    vertices = list(mesh.vertices.keys())
-                    for index in mesh.indices:
-                        print(index,", ")
-                        for e in range(0, 3):
-                            vertex_position_element_int16 = float_to_int16(vertices[index].position[e] / scale)
-                            write_int16(file, vertex_position_element_int16)
-                    for index in mesh.indices:
-                        for e in range(0, 3):
-                            vertex_normal_element_int16 = float_to_int16(vertices[index].normal[e])
-                            write_int16(file, vertex_normal_element_int16)
-                    for index in mesh.indices:
-                        for e in range(0, 2):
-                            vertex_texcoord_element_uint16 = float_to_uint16(vertices[index].uv[e])
-                            write_uint16(file, vertex_texcoord_element_uint16)
-                    for index in mesh.indices:
-                        write_uint32(file, color_to_uint32(vertices[index].color))
+                for vertex in mesh.vertices.keys():
+                    for e in range(0, 3):
+                        vertex_position_element_int16 = float_to_int16(vertex.position[e] / scale)
+                        write_int16(file, vertex_position_element_int16)
+            for mesh in meshes:
+                for vertex in mesh.vertices.keys():
+                    for e in range(0, 3):
+                        vertex_normal_element_int16 = float_to_int16(vertex.normal[e])
+                        write_int16(file, vertex_normal_element_int16)
+            for mesh in meshes:
+                for vertex in mesh.vertices.keys():
+                    for e in range(0, 2):
+                        vertex_texcoord_element_uint16 = float_to_uint16(vertex.uv[e])
+                        write_uint16(file, vertex_texcoord_element_uint16)
+
+            # Write index data
+            for mesh in meshes:
+                for index in mesh.indices:
+                    write_uint32(file, index)
+
 
             # Write meshes
             for mesh in meshes:
-                if use_indices:
-                    write_uint32(file, len(mesh.indices))
-                else:
-                    write_uint32(file, len(mesh.vertices))
+                write_uint32(file, len(mesh.indices))
                 write_uint32(file, mesh.index_offset)
+                write_uint32(file, mesh.vertex_offset)
                 write_uint32(file, color_to_uint32(mesh.diffuse_color))
+
+            file.close()
 
         # Change armature back to the pose it was in.
         if armature:
@@ -389,12 +388,9 @@ class ExportPanel(bpy.types.Panel):
 
         properties_left_column, properties_right_column = self.split_columns(factor=split_factor)
         properties_left_column.label(text="Properties")
-        properties_right_column.prop(context.scene.export_properties, "use_colors")
+        # properties_right_column.prop(context.scene.export_properties, "use_colors")
         properties_right_column.prop(context.scene.export_properties, "use_materials")
-
-        indices_left_column, indices_right_column = self.split_columns(factor=split_factor)
-        indices_left_column.label(text="Indexed")
-        indices_right_column.prop(context.scene.export_properties, "use_indices")
+        properties_right_column.prop(context.scene.export_properties, "use_indices")
 
         axes_left_column, axes_right_column = self.split_columns(factor=split_factor)
         axes_left_column.label(text="Forward / Up")

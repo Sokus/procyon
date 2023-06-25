@@ -49,7 +49,8 @@ vs_out vs_main(vs_in input)
     vs_out output;
     output.position = mul(projection, float4(input.position, 1.0f));
     output.texcoord = input.texcoord;
-    float4 base_color = has_diffuse ? diffuse_color : float4(input.color, 1.0f);
+    //float4 base_color = has_diffuse ? diffuse_color : float4(input.color, 1.0f);
+    float4 base_color = diffuse_color;
     output.color    = base_color * light;
 
     return output;
