@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-// P3D FORMAT:
-
 // 1. static info header
 typedef struct p3dStaticInfo {
     char extension_magic[4];
@@ -31,15 +29,5 @@ typedef struct p3dMesh {
 } p3dMesh; // meshes[static_info.num_meshes];
 
 
-// PP3D FORMAT:
-
-//[scale]
-//[# of meshes]
-//  [vertex type]
-//  [vertices] (size dependent on vertex type)
-//  [indices] (size dependent on vertex type)
-//  [has diffuse color?]
-//    [diffuse color]
-//  TODO: diffuse color map
 
 #endif // PROCYON_3D_FORMAT_H

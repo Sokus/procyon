@@ -209,13 +209,15 @@ def get_data_from_mesh_objects(objects, armature, transformMatrix):
 
     return scale, num_vertex, num_index, meshes.values()
 
-def float_to_int16(value):
+def float_to_int16(value, a=-1.0, b=1.0):
+    float_negative_one_to_one = 2.0 * ((value - a) / (b - a)) - 1.0
     INT16_MAX = 32767
-    return int(value * float(INT16_MAX))
+    return int(float_negative_one_to_one * float(INT16_MAX))
 
-def float_to_uint16(value):
+def float_to_uint16(value, a=-1.0, b=1.0):
+    float_zero_to_one = (value - a) / (b - a)
     UINT16_MAX = 65535
-    return int(value * float(UINT16_MAX))
+    return int(float_zero_to_one * float(UINT16_MAX))
 
 def color_to_uint32(value):
     r = int(value[0] * 255)
@@ -287,6 +289,102 @@ def set_armature_position(armature, position):
     armature.data.update_tag()
     bpy.context.scene.frame_set(bpy.context.scene.frame_current)
 
+def write_p3d(context, file, scale, num_vertex, num_index, meshes):
+    # Write header
+    write_string(file, " P3D")
+    write_float(file, scale)
+    write_int32(file, num_vertex)
+    write_int32(file, num_index)
+    write_uint16(file, len(meshes))
+    write_uint16(file, 0) # alignment
+
+    # Write vertex data
+    for mesh in meshes:
+        for vertex in mesh.vertices.keys():
+            for e in range(0, 3):
+                vertex_position_element_int16 = float_to_int16(vertex.position[e] / scale)
+                write_int16(file, vertex_position_element_int16)
+    for mesh in meshes:
+        for vertex in mesh.vertices.keys():
+            for e in range(0, 3):
+                vertex_normal_element_int16 = float_to_int16(vertex.normal[e])
+                write_int16(file, vertex_normal_element_int16)
+    for mesh in meshes:
+        for vertex in mesh.vertices.keys():
+            for e in range(0, 2):
+                vertex_texcoord_element_uint16 = float_to_uint16(vertex.uv[e], a=0.0, b=1.0)
+                write_uint16(file, vertex_texcoord_element_uint16)
+
+    # Write index data
+    for mesh in meshes:
+        for index in mesh.indices:
+            write_uint32(file, index)
+
+    # Write meshes
+    for mesh in meshes:
+        write_uint32(file, len(mesh.indices))
+        write_uint32(file, mesh.index_offset)
+        write_uint32(file, mesh.vertex_offset)
+        write_uint32(file, color_to_uint32(mesh.diffuse_color))
+    return True
+
+def write_pp3d(context, file, scale, num_vertex, num_index, meshes):
+    # Write header
+    write_string(file, "PP3D") # 4 bytes
+    write_float(file, scale) # 4 bytes
+    write_uint16(file, len(meshes)) # 2 bytes
+    write_uint16(file, 0) # alignment to 12 bytes
+
+    # Write mesh info
+    for mesh in meshes:
+        write_uint16(file, len(mesh.vertices))
+        write_uint16(file, len(mesh.indices))
+        write_uint32(file, color_to_uint32(mesh.diffuse_color))
+
+    # Write mesh vertices and indices
+    for mesh in meshes:
+        for vertex in mesh.vertices.keys():
+            for e in range(0, 2):
+                vertex_texcoord_element_int16 = float_to_int16(vertex.uv[e], a=0.0, b=1.0)
+                write_int16(file, vertex_texcoord_element_int16)
+            for e in range(0, 3):
+                vertex_normal_element_int16 = float_to_int16(vertex.normal[e])
+                write_int16(file, vertex_normal_element_int16)
+            for e in range(0, 3):
+                vertex_position_element_int16 = float_to_int16(vertex.position[e] / scale)
+                write_int16(file, vertex_position_element_int16)
+        for index in mesh.indices:
+            write_uint16(file, index)
+
+    return True
+
+def write_proc(context, file_type):
+    armature = get_selected_armature()
+
+    # If the mesh has an armature modifier, the current pose will be applied to vertices, so change it to rest position
+    original_armature_position = "REST"
+    if armature:
+        original_armature_position = armature.data.pose_position
+        set_armature_position(armature, "REST")
+
+    objects = get_selected_mesh_objects()
+    if len(objects) > 0:
+        scale, num_vertex, num_index, meshes = get_data_from_mesh_objects(objects, armature, get_axis_mapping_matrix())
+
+        if file_type == "P3D":
+            file = open(bpy.path.abspath(context.scene.export_properties.standard_path), file_write_mode)
+            write_p3d(context, file, scale, num_vertex, num_index, meshes)
+        elif file_type == "PP3D":
+            file = open(bpy.path.abspath(context.scene.export_properties.portable_path), file_write_mode)
+            write_pp3d(context, file, scale, num_vertex, num_index, meshes)
+
+        file.close()
+
+    # Change armature back to the pose it was in.
+    if armature:
+        set_armature_position(armature, original_armature_position)
+    return True
+
 axes_enum = [("X","X","",1),("-X","-X","",2),("Y","Y","",3),("-Y","-Y","",4),("Z","Z","",5),("-Z","-Z","",6)]
 
 class ExportProperties(bpy.types.PropertyGroup):
@@ -306,63 +404,7 @@ class ExportStandardOperator(bpy.types.Operator):
     bl_label = "Export"
 
     def execute(self, context):
-        armature = get_selected_armature()
-
-        # If the mesh has an armature modifier, the current pose will be applied to vertices, so change it to rest position
-        original_armature_position = "REST"
-        if armature:
-            original_armature_position = armature.data.pose_position
-            set_armature_position(armature, "REST")
-
-        objects = get_selected_mesh_objects()
-        if len(objects) > 0:
-            scale, num_vertex, num_index, meshes = get_data_from_mesh_objects(objects, armature, get_axis_mapping_matrix())
-            file = open(bpy.path.abspath(context.scene.export_properties.standard_path), file_write_mode)
-
-            # Write header
-            write_string(file, " P3D")
-            write_float(file, scale)
-            write_int32(file, num_vertex)
-            write_int32(file, num_index)
-            write_uint16(file, len(meshes))
-            write_uint16(file, 0) # alignment
-
-            # Write vertex data
-            for mesh in meshes:
-                for vertex in mesh.vertices.keys():
-                    for e in range(0, 3):
-                        vertex_position_element_int16 = float_to_int16(vertex.position[e] / scale)
-                        write_int16(file, vertex_position_element_int16)
-            for mesh in meshes:
-                for vertex in mesh.vertices.keys():
-                    for e in range(0, 3):
-                        vertex_normal_element_int16 = float_to_int16(vertex.normal[e])
-                        write_int16(file, vertex_normal_element_int16)
-            for mesh in meshes:
-                for vertex in mesh.vertices.keys():
-                    for e in range(0, 2):
-                        vertex_texcoord_element_uint16 = float_to_uint16(vertex.uv[e])
-                        write_uint16(file, vertex_texcoord_element_uint16)
-
-            # Write index data
-            for mesh in meshes:
-                for index in mesh.indices:
-                    write_uint32(file, index)
-
-
-            # Write meshes
-            for mesh in meshes:
-                write_uint32(file, len(mesh.indices))
-                write_uint32(file, mesh.index_offset)
-                write_uint32(file, mesh.vertex_offset)
-                write_uint32(file, color_to_uint32(mesh.diffuse_color))
-
-            file.close()
-
-        # Change armature back to the pose it was in.
-        if armature:
-            set_armature_position(armature, original_armature_position)
-
+        write_proc(context, "P3D")
         return {'FINISHED'}
 
 class ExportPortableOperator(bpy.types.Operator):
@@ -370,7 +412,9 @@ class ExportPortableOperator(bpy.types.Operator):
     bl_label = "Export"
 
     def execute(self, context):
+        write_proc(context, "PP3D")
         return {'FINISHED'}
+
 
 class ExportPanel(bpy.types.Panel):
     bl_label = "Export"
@@ -402,9 +446,9 @@ class ExportPanel(bpy.types.Panel):
         standard_row.prop(context.scene.export_properties, "standard_path")
         standard_row.operator('object.export_standard')
 
-        standard_row = self.layout.row(align=False)
-        standard_row.prop(context.scene.export_properties, "portable_path")
-        standard_row.operator('object.export_portable')
+        portable_row = self.layout.row(align=False)
+        portable_row.prop(context.scene.export_properties, "portable_path")
+        portable_row.operator('object.export_portable')
 
 def register():
     bpy.utils.register_class(ExportProperties)
