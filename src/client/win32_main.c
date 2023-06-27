@@ -764,7 +764,7 @@ peModel pe_model_load(char *file_path) {
         model.vertex_offset[m] = p3d_mesh[m].vertex_offset;
         model.material[m].diffuse_color.rgba = p3d_mesh[m].diffuse_color;
 
-        /** TODO: diffuse textures
+        /* TODO: diffuse textures
         if (p3d_mesh[m].has_diffuse_texture) {
             int diffuse_texture_x, diffuse_texture_y = 0;
             stbi_uc *diffuse_texture;

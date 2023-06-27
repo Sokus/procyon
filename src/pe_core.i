@@ -114,12 +114,16 @@ PE_INLINE void pe_arena_init_from_memory(peArena *arena, void *start, size_t siz
     arena->temp_count = 0;
 }
 
-PE_INLINE void pe_arena_init_from_allocator(peArena *arena, peAllocator backing, size_t size) {
+PE_INLINE void pe_arena_init_from_allocator_align(peArena *arena, peAllocator backing, size_t size, size_t alignment) {
     arena->backing = backing;
-    arena->physical_start = pe_alloc(backing, size);
+    arena->physical_start = pe_alloc_align(backing, size, alignment);
     arena->total_size = size;
     arena->total_allocated = 0;
     arena->temp_count = 0;
+}
+
+PE_INLINE void pe_arena_init_from_allocator(peArena *arena, peAllocator backing, size_t size) {
+    pe_arena_init_from_allocator_align(arena, backing, size, PE_DEFAULT_MEMORY_ALIGNMENT);
 }
 
 PE_INLINE void pe_arena_init_sub(peArena *arena, peArena *parent_arena, size_t size) {
@@ -131,6 +135,12 @@ PE_INLINE void pe_arena_free(peArena *arena) {
         pe_free(arena->backing, arena->physical_start);
         arena->physical_start = NULL;
     }
+}
+
+PE_INLINE void pe_arena_rewind_to_pointer(peArena *arena, void *pointer) {
+    PE_ASSERT((uintptr_t)pointer >= (uintptr_t)arena->physical_start);
+    PE_ASSERT((uintptr_t)pointer < (uintptr_t)arena->physical_start + arena->total_allocated);
+    arena->total_allocated = (size_t)((uintptr_t)pointer - (uintptr_t)arena->physical_start);
 }
 
 PE_INLINE size_t pe_arena_alignment_offset(peArena *arena, size_t alignment) {

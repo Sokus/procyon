@@ -272,6 +272,7 @@ int main() {
 
     pe_allocate_entities();
 
+    /*
     HMM_Vec3 obstacle_positions[] = {
         { -3.0f, 0.0f,  2.0f },
         {  3.0f, 0.0f, -1.0f },
@@ -283,6 +284,7 @@ int main() {
         entity->position = obstacle_positions[i];
         entity->mesh = peEntityMesh_Cube;
     }
+    */
 
     float target_updates_per_second = 30.0f;
     float dt = 1.0f / target_updates_per_second;

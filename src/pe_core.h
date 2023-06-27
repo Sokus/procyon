@@ -153,10 +153,12 @@ typedef struct peArena {
 	size_t temp_count;
 } peArena;
 
-void pe_arena_init_from_memory   (peArena *arena, void *start, size_t size);
-void pe_arena_init_from_allocator(peArena *arena, peAllocator backing, size_t size);
-void pe_arena_init_sub           (peArena *arena, peArena *parent_arena, size_t size);
-void pe_arena_free               (peArena *arena);
+void pe_arena_init_from_memory         (peArena *arena, void *start, size_t size);
+void pe_arena_init_from_allocator_align(peArena *arena, peAllocator backing, size_t size, size_t alignment);
+void pe_arena_init_from_allocator      (peArena *arena, peAllocator backing, size_t size);
+void pe_arena_init_sub                 (peArena *arena, peArena *parent_arena, size_t size);
+void pe_arena_free                     (peArena *arena);
+void pe_arena_rewind_to_pointer        (peArena *arena, void *pointer);
 
 size_t pe_arena_alignment_offset(peArena *arena, size_t alignment);
 size_t pe_arena_size_remaining(peArena *arena, size_t alignment);

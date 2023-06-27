@@ -153,11 +153,9 @@ static unsigned int bytes_per_pixel(unsigned int psm) {
 	}
 }
 
-typedef struct peColor {
-	uint8_t r;
-	uint8_t g;
-	uint8_t b;
-	uint8_t a;
+typedef union peColor {
+    struct { uint8_t r, g, b, a; };
+    struct { uint32_t rgba; };
 } peColor;
 
 #define PE_COLOR_WHITE (peColor){ 255, 255, 255, 255 }
@@ -310,14 +308,15 @@ void use_texture(peTexture texture) {
 }
 
 typedef struct peMaterial {
-	bool has_diffuse;
 	peColor diffuse_color;
+	bool has_diffuse_map;
 	peTexture diffuse_map;
 } peMaterial;
 
 peMaterial pe_default_material(void) {
 	peMaterial material = {
-		.has_diffuse = false,
+		.diffuse_color = PE_COLOR_WHITE,
+		.has_diffuse_map = false,
 		.diffuse_map = default_texture,
 	};
 	return material;
@@ -499,23 +498,17 @@ void pe_draw_mesh(Mesh mesh, HMM_Vec3 position, HMM_Vec3 rotation) {
 typedef struct peModel {
 	peArena arena;
 
+	float scale;
 	int num_mesh;
 	struct peMesh {
 		int num_vertex;
 		int num_index;
-		uint32_t diffuse_color;
 		int vertex_type;
 		void *vertex;
 		void *index;
 	} *mesh;
+	peMaterial *material;
 
-	int *num_index;
-
-	int *vertex_type;
-	void **index;
-	void **vertex;
-
-	uint8_t zero;
 } peModel;
 
 #include "pp3d.h"
@@ -533,26 +526,111 @@ peModel pe_model_load(char *file_path) {
 	pp3dMesh *pp3d_mesh_info = (pp3dMesh*)pp3d_file_pointer;
 	pp3d_file_pointer += sizeof(pp3dMesh) * pp3d_static_info->num_meshes;
 
-	fprintf(stdout, "STATIC INFO:\n");
-	fprintf(stdout, "  extension_magic: %c%c%c%c\n",
-		pp3d_static_info->extension_magic[0],
-		pp3d_static_info->extension_magic[1],
-		pp3d_static_info->extension_magic[2],
-		pp3d_static_info->extension_magic[3]
-	);
-	fprintf(stdout, "  scale: %f\n", pp3d_static_info->scale);
-	fprintf(stdout, "  num_meshes: %u\n", pp3d_static_info->num_meshes);
-
-	for (unsigned int m = 0; m < pp3d_static_info->num_meshes; m += 1) {
-		fprintf(stdout, "MESH %d:\n", m);
-		fprintf(stdout, "  num_vertex: %u\n", pp3d_mesh_info[m].num_vertex);
-		fprintf(stdout, "  num_index: %u\n", pp3d_mesh_info[m].num_index);
-		fprintf(stdout, "  diffuse_color: %x\n", pp3d_mesh_info[m].diffuse_color);
-	}
-
 	peModel model = {0};
 
+	// TODO: 8 and 16 bit UVs depending on texture size
+	// TODO: 8 and 16 bit indices depending on vertex count
+
+	size_t mesh_size = pp3d_static_info->num_meshes * sizeof(*model.mesh);
+	size_t material_alignment = (PE_DEFAULT_MEMORY_ALIGNMENT - (mesh_size % PE_DEFAULT_MEMORY_ALIGNMENT)) % PE_DEFAULT_MEMORY_ALIGNMENT;
+	size_t material_size = pp3d_static_info->num_meshes * sizeof(peMaterial);
+	const size_t VERT_MEM_ALIGN = 16;
+	size_t mesh_data_size = (VERT_MEM_ALIGN - (mesh_data_size % VERT_MEM_ALIGN)) % VERT_MEM_ALIGN;
+
+	for (int m = 0; m < pp3d_static_info->num_meshes; m += 1) {
+		PE_ASSERT(pp3d_mesh_info[m].num_vertex > 0);
+		if (m > 0) {
+			size_t vertex_alignment_needed = (VERT_MEM_ALIGN - (mesh_data_size % VERT_MEM_ALIGN)) % VERT_MEM_ALIGN;;
+			mesh_data_size += vertex_alignment_needed;
+		}
+		mesh_data_size += pp3d_mesh_info[m].num_vertex * sizeof(pp3dVertex);
+
+		if (pp3d_mesh_info[m].num_index > 0) {
+			size_t index_alignment_needed = (VERT_MEM_ALIGN - (mesh_data_size % VERT_MEM_ALIGN)) % VERT_MEM_ALIGN;
+			mesh_data_size += index_alignment_needed;
+			mesh_data_size += pp3d_mesh_info[m].num_index * sizeof(uint16_t);
+		}
+	}
+	size_t estimated_memory_size = (
+		mesh_size +
+		material_alignment + material_size +
+		mesh_data_size
+	);
+
+	pe_arena_init_from_allocator_align(&model.arena, pe_heap_allocator(), estimated_memory_size, VERT_MEM_ALIGN);
+	peAllocator model_allocator = pe_arena_allocator(&model.arena);
+
+	model.scale = pp3d_static_info->scale;
+	model.num_mesh = pp3d_static_info->num_meshes;
+	model.mesh = pe_alloc(model_allocator, mesh_size);
+	pe_zero_size(model.mesh, mesh_size);
+
+	model.material = pe_alloc(model_allocator, material_size);
+	for (int m = 0; m < pp3d_static_info->num_meshes; m += 1) {
+		model.material[m] = pe_default_material();
+	}
+
+	void *pp3d_mesh_data = pp3d_file_pointer;
+
+	for (int m = 0; m < pp3d_static_info->num_meshes; m += 1) {
+		model.mesh[m].num_vertex = pp3d_mesh_info[m].num_vertex;
+		model.mesh[m].num_index = pp3d_mesh_info[m].num_index;
+		model.material[m].diffuse_color.rgba = pp3d_mesh_info[m].diffuse_color;
+
+		model.mesh[m].vertex_type = GU_TEXTURE_16BIT | GU_NORMAL_16BIT | GU_VERTEX_16BIT | GU_TRANSFORM_3D;
+
+		size_t vertex_data_size = pp3d_mesh_info[m].num_vertex * sizeof(pp3dVertex);
+		model.mesh[m].vertex = pe_alloc_align(model_allocator, vertex_data_size, VERT_MEM_ALIGN);
+		memcpy(model.mesh[m].vertex, pp3d_file_pointer, vertex_data_size);
+		pp3d_file_pointer += vertex_data_size;
+
+		if (pp3d_mesh_info[m].num_index > 0) {
+			model.mesh[m].vertex_type += GU_INDEX_16BIT;
+			size_t index_data_size = pp3d_mesh_info[m].num_index * sizeof(uint16_t);
+			model.mesh[m].index = pe_alloc_align(model_allocator, index_data_size, VERT_MEM_ALIGN);
+			memcpy(model.mesh[m].index, pp3d_file_pointer, index_data_size);
+			pp3d_file_pointer += index_data_size;
+		}
+	}
+
+	sceKernelDcacheWritebackInvalidateRange(model.arena.physical_start, model.arena.total_allocated);
+
 	pe_temp_arena_memory_end(temp_arena_memory);
+
+	return model;
+}
+
+/*
+void pe_draw_mesh(Mesh mesh, HMM_Vec3 position, HMM_Vec3 rotation) {
+	sceGumMatrixMode(GU_MODEL);
+	sceGumPushMatrix();
+	sceGumLoadIdentity();
+	sceGumTranslate((ScePspFVector3 *)&position);
+	sceGumRotateXYZ((ScePspFVector3 *)&rotation);
+	int count = (mesh.indices != NULL) ? mesh.index_count : mesh.vertex_count;
+	sceGumDrawArray(GU_TRIANGLES, mesh.vertex_type, count, mesh.indices, mesh.vertices);
+	sceGumPopMatrix();
+}
+*/
+
+void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
+	sceGumMatrixMode(GU_MODEL);
+	sceGumPushMatrix();
+	sceGumLoadIdentity();
+	sceGumTranslate((ScePspFVector3 *)&position);
+	sceGumRotateXYZ((ScePspFVector3 *)&rotation);
+	ScePspFVector3 scale = { model->scale, model->scale, model->scale };
+	sceGumScale(&scale);
+	sceGuDisable(GU_TEXTURE_2D);
+
+	sceGuTexImage(0, 0, 0, 0, NULL);
+	for (int m = 0; m < model->num_mesh; m += 1) {
+		sceGuColor(model->material[m].diffuse_color.rgba);
+		int count = (model->mesh[m].index != NULL) ? model->mesh[m].num_index : model->mesh[m].num_vertex;
+		sceGumDrawArray(GU_TRIANGLES, model->mesh[m].vertex_type, count, model->mesh[m].index, model->mesh[m].vertex);
+	}
+	sceGuColor(0xFFFFFFFF);
+	sceGumPopMatrix();
 }
 
 void pe_model_free(peModel *model) {
@@ -865,7 +943,8 @@ int main(int argc, char* argv[])
 		pe_draw_line(zero, (HMM_Vec3){0.0f, 1.0f, 0.0f}, PE_COLOR_GREEN);
 		pe_draw_line(zero, (HMM_Vec3){0.0f, 0.0f, 1.0f}, PE_COLOR_BLUE);
 
-		pe_draw_mesh(cube, HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 0.0f, 0.0f));
+		//pe_draw_mesh(cube, HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 0.0f, 0.0f));
+		pe_model_draw(&model, HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 3.14f, 0.0f));
 
 		for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
 			peEntity *entity = &entities[e];

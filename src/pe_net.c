@@ -43,9 +43,8 @@
     #include <errno.h>
 #endif
 
-// TODO:
-// - clean up the includes, especially on PSP
-// - change 'printf' for 'fprintf(stdout...' on PSP
+// TODO: clean up the includes, especially on PSP
+// TODO: change 'printf' for 'fprintf(stdout...' on PSP
 
 static bool network_initialized = false;
 #if defined(PSP)
@@ -221,8 +220,7 @@ peAddress pe_address_parse(char *address_in) {
         address_length += 1;
     }
 
-    // TODO: Fix that. Although PSP has no IPv6 support
-    // we can still let the user parse IPv6 addreesses.
+    // FIXME: Fix that. Although PSP has no IPv6 support we can still let the user parse IPv6 addreesses.
 #if !defined(PSP)
     // first try to parse as an IPv6 address:
     // 1. if the first character is '[' then it's probably an ipv6 in form "[addr6]:portnum"
