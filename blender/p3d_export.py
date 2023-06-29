@@ -12,6 +12,7 @@ import bmesh
 import struct
 import mathutils
 import sys
+from copy import (copy)
 from bpy.utils import (register_class, unregister_class)
 from bpy.types import (Panel, PropertyGroup)
 from bpy.props import (StringProperty, BoolProperty, IntProperty, FloatProperty, FloatVectorProperty, EnumProperty, PointerProperty)
@@ -35,7 +36,6 @@ class Vertex:
     def __hash__(self):
         return hash(self.position.x)
 
-
 class Mesh:
     def __init__(self):
         # self.has_vertex_colors = False
@@ -44,6 +44,40 @@ class Mesh:
         self.index_offset = 0
         self.vertex_offset = 0
         self.diffuse_color = []
+
+class SkeletonJoint:
+    def __init__(self, parent_index, inverse_model_space_pose):
+        self.parent_index = parent_index
+        self.inverse_model_space_pose = inverse_model_space_pose
+
+class AnimationJoint:
+    def __init__(self, position, rotation, scale):
+        self.position = position
+        self.rotation = rotation
+        self.scale = scale
+
+class AnimationFrame:
+    def __init__(self):
+        self.joints = []
+
+class Animation:
+    def __init__(self, name):
+        self.name = name
+        self.frames = []
+
+class Skeleton:
+    def __init__(self):
+        self.joints = []
+        self.animations = []
+
+class ProcyonData:
+    def __init__(self):
+        self.scale = 1.0
+        self.num_vertex = 0
+        self.num_index = 0
+        self.meshes = []
+        self.joints = []
+        self.animations = []
 
 def write_int32(file, value):
     if file_write_mode == "wb": file.write(struct.pack("i", value))
@@ -90,124 +124,6 @@ def triangulate_mesh(mesh):
     bm.from_mesh(mesh)
     bmesh.ops.triangulate(bm, faces=bm.faces)
     bm.to_mesh(mesh)
-
-def get_data_from_mesh_objects(objects, armature, transformMatrix):
-    scene_with_applied_modifiers = bpy.context.evaluated_depsgraph_get()
-
-    meshes = {}
-    num_vertex = 0
-    num_index = 0
-
-    dummy_color = [1.0, 1.0, 1.0, 1.0]
-    dummy_material = bpy.data.materials.new("Dummy")
-    dummy_material.diffuse_color = dummy_color
-
-    for object in objects:
-        # Make a copy of the mesh with applied modifiers
-        mesh = object.evaluated_get(scene_with_applied_modifiers).to_mesh(preserve_all_data_layers=True, depsgraph=bpy.context.evaluated_depsgraph_get())
-
-        mesh.transform(transformMatrix @ object.matrix_world)
-        triangulate_mesh(mesh)
-        mesh.calc_normals_split()
-
-        """
-        NOTE: Commenting out this block because I was thinking too much if I need vertex colors or not.
-              I will continue working on it when I actually need them :p
-        # Get vertex color palette
-        use_colors = bpy.context.scene.export_properties.use_colors == True
-        vertex_colors_available = len(mesh.vertex_colors) > 0 and len(mesh.vertex_colors[mesh.vertex_colors.active_index].data) > 0
-        if use_colors == True and vertex_colors_available == True:
-            vertex_colors = mesh.vertex_colors[mesh.vertex_colors.active_index].data
-        else:
-            vertex_colors = []
-        """
-
-        for polygon in mesh.polygons:
-            if len(polygon.loop_indices) == 3:
-
-                # Get mesh material
-                use_materials = bpy.context.scene.export_properties.use_materials == True
-                if  use_materials == True and len(mesh.materials) > 0:
-                    material = mesh.materials[polygon.material_index]
-                else:
-                    material = dummy_material
-
-                # Add mesh to dictionary and extract material properties
-                if meshes.get(material) == None:
-                    meshes[material] = Mesh()
-
-                    """
-                    NOTE: Vertex colors not needed for now
-                    if len(vertex_colors) > 0:
-                        meshes[material].has_vertex_colors = True
-                    """
-
-                    material_bsdf = PrincipledBSDFWrapper(material)
-                    if material_bsdf:
-                        if material_bsdf.base_color and len(material_bsdf.base_color) > 3:
-                            alpha = material_bsdf.base_color[3]
-                        else:
-                            alpha = material_bsdf.alpha
-                        meshes[material].diffuse_color = [material_bsdf.base_color[0], material_bsdf.base_color[1], material_bsdf.base_color[2], alpha]
-                    else:
-                        self.report({"ERROR"}, "Material '", material.name, "' does not use PrincipledBSDF surface, not parsing.")
-
-                # Get mesh vertices, indices and joint info
-                face_indices = []
-                for loop_index in polygon.loop_indices:
-                    loop = mesh.loops[loop_index]
-                    position = mesh.vertices[loop.vertex_index].undeformed_co
-                    uv = mesh.uv_layers.active.data[loop.index].uv
-                    uv.y = 1-uv.y
-                    normal = loop.normal
-
-                    """
-                    NOTE: Vertex colors not needef for now
-                    if len(vertex_colors) > 0:
-                        color = vertex_colors[loop.vertex_index].color
-                    else:
-                        color = dummy_color
-                    """
-                    color = dummy_color
-
-                    joint_indices = [0,0,0,0]
-                    joint_weights = [0,0,0,0]
-                    if armature:
-                        for joint_binding_index, group in enumerate(mesh.vertices[loop.vertex_index].groups):
-                            if joint_binding_index < 4:
-                                group_index = group.group
-                                bone_name = object.vertex_groups[group_index].name
-                                joint_indices[joint_binding_index] = armature.data.bones.find(bone_name)
-                                joint_weights[joint_binding_index] = group.weight
-
-                    vertex = Vertex(position, uv, normal, color, joint_indices, normalize_joint_weights(joint_weights))
-
-                    if meshes[material].vertices.get(vertex) == None:
-                        meshes[material].vertices[vertex] = len(meshes[material].vertices)
-                    meshes[material].indices.append(meshes[material].vertices[vertex])
-
-    min_vector = [sys.float_info.max, sys.float_info.max, sys.float_info.max]
-    max_vector = [sys.float_info.min, sys.float_info.min, sys.float_info.min]
-    for mesh in meshes.values():
-        for vertex in mesh.vertices.keys():
-            for e in range(0, 3):
-                if vertex.position[e] < min_vector[e]:
-                    min_vector[e] = vertex.position[e]
-                if vertex.position[e] > max_vector[e]:
-                    max_vector[e] = vertex.position[e]
-    scale = max(abs(min(min_vector)), abs(max(max_vector)))
-
-    index_offset = 0
-    vertex_offset = 0
-    for mesh in meshes.values():
-        num_vertex += len(mesh.vertices)
-        num_index += len(mesh.indices)
-        mesh.index_offset = index_offset
-        mesh.vertex_offset = vertex_offset
-        index_offset += len(mesh.indices)
-        vertex_offset += len(mesh.vertices)
-
-    return scale, num_vertex, num_index, meshes.values()
 
 def float_to_int16(value, a=-1.0, b=1.0):
     float_negative_one_to_one = 2.0 * ((value - a) / (b - a)) - 1.0
@@ -289,60 +205,60 @@ def set_armature_position(armature, position):
     armature.data.update_tag()
     bpy.context.scene.frame_set(bpy.context.scene.frame_current)
 
-def write_p3d(context, file, scale, num_vertex, num_index, meshes):
+def write_p3d(context, file, procyon_data):
     # Write header
     write_string(file, " P3D")
-    write_float(file, scale)
-    write_int32(file, num_vertex)
-    write_int32(file, num_index)
-    write_uint16(file, len(meshes))
+    write_float(file, procyon_data.scale)
+    write_int32(file, procyon_data.num_vertex)
+    write_int32(file, procyon_data.num_index)
+    write_uint16(file, len(procyon_data.meshes))
     write_uint16(file, 0) # alignment
 
     # Write vertex data
-    for mesh in meshes:
+    for mesh in procyon_data.meshes:
         for vertex in mesh.vertices.keys():
             for e in range(0, 3):
-                vertex_position_element_int16 = float_to_int16(vertex.position[e] / scale)
+                vertex_position_element_int16 = float_to_int16(vertex.position[e] / procyon_data.scale)
                 write_int16(file, vertex_position_element_int16)
-    for mesh in meshes:
+    for mesh in procyon_data.meshes:
         for vertex in mesh.vertices.keys():
             for e in range(0, 3):
                 vertex_normal_element_int16 = float_to_int16(vertex.normal[e])
                 write_int16(file, vertex_normal_element_int16)
-    for mesh in meshes:
+    for mesh in procyon_data.meshes:
         for vertex in mesh.vertices.keys():
             for e in range(0, 2):
                 vertex_texcoord_element_uint16 = float_to_uint16(vertex.uv[e], a=0.0, b=1.0)
                 write_uint16(file, vertex_texcoord_element_uint16)
 
     # Write index data
-    for mesh in meshes:
+    for mesh in procyon_data.meshes:
         for index in mesh.indices:
             write_uint32(file, index)
 
     # Write meshes
-    for mesh in meshes:
+    for mesh in procyon_data.meshes:
         write_uint32(file, len(mesh.indices))
         write_uint32(file, mesh.index_offset)
         write_uint32(file, mesh.vertex_offset)
         write_uint32(file, color_to_uint32(mesh.diffuse_color))
     return True
 
-def write_pp3d(context, file, scale, num_vertex, num_index, meshes):
+def write_pp3d(context, file, procyon_data):
     # Write header
     write_string(file, "PP3D") # 4 bytes
-    write_float(file, scale) # 4 bytes
-    write_uint16(file, len(meshes)) # 2 bytes
+    write_float(file, procyon_data.scale) # 4 bytes
+    write_uint16(file, len(procyon_data.meshes)) # 2 bytes
     write_uint16(file, 0) # alignment to 12 bytes
 
     # Write mesh info
-    for mesh in meshes:
+    for mesh in procyon_data.meshes:
         write_uint16(file, len(mesh.vertices))
         write_uint16(file, len(mesh.indices))
         write_uint32(file, color_to_uint32(mesh.diffuse_color))
 
     # Write mesh vertices and indices
-    for mesh in meshes:
+    for mesh in procyon_data.meshes:
         for vertex in mesh.vertices.keys():
             for e in range(0, 2):
                 vertex_texcoord_element_int16 = float_to_int16(vertex.uv[e], a=0.0, b=1.0)
@@ -351,7 +267,7 @@ def write_pp3d(context, file, scale, num_vertex, num_index, meshes):
                 vertex_normal_element_int16 = float_to_int16(vertex.normal[e])
                 write_int16(file, vertex_normal_element_int16)
             for e in range(0, 3):
-                vertex_position_element_int16 = float_to_int16(vertex.position[e] / scale)
+                vertex_position_element_int16 = float_to_int16(vertex.position[e] / procyon_data.scale)
                 write_int16(file, vertex_position_element_int16)
         for index in mesh.indices:
             write_uint16(file, index)
@@ -359,31 +275,154 @@ def write_pp3d(context, file, scale, num_vertex, num_index, meshes):
     return True
 
 def write_proc(context, file_type):
-    armature = get_selected_armature()
+    procyon_data = ProcyonData()
+    print("Exporting", file_type)
 
-    # If the mesh has an armature modifier, the current pose will be applied to vertices, so change it to rest position
-    original_armature_position = "REST"
+    armature = get_selected_armature()
+    transform_matrix = get_axis_mapping_matrix()
+
     if armature:
         original_armature_position = armature.data.pose_position
+        original_action = armature.animation_data.action
+        original_frame = bpy.context.scene.frame_current
         set_armature_position(armature, "REST")
 
     objects = get_selected_mesh_objects()
     if len(objects) > 0:
-        scale, num_vertex, num_index, meshes = get_data_from_mesh_objects(objects, armature, get_axis_mapping_matrix())
+        scene_with_applied_modifiers = bpy.context.evaluated_depsgraph_get()
+        meshes = {}
 
-        if file_type == "P3D":
-            file = open(bpy.path.abspath(context.scene.export_properties.standard_path), file_write_mode)
-            write_p3d(context, file, scale, num_vertex, num_index, meshes)
-        elif file_type == "PP3D":
-            file = open(bpy.path.abspath(context.scene.export_properties.portable_path), file_write_mode)
-            write_pp3d(context, file, scale, num_vertex, num_index, meshes)
+        dummy_color = [1.0, 1.0, 1.0, 1.0]
+        dummy_material = bpy.data.materials.new("Dummy")
+        dummy_material.diffuse_color = dummy_color
 
-        file.close()
+        for object in objects:
+            mesh = object.evaluated_get(scene_with_applied_modifiers).to_mesh(preserve_all_data_layers=True, depsgraph=bpy.context.evaluated_depsgraph_get())
+            mesh.transform(transform_matrix @ object.matrix_world)
+            triangulate_mesh(mesh)
+            mesh.calc_normals_split()
 
-    # Change armature back to the pose it was in.
+            for polygon in mesh.polygons:
+                if len(polygon.loop_indices) == 3:
+                    use_materials = bpy.context.scene.export_properties.use_materials == True
+                    if  use_materials == True and len(mesh.materials) > 0:
+                        material = mesh.materials[polygon.material_index]
+                    else:
+                        material = dummy_material
+
+                    if meshes.get(material) == None:
+                        meshes[material] = Mesh()
+                        material_bsdf = PrincipledBSDFWrapper(material)
+                        if material_bsdf:
+                            if material_bsdf.base_color and len(material_bsdf.base_color) > 3:
+                                alpha = material_bsdf.base_color[3]
+                            else:
+                                alpha = material_bsdf.alpha
+                            meshes[material].diffuse_color = [material_bsdf.base_color[0], material_bsdf.base_color[1], material_bsdf.base_color[2], alpha]
+                        else:
+                            self.report({"ERROR"}, "Material '", material.name, "' does not use PrincipledBSDF surface, not parsing.")
+
+                    # Get mesh vertices, indices and joint info
+                    face_indices = []
+                    for loop_index in polygon.loop_indices:
+                        loop = mesh.loops[loop_index]
+
+                        joint_indices = [0,0,0,0]
+                        joint_weights = [0,0,0,0]
+                        if armature:
+                            for joint_binding_index, group in enumerate(mesh.vertices[loop.vertex_index].groups):
+                                if joint_binding_index < 4:
+                                    group_index = group.group
+                                    bone_name = object.vertex_groups[group_index].name
+                                    joint_indices[joint_binding_index] = armature.data.bones.find(bone_name)
+                                    joint_weights[joint_binding_index] = group.weight
+
+                        uv = mesh.uv_layers.active.data[loop.index].uv
+
+                        vertex = Vertex(
+                            mesh.vertices[loop.vertex_index].undeformed_co.copy(), # position
+                            mathutils.Vector((uv.x, 1.0-uv.y)), # uv
+                            loop.normal.copy(), # normal
+                            dummy_color, # color
+                            joint_indices,
+                            normalize_joint_weights(joint_weights)
+                        )
+
+                        if meshes[material].vertices.get(vertex) == None:
+                            meshes[material].vertices[vertex] = len(meshes[material].vertices)
+                        meshes[material].indices.append(meshes[material].vertices[vertex])
+
+        min_vector = [sys.float_info.max, sys.float_info.max, sys.float_info.max]
+        max_vector = [sys.float_info.min, sys.float_info.min, sys.float_info.min]
+        for mesh in meshes.values():
+            for vertex in mesh.vertices.keys():
+                for e in range(0, 3):
+                    if vertex.position[e] < min_vector[e]:
+                        min_vector[e] = vertex.position[e]
+                    if vertex.position[e] > max_vector[e]:
+                        max_vector[e] = vertex.position[e]
+        procyon_data.scale = max(abs(min(min_vector)), abs(max(max_vector)))
+
+        index_offset = 0
+        vertex_offset = 0
+        for mesh in meshes.values():
+            procyon_data.num_vertex += len(mesh.vertices)
+            procyon_data.num_index += len(mesh.indices)
+            mesh.index_offset = index_offset
+            mesh.vertex_offset = vertex_offset
+            index_offset += len(mesh.indices)
+            vertex_offset += len(mesh.vertices)
+
+        procyon_data.meshes = meshes.values()
+
     if armature:
+        set_armature_position(armature, "POSE")
+
+        for bone in armature.data.bones:
+            parent_index = armature.data.bones.find(bone.parent.name) if bone.parent else -1
+            model_space_pose = transform_matrix @ bone.matrix_local
+            skeleton_joint = SkeletonJoint(parent_index, model_space_pose.inverted())
+            procyon_data.joints.append(skeleton_joint)
+
+        for action in bpy.data.actions:
+            # Ignore animations with name ending with .001, .002 etc
+            if action.name[-4] == '.' and action.name[-3:].isdigit():
+                continue
+            p_animation = Animation(action.name)
+            armature.animation_data.action = action
+            start_frame = int(action.frame_range.x)
+            end_frame = int(action.frame_range.y)
+            for frame in range(start_frame, end_frame+1):
+                p_frame = AnimationFrame()
+                bpy.context.scene.frame_set(frame)
+                for bone in armature.pose.bones:
+                    parent_space_pose = bone.matrix
+                    if bone.parent:
+                        parent_space_pose = bone.parent.matrix.inverted() @ bone.matrix
+                    else:
+                        parent_space_pose = transform_matrix @ bone.matrix
+                    translation = parent_space_pose.to_translation()
+                    rotation = parent_space_pose.to_quaternion()
+                    scale = parent_space_pose.to_scale() # Does not support negative values
+                    animation_joint = AnimationJoint(translation, rotation, scale)
+                    p_frame.joints.append(animation_joint)
+                p_animation.frames.append(p_frame)
+            procyon_data.animations.append(p_animation)
+        # Change armature back to the pose it was in.
+        bpy.context.scene.frame_set(original_frame)
+        armature.animation_data.action = original_action
         set_armature_position(armature, original_armature_position)
+
+    if file_type == "P3D":
+        file = open(bpy.path.abspath(context.scene.export_properties.standard_path), file_write_mode)
+        write_p3d(context, file, procyon_data)
+    elif file_type == "PP3D":
+        file = open(bpy.path.abspath(context.scene.export_properties.portable_path), file_write_mode)
+        write_pp3d(context, file, procyon_data)
+    file.close()
+
     return True
+
 
 axes_enum = [("X","X","",1),("-X","-X","",2),("Y","Y","",3),("-Y","-Y","",4),("Z","Z","",5),("-Z","-Z","",6)]
 

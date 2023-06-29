@@ -43,7 +43,7 @@ if (PSP)
     target_include_directories(procyon PRIVATE src)
     target_link_libraries(procyon
         PUBLIC
-            shared handmade-math model3d
+            shared handmade-math
             pspdebug pspdisplay pspge pspgu pspgum pspctrl
             pspnet pspnet_apctl pspnet_resolver
     )
