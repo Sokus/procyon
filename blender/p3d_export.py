@@ -46,7 +46,8 @@ class Mesh:
         self.diffuse_color = []
 
 class SkeletonJoint:
-    def __init__(self, parent_index, inverse_model_space_pose):
+    def __init__(self, name, parent_index, inverse_model_space_pose):
+        self.name = name
         self.parent_index = parent_index
         self.inverse_model_space_pose = inverse_model_space_pose
 
@@ -381,7 +382,7 @@ def write_proc(context, file_type):
         for bone in armature.data.bones:
             parent_index = armature.data.bones.find(bone.parent.name) if bone.parent else -1
             model_space_pose = transform_matrix @ bone.matrix_local
-            skeleton_joint = SkeletonJoint(parent_index, model_space_pose.inverted())
+            skeleton_joint = SkeletonJoint(bone.name, parent_index, model_space_pose.inverted())
             procyon_data.joints.append(skeleton_joint)
 
         for action in bpy.data.actions:
@@ -412,6 +413,53 @@ def write_proc(context, file_type):
         bpy.context.scene.frame_set(original_frame)
         armature.animation_data.action = original_action
         set_armature_position(armature, original_armature_position)
+
+    joint_groups = []
+
+    for j in range(len(procyon_data.joints)):
+        for mesh in procyon_data.meshes:
+            for f in range(int(len(mesh.indices)/3)):
+                # Find all joint indices that are referenced by a triangle
+                face_joint_indices = []
+                for index in mesh.indices[(3*f):(3*f+3)]:
+                    vertex = list(mesh.vertices.keys())[index]
+                    joint_indices = [vertex.joint_indices[idx] for idx, weight in enumerate(vertex.joint_weights) if weight > 0.0]
+                    face_joint_indices.extend(x for x in joint_indices if x not in face_joint_indices)
+                # Check if referenced joint indices already exist in any joint group.
+                # Indices can be contained in a few groups at the same time, if that is the case join the groups together.
+                # If joint indices were not found in any existing group create a new one.
+                if len(face_joint_indices) > 0:
+                    first_joint_group = None
+                    for joint_group in joint_groups:
+                        common_joints = [element for element in face_joint_indices if element in joint_group]
+                        if len(common_joints) > 0:
+                            if first_joint_group == None:
+                                first_joint_group = joint_group
+                                first_joint_group.extend(element for element in face_joint_indices if element not in first_joint_group)
+                            else:
+                                joint_group.clear()
+                    if first_joint_group == None:
+                        joint_groups.append(face_joint_indices)
+                    joint_groups = [group for group in joint_groups if group]
+
+    # Sort the groups by indices
+    joint_groups = [sorted(group) for group in joint_groups]
+    joint_groups.sort(key=lambda group: group[0])
+
+    for group in joint_groups:
+        names = [procyon_data.joints[index].name for index in group]
+        print(names)
+    groupless_joints = []
+    for j, joint in enumerate(procyon_data.joints):
+        groupless = True
+        for group in joint_groups:
+            if j in group:
+                groupless = False
+                break
+        if groupless == True:
+            groupless_joints.append(joint.name)
+    print("Groupless:", groupless_joints)
+
 
     if file_type == "P3D":
         file = open(bpy.path.abspath(context.scene.export_properties.standard_path), file_write_mode)
