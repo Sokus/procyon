@@ -416,50 +416,115 @@ def write_proc(context, file_type):
 
     joint_groups = []
 
+    for mesh in procyon_data.meshes:
+        for f in range(int(len(mesh.indices)/3)):
+            # Find all joint indices that are referenced by a triangle
+            face_joint_indices = []
+            for index in mesh.indices[(3*f):(3*f+3)]:
+                vertex = list(mesh.vertices.keys())[index]
+                joint_indices = [vertex.joint_indices[idx] for idx, weight in enumerate(vertex.joint_weights) if weight > 0.0]
+                face_joint_indices.extend(x for x in joint_indices if x not in face_joint_indices)
+                face_joint_indices.sort()
+            joint_group_exists = False
+            for joint_group in joint_groups:
+                if len(joint_group) == len(face_joint_indices):
+                    indices_are_the_same = True
+                    for j, joint in enumerate(joint_group):
+                        if joint != face_joint_indices[j]:
+                            indices_are_the_same = False
+                            break
+                    if indices_are_the_same == True:
+                        joint_group_exists = True
+                        break
+            if joint_group_exists == False:
+                joint_groups.append(face_joint_indices)
     for j in range(len(procyon_data.joints)):
-        for mesh in procyon_data.meshes:
-            for f in range(int(len(mesh.indices)/3)):
-                # Find all joint indices that are referenced by a triangle
-                face_joint_indices = []
-                for index in mesh.indices[(3*f):(3*f+3)]:
-                    vertex = list(mesh.vertices.keys())[index]
-                    joint_indices = [vertex.joint_indices[idx] for idx, weight in enumerate(vertex.joint_weights) if weight > 0.0]
-                    face_joint_indices.extend(x for x in joint_indices if x not in face_joint_indices)
-                # Check if referenced joint indices already exist in any joint group.
-                # Indices can be contained in a few groups at the same time, if that is the case join the groups together.
-                # If joint indices were not found in any existing group create a new one.
-                if len(face_joint_indices) > 0:
-                    first_joint_group = None
-                    for joint_group in joint_groups:
-                        common_joints = [element for element in face_joint_indices if element in joint_group]
-                        if len(common_joints) > 0:
-                            if first_joint_group == None:
-                                first_joint_group = joint_group
-                                first_joint_group.extend(element for element in face_joint_indices if element not in first_joint_group)
-                            else:
-                                joint_group.clear()
-                    if first_joint_group == None:
-                        joint_groups.append(face_joint_indices)
-                    joint_groups = [group for group in joint_groups if group]
-
-    # Sort the groups by indices
-    joint_groups = [sorted(group) for group in joint_groups]
-    joint_groups.sort(key=lambda group: group[0])
-
-    for group in joint_groups:
-        names = [procyon_data.joints[index].name for index in group]
-        print(names)
-    groupless_joints = []
-    for j, joint in enumerate(procyon_data.joints):
-        groupless = True
-        for group in joint_groups:
-            if j in group:
-                groupless = False
+        in_any_group = False
+        for joint_group in joint_groups:
+            if j in joint_group:
+                in_any_group = True
                 break
-        if groupless == True:
-            groupless_joints.append(joint.name)
-    print("Groupless:", groupless_joints)
+        if not in_any_group:
+            joint_groups.append([j])
+    joint_groups = sorted(joint_groups, key=lambda x: x[:])
 
+
+    def join_arrays(a, b):
+        new_array = a.copy()
+        new_array.extend(x for x in b if x not in new_array)
+        return new_array
+
+    def eliminate_subsets(array):
+        new_array = []
+        for a_index, a_subarr in enumerate(array):
+            is_subset = False
+            for b_index, b_subarr in enumerate(array):
+                if  a_index != b_index and all(x in b_subarr for x in a_subarr):
+                    if len(a_subarr) != len(b_subarr) or a_index >= b_index:
+                        is_subset = True
+            if not is_subset:
+                new_array.append(a_subarr)
+        return new_array
+
+    joint_groups = eliminate_subsets(joint_groups)
+    #for x in joint_groups: print(x)
+
+    bins = []
+    while len(joint_groups) > 0:
+        best_candidate_found = False
+        best_candidate_score = 0
+        best_candidate_length = 0
+        best_candidate_index = 0
+        best_candidate_bin_index = 0
+
+        for b, bin in enumerate(bins):
+            for g, group in enumerate(joint_groups):
+                new_bin = join_arrays(bin, group)
+                if len(new_bin) > 8: continue
+
+                score = 1 - (len(new_bin)-len(bin)) / len(group)
+                if (not best_candidate_found or
+                    score > best_candidate_score or
+                    score == best_candidate_score and len(group)>best_candidate_length):
+
+                    best_candidate_found = True
+                    best_candidate_score = score
+                    best_candidate_length = len(group)
+                    best_candidate_index = g
+                    best_candidate_bin_index = b
+
+        if not best_candidate_found:
+            bins.append([])
+            best_candidate_length = len(joint_groups[0])
+            best_candidate_bin_index = len(bins)-1
+            for g, group in enumerate(joint_groups):
+                if len(group) > best_candidate_length:
+                    best_candidate_length = len(group)
+                    best_candidate_index = g
+
+        bins[best_candidate_bin_index] = sorted(join_arrays(bins[best_candidate_bin_index], joint_groups[best_candidate_index]))
+        joint_groups.pop(best_candidate_index)
+
+    bone_count = 0
+    for b in bins: bone_count += len(b)
+
+    bins = sorted(bins, key=lambda x: x[:])
+    for i,x in enumerate(bins): print(i, x)
+    print("approximation ratio:", bone_count/len(procyon_data.joints))
+
+
+
+
+
+
+
+    #join_joint_groups(0, joint_groups)
+
+
+    #best = join_joint_groups(joint_groups)
+
+    # for x in joint_groups: print(x)
+    # print("len(joint_groups):", len(joint_groups))
 
     if file_type == "P3D":
         file = open(bpy.path.abspath(context.scene.export_properties.standard_path), file_write_mode)
