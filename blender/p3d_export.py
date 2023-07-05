@@ -36,14 +36,18 @@ class Vertex:
     def __hash__(self):
         return hash(self.position.x)
 
+class Material:
+    def __init__(self):
+        self.diffuse_color = []
+
 class Mesh:
     def __init__(self):
-        # self.has_vertex_colors = False
+        self.material_index = -1
+        self.subskeleton_index = -1
         self.vertices = {}
         self.indices = []
         self.index_offset = 0
         self.vertex_offset = 0
-        self.diffuse_color = []
 
 class SkeletonJoint:
     def __init__(self, name, parent_index, inverse_model_space_pose):
@@ -77,8 +81,10 @@ class ProcyonData:
         self.num_vertex = 0
         self.num_index = 0
         self.meshes = []
+        self.materials = []
         self.joints = []
         self.animations = []
+        self.bone_groups = []
 
 def write_int32(file, value):
     if file_write_mode == "wb": file.write(struct.pack("i", value))
@@ -113,11 +119,11 @@ def write_string(file, text):
     else: file.write(text)
 
 def normalize_joint_weights(weights):
-    total_weights = sum(weights)
-    result = [0,0,0,0]
-    if total_weights != 0:
-        for i, weight in enumerate(weights):
-            result[i] = weight / total_weights
+    total_weight = sum(weights)
+    result = []
+    if total_weight != 0:
+        for weight in weights:
+            result.append(weight / total_weight)
     return result
 
 def triangulate_mesh(mesh):
@@ -206,6 +212,11 @@ def set_armature_position(armature, position):
     armature.data.update_tag()
     bpy.context.scene.frame_set(bpy.context.scene.frame_current)
 
+def join_arrays(a, b):
+    new_array = a.copy()
+    new_array.extend(x for x in b if x not in new_array)
+    return new_array
+
 def write_p3d(context, file, procyon_data):
     # Write header
     write_string(file, " P3D")
@@ -256,7 +267,9 @@ def write_pp3d(context, file, procyon_data):
     for mesh in procyon_data.meshes:
         write_uint16(file, len(mesh.vertices))
         write_uint16(file, len(mesh.indices))
-        write_uint32(file, color_to_uint32(mesh.diffuse_color))
+
+        material_diffuse_color = procyon_data.materials[mesh.material_index].diffuse_color
+        write_uint32(file, color_to_uint32(material_diffuse_color))
 
     # Write mesh vertices and indices
     for mesh in procyon_data.meshes:
@@ -275,7 +288,7 @@ def write_pp3d(context, file, procyon_data):
 
     return True
 
-def write_proc(context, file_type):
+def write_proc(operator, context, file_type):
     procyon_data = ProcyonData()
     print("Exporting", file_type)
 
@@ -291,7 +304,8 @@ def write_proc(context, file_type):
     objects = get_selected_mesh_objects()
     if len(objects) > 0:
         scene_with_applied_modifiers = bpy.context.evaluated_depsgraph_get()
-        meshes = {}
+        materials = {}
+        meshes = []
 
         dummy_color = [1.0, 1.0, 1.0, 1.0]
         dummy_material = bpy.data.materials.new("Dummy")
@@ -299,44 +313,58 @@ def write_proc(context, file_type):
 
         for object in objects:
             mesh = object.evaluated_get(scene_with_applied_modifiers).to_mesh(preserve_all_data_layers=True, depsgraph=bpy.context.evaluated_depsgraph_get())
+
             mesh.transform(transform_matrix @ object.matrix_world)
             triangulate_mesh(mesh)
             mesh.calc_normals_split()
 
             for polygon in mesh.polygons:
                 if len(polygon.loop_indices) == 3:
-                    use_materials = bpy.context.scene.export_properties.use_materials == True
-                    if  use_materials == True and len(mesh.materials) > 0:
+                    use_materials = bpy.context.scene.export_properties.use_materials
+                    if  use_materials and len(mesh.materials) > 0:
                         material = mesh.materials[polygon.material_index]
                     else:
                         material = dummy_material
 
-                    if meshes.get(material) == None:
-                        meshes[material] = Mesh()
+                    material_index = 0
+                    if materials.get(material) == None:
+                        materials[material] = Material()
                         material_bsdf = PrincipledBSDFWrapper(material)
                         if material_bsdf:
                             if material_bsdf.base_color and len(material_bsdf.base_color) > 3:
                                 alpha = material_bsdf.base_color[3]
                             else:
                                 alpha = material_bsdf.alpha
-                            meshes[material].diffuse_color = [material_bsdf.base_color[0], material_bsdf.base_color[1], material_bsdf.base_color[2], alpha]
+                            materials[material].diffuse_color = [material_bsdf.base_color[0], material_bsdf.base_color[1], material_bsdf.base_color[2], alpha]
                         else:
-                            self.report({"ERROR"}, "Material '", material.name, "' does not use PrincipledBSDF surface, not parsing.")
+                            operator.report({"ERROR"}, "Material '", material.name, "' does not use PrincipledBSDF surface, not parsing.")
+                            return False
+                    material_index = list(materials.keys()).index(material)
+
+                    mesh_index = -1
+                    for index, p_mesh in enumerate(meshes):
+                        if p_mesh.material_index != -1 and p_mesh.material_index == material_index:
+                            mesh_index = index
+                            break
+
+                    if not mesh_index >= 0:
+                        mesh_index = len(meshes)
+                        meshes.append(Mesh())
+                        meshes[mesh_index].material_index = material_index
 
                     # Get mesh vertices, indices and joint info
                     face_indices = []
                     for loop_index in polygon.loop_indices:
                         loop = mesh.loops[loop_index]
 
-                        joint_indices = [0,0,0,0]
-                        joint_weights = [0,0,0,0]
+                        joint_indices = []
+                        joint_weights = []
                         if armature:
-                            for joint_binding_index, group in enumerate(mesh.vertices[loop.vertex_index].groups):
-                                if joint_binding_index < 4:
-                                    group_index = group.group
-                                    bone_name = object.vertex_groups[group_index].name
-                                    joint_indices[joint_binding_index] = armature.data.bones.find(bone_name)
-                                    joint_weights[joint_binding_index] = group.weight
+                            for g, group in enumerate(mesh.vertices[loop.vertex_index].groups):
+                                if g < 4:
+                                    bone_name = object.vertex_groups[group.group].name
+                                    joint_indices.append(armature.data.bones.find(bone_name))
+                                    joint_weights.append(group.weight)
 
                         uv = mesh.uv_layers.active.data[loop.index].uv
 
@@ -349,13 +377,13 @@ def write_proc(context, file_type):
                             normalize_joint_weights(joint_weights)
                         )
 
-                        if meshes[material].vertices.get(vertex) == None:
-                            meshes[material].vertices[vertex] = len(meshes[material].vertices)
-                        meshes[material].indices.append(meshes[material].vertices[vertex])
+                        if meshes[mesh_index].vertices.get(vertex) == None:
+                            meshes[mesh_index].vertices[vertex] = len(meshes[mesh_index].vertices)
+                        meshes[mesh_index].indices.append(meshes[mesh_index].vertices[vertex])
 
         min_vector = [sys.float_info.max, sys.float_info.max, sys.float_info.max]
         max_vector = [sys.float_info.min, sys.float_info.min, sys.float_info.min]
-        for mesh in meshes.values():
+        for mesh in meshes:
             for vertex in mesh.vertices.keys():
                 for e in range(0, 3):
                     if vertex.position[e] < min_vector[e]:
@@ -366,7 +394,7 @@ def write_proc(context, file_type):
 
         index_offset = 0
         vertex_offset = 0
-        for mesh in meshes.values():
+        for mesh in meshes:
             procyon_data.num_vertex += len(mesh.vertices)
             procyon_data.num_index += len(mesh.indices)
             mesh.index_offset = index_offset
@@ -374,7 +402,8 @@ def write_proc(context, file_type):
             index_offset += len(mesh.indices)
             vertex_offset += len(mesh.vertices)
 
-        procyon_data.meshes = meshes.values()
+        procyon_data.materials = list(materials.values())
+        procyon_data.meshes = meshes
 
     if armature:
         set_armature_position(armature, "POSE")
@@ -384,6 +413,7 @@ def write_proc(context, file_type):
             model_space_pose = transform_matrix @ bone.matrix_local
             skeleton_joint = SkeletonJoint(bone.name, parent_index, model_space_pose.inverted())
             procyon_data.joints.append(skeleton_joint)
+
 
         for action in bpy.data.actions:
             # Ignore animations with name ending with .001, .002 etc
@@ -396,15 +426,29 @@ def write_proc(context, file_type):
             for frame in range(start_frame, end_frame+1):
                 p_frame = AnimationFrame()
                 bpy.context.scene.frame_set(frame)
-                for bone in armature.pose.bones:
-                    parent_space_pose = bone.matrix
-                    if bone.parent:
-                        parent_space_pose = bone.parent.matrix.inverted() @ bone.matrix
-                    else:
-                        parent_space_pose = transform_matrix @ bone.matrix
-                    translation = parent_space_pose.to_translation()
-                    rotation = parent_space_pose.to_quaternion()
-                    scale = parent_space_pose.to_scale() # Does not support negative values
+                for b, bone in enumerate(armature.pose.bones):
+                    translation = mathutils.Vector((0.0, 0.0, 0.0))
+                    rotation = mathutils.Quaternion()
+                    scale = mathutils.Vector((1.0, 1.0, 1.0))
+                    if file_type == "P3D":
+                        # FIXME: This was not touched  yet
+                        parent_space_pose = bone.matrix_channel
+                        if bone.parent:
+                            parent_space_pose = bone.parent.matrix.inverted() @ bone.matrix
+                        else:
+                            parent_space_pose = transform_matrix @ bone.matrix
+                        translation = parent_space_pose.to_translation()
+                        rotation = parent_space_pose.to_quaternion()
+                        scale = transform_matrix @ armature.matrix_world @ parent_space_pose.to_scale() # Does not support negative values
+                    elif file_type == "PP3D":
+                        inverse_model_space_pose = armature.data.bones[b].matrix_local.inverted()
+                        armature_space_pose = transform_matrix @ inverse_model_space_pose @ bone.matrix
+
+                        translation_scale = (transform_matrix @ armature.matrix_world).to_scale()
+                        translation = armature_space_pose.to_translation().cross(translation_scale)
+                        rotation = armature_space_pose.to_quaternion()
+                        scale = armature_space_pose.to_scale()
+
                     animation_joint = AnimationJoint(translation, rotation, scale)
                     p_frame.joints.append(animation_joint)
                 p_animation.frames.append(p_frame)
@@ -414,117 +458,139 @@ def write_proc(context, file_type):
         armature.animation_data.action = original_action
         set_armature_position(armature, original_armature_position)
 
-    joint_groups = []
+        if file_type == "PP3D":
+            bone_connections = []
+            for mesh in procyon_data.meshes:
+                for f in range(int(len(mesh.indices)/3)):
+                    triangle_bone_indices = []
+                    for index in mesh.indices[(3*f):(3*f+3)]:
+                        vertex = list(mesh.vertices.keys())[index]
+                        for w, weight in enumerate(vertex.joint_weights):
+                            bone_index = vertex.joint_indices[w]
+                            if weight > 0.0 and bone_index != -1 and bone_index not in triangle_bone_indices:
+                                triangle_bone_indices.append(bone_index)
+                        triangle_bone_indices.sort()
+                    if not any(connection==triangle_bone_indices for connection in bone_connections):
+                        bone_connections.append(triangle_bone_indices)
 
-    for mesh in procyon_data.meshes:
-        for f in range(int(len(mesh.indices)/3)):
-            # Find all joint indices that are referenced by a triangle
-            face_joint_indices = []
-            for index in mesh.indices[(3*f):(3*f+3)]:
-                vertex = list(mesh.vertices.keys())[index]
-                joint_indices = [vertex.joint_indices[idx] for idx, weight in enumerate(vertex.joint_weights) if weight > 0.0]
-                face_joint_indices.extend(x for x in joint_indices if x not in face_joint_indices)
-                face_joint_indices.sort()
-            joint_group_exists = False
-            for joint_group in joint_groups:
-                if len(joint_group) == len(face_joint_indices):
-                    indices_are_the_same = True
-                    for j, joint in enumerate(joint_group):
-                        if joint != face_joint_indices[j]:
-                            indices_are_the_same = False
+            bone_connections.extend([b] for b in range(len(procyon_data.joints)) if not any(b in connection for connection in bone_connections))
+
+            def remove_subsets(array_of_arrays):
+                new_array = []
+                for a_index, a_subarr in enumerate(array_of_arrays):
+                    is_subset = False
+                    for b_index, b_subarr in enumerate(array_of_arrays):
+                        if a_index != b_index and all(x in b_subarr for x in a_subarr):
+                            if len(a_subarr) != len(b_subarr) or a_index >= b_index:
+                                is_subset = True
+                    if not is_subset:
+                        new_array.append(a_subarr)
+                return new_array
+            bone_connections = remove_subsets(bone_connections)
+
+            bone_connections = sorted(bone_connections, key=lambda x: x[:])
+
+            while len(bone_connections) > 0:
+                best_candidate_found = False
+                best_candidate_score = 0
+                best_candidate_length = 0
+                best_candidate_index = 0
+                best_candidate_bin_index = 0
+
+                for b, bin in enumerate(procyon_data.bone_groups):
+                    for g, group in enumerate(bone_connections):
+                        new_bin = join_arrays(bin, group)
+                        if len(new_bin) > 8: continue
+
+                        score = 1 - (len(new_bin)-len(bin)) / len(group)
+                        if (not best_candidate_found or
+                            score > best_candidate_score or
+                            score == best_candidate_score and len(group)>best_candidate_length):
+
+                            best_candidate_found = True
+                            best_candidate_score = score
+                            best_candidate_length = len(group)
+                            best_candidate_index = g
+                            best_candidate_bin_index = b
+
+                if not best_candidate_found:
+                    procyon_data.bone_groups.append([])
+                    best_candidate_length = 0
+                    best_candidate_bin_index = len(procyon_data.bone_groups)-1
+                    for g, group in enumerate(bone_connections):
+                        if len(group) > best_candidate_length and len(group) <= 8:
+                            best_candidate_found = True
+                            best_candidate_length = len(group)
+                            best_candidate_index = g
+
+                if not best_candidate_found:
+                    operator.report({"ERROR"}, "Could not find a bone group with size equal or less than 8, aborting.")
+                    return False
+
+                procyon_data.bone_groups[best_candidate_bin_index] = sorted(join_arrays(procyon_data.bone_groups[best_candidate_bin_index], bone_connections[best_candidate_index]))
+                bone_connections.pop(best_candidate_index)
+            procyon_data.bone_groups = sorted(procyon_data.bone_groups, key=lambda x: x[:])
+
+            new_meshes = []
+            for mesh in meshes:
+                for f in range(int(len(mesh.indices)/3)):
+                    triangle_bone_indices = []
+                    triangle_bone_weights = []
+                    for index in mesh.indices[(3*f):(3*f+3)]:
+                        vertex = list(mesh.vertices.keys())[index]
+                        for w, weight in enumerate(vertex.joint_weights):
+                            bone_index = vertex.joint_indices[w]
+                            if weight > 0.0 and bone_index != -1 and bone_index not in triangle_bone_indices:
+                                triangle_bone_indices.append(bone_index)
+                    triangle_bone_indices.sort()
+
+                    # FIXME: this shouldn't actually be enforced
+                    assert(len(triangle_bone_indices) > 0) # all vertices must be controlled by a bone
+
+                    subskeleton_index = -1
+                    for group_index, group in enumerate(procyon_data.bone_groups):
+                        if all(bone_index in group for bone_index in triangle_bone_indices):
+                            subskeleton_index = group_index
+
+                    assert(subskeleton_index >= 0) # at this point it should always be possible to find a suitable skeleton
+
+                    mesh_index = -1
+                    for m, new_mesh in enumerate(new_meshes):
+                        if new_mesh.material_index == mesh.material_index and new_mesh.subskeleton_index == subskeleton_index:
+                            mesh_index = m
                             break
-                    if indices_are_the_same == True:
-                        joint_group_exists = True
-                        break
-            if joint_group_exists == False:
-                joint_groups.append(face_joint_indices)
-    for j in range(len(procyon_data.joints)):
-        in_any_group = False
-        for joint_group in joint_groups:
-            if j in joint_group:
-                in_any_group = True
-                break
-        if not in_any_group:
-            joint_groups.append([j])
-    joint_groups = sorted(joint_groups, key=lambda x: x[:])
+                    if not mesh_index >= 0:
+                        mesh_index = len(new_meshes)
+                        new_meshes.append(Mesh())
+                        new_meshes[mesh_index].material_index = mesh.material_index
+                        new_meshes[mesh_index].subskeleton_index = subskeleton_index
 
+                    for index in mesh.indices[(3*f):(3*f+3)]:
+                        old_vertex = list(mesh.vertices.keys())[index]
+                        new_vertex = copy(old_vertex)
 
-    def join_arrays(a, b):
-        new_array = a.copy()
-        new_array.extend(x for x in b if x not in new_array)
-        return new_array
+                        new_vertex.joint_indices = []
+                        new_vertex.joint_weights = []
+                        for bone_index in procyon_data.bone_groups[subskeleton_index]:
+                            if bone_index in old_vertex.joint_indices:
+                                vertex_joint_index = old_vertex.joint_indices.index(bone_index)
+                                new_vertex.joint_indices.append(bone_index)
+                                new_vertex.joint_weights.append(old_vertex.joint_weights[vertex_joint_index])
+                            else:
+                                new_vertex.joint_indices.append(-1)
+                                new_vertex.joint_weights.append(0.0)
 
-    def eliminate_subsets(array):
-        new_array = []
-        for a_index, a_subarr in enumerate(array):
-            is_subset = False
-            for b_index, b_subarr in enumerate(array):
-                if  a_index != b_index and all(x in b_subarr for x in a_subarr):
-                    if len(a_subarr) != len(b_subarr) or a_index >= b_index:
-                        is_subset = True
-            if not is_subset:
-                new_array.append(a_subarr)
-        return new_array
+                        if new_meshes[mesh_index].vertices.get(new_vertex) == None:
+                            new_meshes[mesh_index].vertices[new_vertex] = len(new_meshes[mesh_index].vertices)
+                        new_meshes[mesh_index].indices.append(new_meshes[mesh_index].vertices[new_vertex])
+            new_meshes = sorted(new_meshes, key=lambda m: (m.subskeleton_index, m.material_index))
+            procyon_data.meshes = new_meshes
 
-    joint_groups = eliminate_subsets(joint_groups)
-    #for x in joint_groups: print(x)
-
-    bins = []
-    while len(joint_groups) > 0:
-        best_candidate_found = False
-        best_candidate_score = 0
-        best_candidate_length = 0
-        best_candidate_index = 0
-        best_candidate_bin_index = 0
-
-        for b, bin in enumerate(bins):
-            for g, group in enumerate(joint_groups):
-                new_bin = join_arrays(bin, group)
-                if len(new_bin) > 8: continue
-
-                score = 1 - (len(new_bin)-len(bin)) / len(group)
-                if (not best_candidate_found or
-                    score > best_candidate_score or
-                    score == best_candidate_score and len(group)>best_candidate_length):
-
-                    best_candidate_found = True
-                    best_candidate_score = score
-                    best_candidate_length = len(group)
-                    best_candidate_index = g
-                    best_candidate_bin_index = b
-
-        if not best_candidate_found:
-            bins.append([])
-            best_candidate_length = len(joint_groups[0])
-            best_candidate_bin_index = len(bins)-1
-            for g, group in enumerate(joint_groups):
-                if len(group) > best_candidate_length:
-                    best_candidate_length = len(group)
-                    best_candidate_index = g
-
-        bins[best_candidate_bin_index] = sorted(join_arrays(bins[best_candidate_bin_index], joint_groups[best_candidate_index]))
-        joint_groups.pop(best_candidate_index)
-
-    bone_count = 0
-    for b in bins: bone_count += len(b)
-
-    bins = sorted(bins, key=lambda x: x[:])
-    for i,x in enumerate(bins): print(i, x)
-    print("approximation ratio:", bone_count/len(procyon_data.joints))
+            #print("new meshes:")
+            #for m in new_meshes: print(f"mat:{m.material_index} sk:{m.subskeleton_index} v:{len(m.vertices)} i:{len(m.indices)}")
 
 
 
-
-
-
-
-    #join_joint_groups(0, joint_groups)
-
-
-    #best = join_joint_groups(joint_groups)
-
-    # for x in joint_groups: print(x)
-    # print("len(joint_groups):", len(joint_groups))
 
     if file_type == "P3D":
         file = open(bpy.path.abspath(context.scene.export_properties.standard_path), file_write_mode)
@@ -556,7 +622,7 @@ class ExportStandardOperator(bpy.types.Operator):
     bl_label = "Export"
 
     def execute(self, context):
-        write_proc(context, "P3D")
+        write_proc(self, context, "P3D")
         return {'FINISHED'}
 
 class ExportPortableOperator(bpy.types.Operator):
@@ -564,7 +630,7 @@ class ExportPortableOperator(bpy.types.Operator):
     bl_label = "Export"
 
     def execute(self, context):
-        write_proc(context, "PP3D")
+        write_proc(self, context, "PP3D")
         return {'FINISHED'}
 
 
