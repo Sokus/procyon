@@ -495,20 +495,48 @@ void pe_draw_mesh(Mesh mesh, HMM_Vec3 position, HMM_Vec3 rotation) {
 // MODELS
 //
 
+typedef struct peMesh {
+	int num_vertex;
+	int num_index;
+	int vertex_type;
+	void *vertex;
+	void *index;
+} peMesh;
+
+typedef struct peSubskeleton {
+	uint8_t num_bones;
+	uint8_t bone_indices[8];
+} peSubskeleton;
+
+typedef struct peAnimationJoint {
+	HMM_Vec3 translation;
+	HMM_Quat rotation;
+	HMM_Vec3 scale;
+} peAnimationJoint;
+
+typedef struct peAnimation {
+	char name[64];
+	uint16_t num_frames;
+
+	peAnimationJoint *frames; // count = num_frames * num_bones
+} peAnimation;
+
 typedef struct peModel {
 	peArena arena;
 
 	float scale;
-	int num_mesh;
-	struct peMesh {
-		int num_vertex;
-		int num_index;
-		int vertex_type;
-		void *vertex;
-		void *index;
-	} *mesh;
-	peMaterial *material;
 
+	int num_mesh;
+	int num_material;
+	int num_subskeleton;
+	int num_animations;
+
+	peMesh *mesh;
+	int *mesh_material;
+	int *mesh_subskeleton;
+	peMaterial *material;
+	peSubskeleton *subskeleton;
+	peAnimation *animation;
 } peModel;
 
 #include "pp3d.h"
@@ -524,73 +552,149 @@ peModel pe_model_load(char *file_path) {
 	pp3d_file_pointer += sizeof(pp3dStaticInfo);
 
 	pp3dMesh *pp3d_mesh_info = (pp3dMesh*)pp3d_file_pointer;
-	pp3d_file_pointer += sizeof(pp3dMesh) * pp3d_static_info->num_meshes;
+	pp3d_file_pointer += pp3d_static_info->num_meshes * sizeof(pp3dMesh);
 
-	peModel model = {0};
+	pp3dMaterial *pp3d_material_info = (pp3dMaterial*)pp3d_file_pointer;
+	pp3d_file_pointer += pp3d_static_info->num_materials * sizeof(pp3dMaterial);
+
+	pp3dSubskeleton *pp3d_subskeleton_info = (pp3dSubskeleton*)pp3d_file_pointer;
+	pp3d_file_pointer += pp3d_static_info->num_subskeletons * sizeof(pp3dSubskeleton);
+
+	pp3dAnimation *pp3d_animation_info = (pp3dAnimation*)pp3d_file_pointer;
+	pp3d_file_pointer += pp3d_static_info->num_animations * sizeof(pp3dAnimation);
 
 	// TODO: 8 and 16 bit UVs depending on texture size
 	// TODO: 8 and 16 bit indices depending on vertex count
 
-	size_t mesh_size = pp3d_static_info->num_meshes * sizeof(*model.mesh);
-	size_t material_alignment = (PE_DEFAULT_MEMORY_ALIGNMENT - (mesh_size % PE_DEFAULT_MEMORY_ALIGNMENT)) % PE_DEFAULT_MEMORY_ALIGNMENT;
-	size_t material_size = pp3d_static_info->num_meshes * sizeof(peMaterial);
-	const size_t VERT_MEM_ALIGN = 16;
-	size_t mesh_data_size = (VERT_MEM_ALIGN - (mesh_data_size % VERT_MEM_ALIGN)) % VERT_MEM_ALIGN;
+	size_t mesh_size = pp3d_static_info->num_meshes * sizeof(peMesh);
+	size_t mesh_material_size = pp3d_static_info->num_meshes * sizeof(int);
+	size_t mesh_subskeleton_size = pp3d_static_info->num_meshes * sizeof(int);
+	size_t material_size = pp3d_static_info->num_materials * sizeof(peMaterial);
+	size_t subskeleton_size = pp3d_static_info->num_subskeletons * sizeof(peSubskeleton);
+	size_t animation_size = pp3d_static_info->num_animations * sizeof(peAnimation);
+
+	size_t VERT_MEM_ALIGN = 16;
+
+	peMeasureAllocatorData measure_data = { .alignment = VERT_MEM_ALIGN };
+	peAllocator measure_allocator = pe_measure_allocator(&measure_data);
+	pe_alloc(measure_allocator, material_size);
+	pe_alloc(measure_allocator, subskeleton_size);
+	pe_alloc(measure_allocator, animation_size);
+	pe_alloc(measure_allocator, mesh_size);
+	pe_alloc(measure_allocator, mesh_material_size);
+	pe_alloc(measure_allocator, mesh_subskeleton_size);
+
+	for (int a = 0; a < pp3d_static_info->num_animations; a += 1) {
+		size_t num_animation_joint = pp3d_animation_info[a].num_frames * pp3d_static_info->num_bones;
+		size_t animation_joint_size = num_animation_joint * sizeof(peAnimationJoint);
+		pe_alloc(measure_allocator, animation_joint_size);
+	}
 
 	for (int m = 0; m < pp3d_static_info->num_meshes; m += 1) {
 		PE_ASSERT(pp3d_mesh_info[m].num_vertex > 0);
-		if (m > 0) {
-			size_t vertex_alignment_needed = (VERT_MEM_ALIGN - (mesh_data_size % VERT_MEM_ALIGN)) % VERT_MEM_ALIGN;;
-			mesh_data_size += vertex_alignment_needed;
-		}
-		mesh_data_size += pp3d_mesh_info[m].num_vertex * sizeof(pp3dVertex);
+		PE_ASSERT(pp3d_mesh_info[m].subskeleton_index >= 0);
+		PE_ASSERT(pp3d_mesh_info[m].subskeleton_index < pp3d_static_info->num_subskeletons);
+		uint8_t num_weights = pp3d_subskeleton_info[pp3d_mesh_info[m].subskeleton_index].num_bones;
+		size_t vertex_size = (
+			num_weights * sizeof(float) +
+			2 * sizeof(uint16_t) + // uv
+			3 * sizeof(uint16_t) + // normal
+			3 * sizeof(uint16_t)   // position
+		);
+		pe_alloc_align(measure_allocator, pp3d_mesh_info[m].num_vertex * vertex_size, VERT_MEM_ALIGN);
+
 
 		if (pp3d_mesh_info[m].num_index > 0) {
-			size_t index_alignment_needed = (VERT_MEM_ALIGN - (mesh_data_size % VERT_MEM_ALIGN)) % VERT_MEM_ALIGN;
-			mesh_data_size += index_alignment_needed;
-			mesh_data_size += pp3d_mesh_info[m].num_index * sizeof(uint16_t);
+			pe_alloc_align(measure_allocator, pp3d_mesh_info[m].num_index * sizeof(uint16_t), VERT_MEM_ALIGN);
 		}
 	}
-	size_t estimated_memory_size = (
-		mesh_size +
-		material_alignment + material_size +
-		mesh_data_size
-	);
 
-	pe_arena_init_from_allocator_align(&model.arena, pe_heap_allocator(), estimated_memory_size, VERT_MEM_ALIGN);
+	peModel model = {0};
+	pe_arena_init_from_allocator_align(&model.arena, pe_heap_allocator(), measure_data.total_allocated, VERT_MEM_ALIGN);
 	peAllocator model_allocator = pe_arena_allocator(&model.arena);
 
 	model.scale = pp3d_static_info->scale;
 	model.num_mesh = pp3d_static_info->num_meshes;
-	model.mesh = pe_alloc(model_allocator, mesh_size);
-	pe_zero_size(model.mesh, mesh_size);
+	model.num_material = pp3d_static_info->num_materials;
+	model.num_subskeleton = pp3d_static_info->num_subskeletons;
+	model.num_animations = pp3d_static_info->num_animations;
 
 	model.material = pe_alloc(model_allocator, material_size);
-	for (int m = 0; m < pp3d_static_info->num_meshes; m += 1) {
+	for (int m = 0; m < pp3d_static_info->num_materials; m += 1) {
 		model.material[m] = pe_default_material();
+		model.material[m].diffuse_color.rgba = pp3d_material_info[m].diffuse_color;
 	}
 
-	void *pp3d_mesh_data = pp3d_file_pointer;
+	model.subskeleton = pe_alloc(model_allocator, subskeleton_size);
+	for (int s = 0; s < pp3d_static_info->num_subskeletons; s += 1) {
+		model.subskeleton[s].num_bones = pp3d_subskeleton_info[s].num_bones;
+		for (int b = 0; b < pp3d_subskeleton_info[s].num_bones; b += 1) {
+			model.subskeleton[s].bone_indices[b] = pp3d_subskeleton_info[s].bone_indices[b];
+		}
+	}
 
+	model.animation = pe_alloc(model_allocator, animation_size);
+	for (int a = 0; a < pp3d_static_info->num_animations; a += 1) {
+		PE_ASSERT(sizeof(model.animation[a].name) == sizeof(pp3d_animation_info[a].name));
+		memcpy(model.animation[a].name, pp3d_animation_info[a].name, sizeof(model.animation[a].name));
+
+		model.animation[a].num_frames = pp3d_animation_info[a].num_frames;
+
+		size_t num_animation_joint = pp3d_animation_info[a].num_frames * pp3d_static_info->num_bones;
+		size_t animation_joint_size = num_animation_joint * sizeof(peAnimationJoint);
+		model.animation[a].frames = pe_alloc(model_allocator, animation_joint_size);
+	}
+
+	model.mesh = pe_alloc(model_allocator, mesh_size);
+	model.mesh_material = pe_alloc(model_allocator, mesh_material_size);
+	model.mesh_subskeleton = pe_alloc(model_allocator, mesh_subskeleton_size);
+	pe_zero_size(model.mesh, mesh_size);
 	for (int m = 0; m < pp3d_static_info->num_meshes; m += 1) {
+		model.mesh_material[m] = pp3d_mesh_info[m].material_index;
+		model.mesh_subskeleton[m] = pp3d_mesh_info[m].subskeleton_index;
 		model.mesh[m].num_vertex = pp3d_mesh_info[m].num_vertex;
 		model.mesh[m].num_index = pp3d_mesh_info[m].num_index;
-		model.material[m].diffuse_color.rgba = pp3d_mesh_info[m].diffuse_color;
 
-		model.mesh[m].vertex_type = GU_TEXTURE_16BIT | GU_NORMAL_16BIT | GU_VERTEX_16BIT | GU_TRANSFORM_3D;
+		model.mesh[m].vertex_type = GU_TRIANGLES|GU_TEXTURE_16BIT|GU_NORMAL_16BIT|GU_VERTEX_16BIT|GU_TRANSFORM_3D;
+		uint8_t num_weights = pp3d_subskeleton_info[pp3d_mesh_info[m].subskeleton_index].num_bones;
+		if (num_weights > 0) {
+			model.mesh[m].vertex_type |= GU_WEIGHT_32BITF|GU_WEIGHTS(num_weights);
+		}
 
-		size_t vertex_data_size = pp3d_mesh_info[m].num_vertex * sizeof(pp3dVertex);
-		model.mesh[m].vertex = pe_alloc_align(model_allocator, vertex_data_size, VERT_MEM_ALIGN);
-		memcpy(model.mesh[m].vertex, pp3d_file_pointer, vertex_data_size);
-		pp3d_file_pointer += vertex_data_size;
+		size_t vertex_size = (
+			num_weights * sizeof(float) +
+			2 * sizeof(uint16_t) + // uv
+			3 * sizeof(uint16_t) + // normal
+			3 * sizeof(uint16_t)	 // position
+		);
+		size_t total_vertex_size = vertex_size * pp3d_mesh_info[m].num_vertex;
+		model.mesh[m].vertex = pe_alloc_align(model_allocator, total_vertex_size, VERT_MEM_ALIGN);
+		memcpy(model.mesh[m].vertex, pp3d_file_pointer, total_vertex_size);
+		pp3d_file_pointer += total_vertex_size;
 
 		if (pp3d_mesh_info[m].num_index > 0) {
-			model.mesh[m].vertex_type += GU_INDEX_16BIT;
-			size_t index_data_size = pp3d_mesh_info[m].num_index * sizeof(uint16_t);
-			model.mesh[m].index = pe_alloc_align(model_allocator, index_data_size, VERT_MEM_ALIGN);
-			memcpy(model.mesh[m].index, pp3d_file_pointer, index_data_size);
-			pp3d_file_pointer += index_data_size;
+			model.mesh[m].vertex_type |= GU_INDEX_16BIT;
+			size_t index_size = pp3d_mesh_info[m].num_index * sizeof(uint16_t);
+			model.mesh[m].index = pe_alloc_align(model_allocator, index_size, VERT_MEM_ALIGN);
+			memcpy(model.mesh[m].index, pp3d_file_pointer, index_size);
+			pp3d_file_pointer += index_size;
 		}
+	}
+
+	for (int m = 0; m < model.num_mesh; m += 1) {
+		fprintf(stdout, "v:%d i:%d t:%d m:%d s:%d\n",
+			model.mesh[m].num_vertex,
+			model.mesh[m].num_index,
+			model.mesh[m].vertex_type,
+			model.mesh_material[m],
+			model.mesh_subskeleton[m]);
+	}
+
+	for (int a = 0; a < pp3d_static_info->num_animations; a += 1) {
+		size_t num_animation_joints = pp3d_static_info->num_bones * pp3d_animation_info[a].num_frames;
+		size_t animation_joints_size = num_animation_joints * sizeof(peAnimationJoint);
+		memcpy(model.animation[a].frames, pp3d_file_pointer, animation_joints_size);
+		pp3d_file_pointer += animation_joints_size;
 	}
 
 	sceKernelDcacheWritebackInvalidateRange(model.arena.physical_start, model.arena.total_allocated);

@@ -22,6 +22,9 @@ from bpy_extras.node_shader_utils import (PrincipledBSDFWrapper)
 # Set to "wb" to output binary, or "w" to output plain text
 file_write_mode = "wb"
 
+INT16_MAX = 32767
+UINT16_MAX = 65535
+
 class Vertex:
     def __init__(self, position, uv, normal, color, joint_indices, joint_weights):
         self.position = position
@@ -134,12 +137,10 @@ def triangulate_mesh(mesh):
 
 def float_to_int16(value, a=-1.0, b=1.0):
     float_negative_one_to_one = 2.0 * ((value - a) / (b - a)) - 1.0
-    INT16_MAX = 32767
     return int(float_negative_one_to_one * float(INT16_MAX))
 
 def float_to_uint16(value, a=-1.0, b=1.0):
     float_zero_to_one = (value - a) / (b - a)
-    UINT16_MAX = 65535
     return int(float_zero_to_one * float(UINT16_MAX))
 
 def color_to_uint32(value):
@@ -148,48 +149,6 @@ def color_to_uint32(value):
     b = int(value[2] * 255)
     a = int(value[3] * 255)
     return r | g << 8 | b << 16 | a << 24
-
-def write_joints(file, armature, transform):
-    for bone in armature.data.bones:
-        write_uint8(file, armature.data.bones.find(bone.parent.name) if bone.parent else 0)
-        model_space_pose = transform @ bone.matrix_local
-        inverse_model_space_pose = model_space_pose.inverted()
-        for vector in inverse_model_space_pose:
-            for float in vector:
-                write_float(file, float)
-
-def write_animation(file, armature, animation, transform):
-    start_frame = int(animation.frame_range.x)
-    end_frame = int(animation.frame_range.y)
-    armature.animation_data.action = animation
-
-    write_uint32(file, end_frame-start_frame + 1)
-    print(end_frame-start_frame + 1)
-    write_uint32(file, len(animation.name))
-    write_string(file, animation.name)
-    for frame in range(start_frame, end_frame+1):
-        bpy.context.scene.frame_set(frame)
-        for bone in armature.pose.bones:
-            parentSpacePose = bone.matrix
-            if bone.parent:
-                parentSpacePose = bone.parent.matrix.inverted() @ bone.matrix
-            else:
-                parentSpacePose = transform @ bone.matrix
-            translation = parentSpacePose.to_translation()
-            write_float(file, translation.x)
-            write_float(file, translation.y)
-            write_float(file, translation.z)
-            rotation = parentSpacePose.to_quaternion()
-            write_float(file, rotation.w)
-            write_float(file, rotation.x)
-            write_float(file, rotation.y)
-            write_float(file, rotation.z)
-            # Does not support negative scales
-            scale = parentSpacePose.to_scale()
-            write_float(file, scale.x)
-            write_float(file, scale.y)
-            write_float(file, scale.z)
-
 
 def get_selected_mesh_objects():
     mesh_list = []
@@ -257,23 +216,50 @@ def write_p3d(context, file, procyon_data):
     return True
 
 def write_pp3d(context, file, procyon_data):
-    # Write header
-    write_string(file, "PP3D") # 4 bytes
-    write_float(file, procyon_data.scale) # 4 bytes
-    write_uint16(file, len(procyon_data.meshes)) # 2 bytes
-    write_uint16(file, 0) # alignment to 12 bytes
+    # static info header
+    write_string(file, "PP3D") # 4 bytes (4)
+    write_float(file, procyon_data.scale) # 4 bytes (8)
+    write_uint16(file, len(procyon_data.meshes)) # 2 bytes (10)
+    write_uint16(file, len(procyon_data.materials)) # 2 bytes (12)
+    write_uint16(file, len(procyon_data.bone_groups)) # 2 bytes (14)
+    write_uint16(file, len(procyon_data.animations)) # 2 bytes (16)
+    write_uint16(file, len(procyon_data.joints)) # 2 bytes (18)
+    num_frames_total = sum([len(animation.frames) for animation in procyon_data.animations])
+    write_uint16(file, num_frames_total) # 2 bytes (20)
 
-    # Write mesh info
+    # mesh infos
     for mesh in procyon_data.meshes:
+        material_index = mesh.material_index if mesh.material_index >= 0 else UINT16_MAX
+        write_uint16(file, material_index)
+
+        subskeleton_index = mesh.subskeleton_index if mesh.subskeleton_index >= 0 else UINT16_MAX
+        write_uint16(file, subskeleton_index)
+
         write_uint16(file, len(mesh.vertices))
         write_uint16(file, len(mesh.indices))
 
-        material_diffuse_color = procyon_data.materials[mesh.material_index].diffuse_color
-        write_uint32(file, color_to_uint32(material_diffuse_color))
+    # material infos
+    for material in procyon_data.materials:
+        write_uint32(file, color_to_uint32(material.diffuse_color))
 
-    # Write mesh vertices and indices
+    # subskeleton infos
+    for bone_group in procyon_data.bone_groups:
+        write_uint8(file, len(bone_group))
+        for b in range(8):
+            bone_index = bone_group[b] if b < len(bone_group) else 255
+            write_uint8(file, bone_index)
+
+    for animation in procyon_data.animations:
+        assert(len(animation.name) < 64)
+        write_string(file, animation.name)
+        for i in range(64-len(animation.name)):
+            write_uint8(file, 0)
+        write_uint16(file, len(animation.frames))
+
     for mesh in procyon_data.meshes:
         for vertex in mesh.vertices.keys():
+            for weight in vertex.joint_weights:
+                write_float(file, weight)
             for e in range(0, 2):
                 vertex_texcoord_element_int16 = float_to_int16(vertex.uv[e], a=0.0, b=1.0)
                 write_int16(file, vertex_texcoord_element_int16)
@@ -285,6 +271,22 @@ def write_pp3d(context, file, procyon_data):
                 write_int16(file, vertex_position_element_int16)
         for index in mesh.indices:
             write_uint16(file, index)
+
+    for animation in procyon_data.animations:
+        for frame in animation.frames:
+            for joint in frame.joints:
+                write_float(file, joint.position.x)
+                write_float(file, joint.position.y)
+                write_float(file, joint.position.z)
+
+                write_float(file, joint.rotation.x)
+                write_float(file, joint.rotation.y)
+                write_float(file, joint.rotation.z)
+                write_float(file, joint.rotation.w)
+
+                write_float(file, joint.scale.x)
+                write_float(file, joint.scale.y)
+                write_float(file, joint.scale.z)
 
     return True
 

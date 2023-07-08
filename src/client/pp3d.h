@@ -11,9 +11,9 @@ typedef struct pp3dStaticInfo {
     // TODO: All those could technically be uint8_t
     uint16_t num_meshes;
     uint16_t num_materials;
-    uint16_t num_bones;
     uint16_t num_subskeletons;
     uint16_t num_animations;
+    uint16_t num_bones;
     uint16_t num_frames_total;
 } pp3dStaticInfo;
 // pp3dStaticInfo static_info;
@@ -40,8 +40,15 @@ typedef struct pp3dSubskeleton {
 } pp3dSubskeleton;
 // pp3dSubskeleton subskeletons[static_info.num_subskeletons];
 
-// 5.
-//   5.1. vertices
+// 5. animation infos
+typedef struct pp3dAnimation {
+    char name[64];
+    uint16_t num_frames;
+} pp3dAnimation;
+// pp3dAnimation animations[static_info.num_animations];
+
+// 6.
+//   6.1. vertices
 // typedef struct pp3dVertex {
 //     float bone_weights[0-8]; // depends on `subskeletons[mesh[m].subskeleton_index].num_bones`
 //     uint16_t uv[2];
@@ -50,15 +57,8 @@ typedef struct pp3dSubskeleton {
 // } pp3dVertex;
 // pp3dVertex vertices[mesh[m].num_vertex];
 //
-//   5.2. indices - if (mesh[m].num_index > 0)
+//   6.2. indices - if (mesh[m].num_index > 0)
 // uint16_t indices[mesh[m].num_index];
-
-// 6. animation infos
-typedef struct pp3dAnimation {
-    char name[64];
-    uint16_t num_frames;
-} pp3dAnimation;
-// pp3dAnimation animations[static_info.num_animations];
 
 // 7. animation frame infos
 typedef struct pp3dAnimationJoint {

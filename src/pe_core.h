@@ -45,10 +45,13 @@ void pe_assert_handler(char *prefix, char *condition, char *file, int line, char
 #ifndef PE_DEBUG_TRAP
 	#if defined(PSP)
 		#define PE_DEBUG_TRAP() \
-			asm(".set noreorder\n" \
+			asm(".set push\n" \
+				".set noreorder\n" \
 				"break\n" \
+				"nop\n" \
 				"jr $31\n" \
-				"nop\n")
+				"nop\n" \
+				".set pop\n")
 	#elif defined(_MSC_VER)
 	 	#if _MSC_VER < 1300
 		#define PE_DEBUG_TRAP() __asm int 3 /* Trap to debugger! */
@@ -139,6 +142,12 @@ void *pe_resize      (peAllocator a, void *ptr, size_t old_size, size_t new_size
 #endif
 
 peAllocator pe_heap_allocator(void);
+
+typedef struct peMeasureAllocatorData {
+	size_t alignment;
+	size_t total_allocated;
+} peMeasureAllocatorData;
+peAllocator pe_measure_allocator(peMeasureAllocatorData *data);
 
 #ifndef PE_MALLOC
 #define PE_MALLOC(sz) pe_alloc(pe_heap_allocator(), sz)

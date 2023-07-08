@@ -13,6 +13,9 @@ add_library(shared STATIC
 )
 target_include_directories(shared PRIVATE src)
 target_link_libraries(shared handmade-math)
+if (PSP)
+    target_compile_options(shared PRIVATE -g -O0)
+endif()
 
 if(WIN32)
     add_executable(procyon
@@ -40,6 +43,7 @@ if (PSP)
         #src/client/psp_net_sample.c
         src/pe_input.c
     )
+    target_compile_options(procyon PRIVATE -g -O0)
     target_include_directories(procyon PRIVATE src)
     target_link_libraries(procyon
         PUBLIC

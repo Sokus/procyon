@@ -97,6 +97,33 @@ PE_INLINE peAllocator pe_heap_allocator(void) {
     a.data = NULL;
     return a;
 }
+
+static void *pe_measure_allocator_proc(void *allocator_data, peAllocationType type,
+size_t size, size_t alignment, void *old_memory, size_t old_size) {
+    peMeasureAllocatorData *measure_data = (peMeasureAllocatorData *)allocator_data;
+    void *ptr = NULL;
+    switch (type) {
+        case peAllocation_Alloc: {
+            size_t current_offset = measure_data->alignment + measure_data->total_allocated;
+            size_t alignment_offset = (alignment - (current_offset % alignment)) % alignment;
+            size_t allocation_size = size + alignment_offset;
+            measure_data->total_allocated += allocation_size;
+        } break;
+
+        default: {
+            PE_PANIC();
+        } break;
+    }
+    return ptr;
+}
+
+PE_INLINE peAllocator pe_measure_allocator(peMeasureAllocatorData *data) {
+    peAllocator a;
+    a.proc = pe_measure_allocator_proc;
+    a.data = data;
+    return a;
+}
+
 PE_INLINE void pe_zero_size(void *ptr, size_t size) {
     memset(ptr, 0, size);
 }
