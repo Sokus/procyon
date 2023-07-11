@@ -248,16 +248,20 @@ def write_pp3d(context, file, procyon_data):
         for b in range(8):
             bone_index = bone_group[b] if b < len(bone_group) else 255
             write_uint8(file, bone_index)
+        for a in range(3): write_uint8(file, 0) # alignment
 
+    # animation infos
     for animation in procyon_data.animations:
         assert(len(animation.name) < 64)
         write_string(file, animation.name)
         for i in range(64-len(animation.name)):
             write_uint8(file, 0)
         write_uint16(file, len(animation.frames))
+        write_uint16(file, 0) # alignment
 
+    # mesh vertices and indices
     for mesh in procyon_data.meshes:
-        for vertex in mesh.vertices.keys():
+        for v, vertex in enumerate(mesh.vertices.keys()):
             for weight in vertex.joint_weights:
                 write_float(file, weight)
             for e in range(0, 2):
@@ -269,9 +273,21 @@ def write_pp3d(context, file, procyon_data):
             for e in range(0, 3):
                 vertex_position_element_int16 = float_to_int16(vertex.position[e] / procyon_data.scale)
                 write_int16(file, vertex_position_element_int16)
-        for index in mesh.indices:
+        for i, index in enumerate(mesh.indices):
             write_uint16(file, index)
 
+    # bone parent indices
+    for joint in procyon_data.joints:
+        bone_parent_index_uint16 = joint.parent_index if joint.parent_index >= 0 else UINT16_MAX
+        write_uint16(file, bone_parent_index_uint16)
+
+    # inverse model space pose matrices
+    for joint in procyon_data.joints:
+        for vector in joint.inverse_model_space_pose.transposed():
+            for element in vector:
+                write_float(file, element)
+
+    # animation frame infos
     for animation in procyon_data.animations:
         for frame in animation.frames:
             for joint in frame.joints:
@@ -315,7 +331,6 @@ def write_proc(operator, context, file_type):
 
         for object in objects:
             mesh = object.evaluated_get(scene_with_applied_modifiers).to_mesh(preserve_all_data_layers=True, depsgraph=bpy.context.evaluated_depsgraph_get())
-
             mesh.transform(transform_matrix @ object.matrix_world)
             triangulate_mesh(mesh)
             mesh.calc_normals_split()
@@ -412,10 +427,15 @@ def write_proc(operator, context, file_type):
 
         for bone in armature.data.bones:
             parent_index = armature.data.bones.find(bone.parent.name) if bone.parent else -1
-            model_space_pose = transform_matrix @ bone.matrix_local
-            skeleton_joint = SkeletonJoint(bone.name, parent_index, model_space_pose.inverted())
-            procyon_data.joints.append(skeleton_joint)
+            # translation = bone.matrix_local.to_translation() / 100
+            #translation = bone.matrix_local.to_translation()
+            #rotation = bone.matrix_local.to_quaternion()
+            #scale = bone.matrix_local.to_scale()
 
+            inverse_model_space_pose = (transform_matrix @ bone.matrix_local).inverted()
+            print(inverse_model_space_pose)
+            skeleton_joint = SkeletonJoint(bone.name, parent_index,  inverse_model_space_pose)
+            procyon_data.joints.append(skeleton_joint)
 
         for action in bpy.data.actions:
             # Ignore animations with name ending with .001, .002 etc
@@ -429,28 +449,15 @@ def write_proc(operator, context, file_type):
                 p_frame = AnimationFrame()
                 bpy.context.scene.frame_set(frame)
                 for b, bone in enumerate(armature.pose.bones):
-                    translation = mathutils.Vector((0.0, 0.0, 0.0))
-                    rotation = mathutils.Quaternion()
-                    scale = mathutils.Vector((1.0, 1.0, 1.0))
-                    if file_type == "P3D":
-                        # FIXME: This was not touched  yet
-                        parent_space_pose = bone.matrix_channel
-                        if bone.parent:
-                            parent_space_pose = bone.parent.matrix.inverted() @ bone.matrix
-                        else:
-                            parent_space_pose = transform_matrix @ bone.matrix
-                        translation = parent_space_pose.to_translation()
-                        rotation = parent_space_pose.to_quaternion()
-                        scale = transform_matrix @ armature.matrix_world @ parent_space_pose.to_scale() # Does not support negative values
-                    elif file_type == "PP3D":
-                        inverse_model_space_pose = armature.data.bones[b].matrix_local.inverted()
-                        armature_space_pose = transform_matrix @ inverse_model_space_pose @ bone.matrix
-
-                        translation_scale = (transform_matrix @ armature.matrix_world).to_scale()
-                        translation = armature_space_pose.to_translation().cross(translation_scale)
-                        rotation = armature_space_pose.to_quaternion()
-                        scale = armature_space_pose.to_scale()
-
+                    parent_space_pose = mathutils.Matrix.Identity(4)
+                    if bone.parent:
+                        parent_space_pose = bone.parent.matrix.inverted() @ bone.matrix
+                    else:
+                        parent_space_pose = transform_matrix @ bone.matrix
+                    # translation = parent_space_pose.to_translation() / 100
+                    translation = parent_space_pose.to_translation()
+                    rotation = parent_space_pose.to_quaternion()
+                    scale = parent_space_pose.to_scale()
                     animation_joint = AnimationJoint(translation, rotation, scale)
                     p_frame.joints.append(animation_joint)
                 p_animation.frames.append(p_frame)
@@ -587,12 +594,6 @@ def write_proc(operator, context, file_type):
                         new_meshes[mesh_index].indices.append(new_meshes[mesh_index].vertices[new_vertex])
             new_meshes = sorted(new_meshes, key=lambda m: (m.subskeleton_index, m.material_index))
             procyon_data.meshes = new_meshes
-
-            #print("new meshes:")
-            #for m in new_meshes: print(f"mat:{m.material_index} sk:{m.subskeleton_index} v:{len(m.vertices)} i:{len(m.indices)}")
-
-
-
 
     if file_type == "P3D":
         file = open(bpy.path.abspath(context.scene.export_properties.standard_path), file_write_mode)

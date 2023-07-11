@@ -37,6 +37,7 @@ typedef struct pp3dMaterial {
 typedef struct pp3dSubskeleton {
     uint8_t num_bones;
     uint8_t bone_indices[8];
+    uint8_t alignment[3];
 } pp3dSubskeleton;
 // pp3dSubskeleton subskeletons[static_info.num_subskeletons];
 
@@ -44,6 +45,7 @@ typedef struct pp3dSubskeleton {
 typedef struct pp3dAnimation {
     char name[64];
     uint16_t num_frames;
+    uint16_t alignment;
 } pp3dAnimation;
 // pp3dAnimation animations[static_info.num_animations];
 
@@ -60,7 +62,16 @@ typedef struct pp3dAnimation {
 //   6.2. indices - if (mesh[m].num_index > 0)
 // uint16_t indices[mesh[m].num_index];
 
-// 7. animation frame infos
+// 7. bone parent indices
+// uint16_t bone_parent_indices[static_info.num_bones]
+
+// 8. bone inverse model space pose matrices
+typedef struct pp3dMatrix {
+    float elements[4][4];
+} pp3dMatrix;
+// pp3dMatrix inverse_model_space_pose_matrix[static_info.num_bones];
+
+// 9. animation frame infos
 typedef struct pp3dAnimationJoint {
     struct { float x, y, z; } position;
     struct { float x, y, z, w; } rotation;

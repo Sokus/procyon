@@ -530,12 +530,15 @@ typedef struct peModel {
 	int num_material;
 	int num_subskeleton;
 	int num_animations;
+	int num_bone;
 
 	peMesh *mesh;
 	int *mesh_material;
 	int *mesh_subskeleton;
 	peMaterial *material;
 	peSubskeleton *subskeleton;
+	uint16_t *bone_parent_index;
+	HMM_Mat4 *bone_inverse_model_space_pose_matrix;
 	peAnimation *animation;
 } peModel;
 
@@ -571,6 +574,8 @@ peModel pe_model_load(char *file_path) {
 	size_t mesh_subskeleton_size = pp3d_static_info->num_meshes * sizeof(int);
 	size_t material_size = pp3d_static_info->num_materials * sizeof(peMaterial);
 	size_t subskeleton_size = pp3d_static_info->num_subskeletons * sizeof(peSubskeleton);
+	size_t bone_parent_index_size = pp3d_static_info->num_bones * sizeof(uint16_t);
+	size_t bone_inverse_model_space_pose_matrix_size = pp3d_static_info->num_bones * sizeof(HMM_Mat4);
 	size_t animation_size = pp3d_static_info->num_animations * sizeof(peAnimation);
 
 	size_t VERT_MEM_ALIGN = 16;
@@ -579,10 +584,13 @@ peModel pe_model_load(char *file_path) {
 	peAllocator measure_allocator = pe_measure_allocator(&measure_data);
 	pe_alloc(measure_allocator, material_size);
 	pe_alloc(measure_allocator, subskeleton_size);
+	pe_alloc(measure_allocator, bone_parent_index_size);
+	pe_alloc(measure_allocator, bone_inverse_model_space_pose_matrix_size);
 	pe_alloc(measure_allocator, animation_size);
 	pe_alloc(measure_allocator, mesh_size);
 	pe_alloc(measure_allocator, mesh_material_size);
 	pe_alloc(measure_allocator, mesh_subskeleton_size);
+
 
 	for (int a = 0; a < pp3d_static_info->num_animations; a += 1) {
 		size_t num_animation_joint = pp3d_animation_info[a].num_frames * pp3d_static_info->num_bones;
@@ -618,6 +626,7 @@ peModel pe_model_load(char *file_path) {
 	model.num_material = pp3d_static_info->num_materials;
 	model.num_subskeleton = pp3d_static_info->num_subskeletons;
 	model.num_animations = pp3d_static_info->num_animations;
+	model.num_bone = pp3d_static_info->num_bones;
 
 	model.material = pe_alloc(model_allocator, material_size);
 	for (int m = 0; m < pp3d_static_info->num_materials; m += 1) {
@@ -645,6 +654,9 @@ peModel pe_model_load(char *file_path) {
 		model.animation[a].frames = pe_alloc(model_allocator, animation_joint_size);
 	}
 
+	model.bone_parent_index = pe_alloc(model_allocator, bone_parent_index_size);
+	model.bone_inverse_model_space_pose_matrix = pe_alloc(model_allocator, bone_inverse_model_space_pose_matrix_size);
+
 	model.mesh = pe_alloc(model_allocator, mesh_size);
 	model.mesh_material = pe_alloc(model_allocator, mesh_material_size);
 	model.mesh_subskeleton = pe_alloc(model_allocator, mesh_subskeleton_size);
@@ -655,7 +667,7 @@ peModel pe_model_load(char *file_path) {
 		model.mesh[m].num_vertex = pp3d_mesh_info[m].num_vertex;
 		model.mesh[m].num_index = pp3d_mesh_info[m].num_index;
 
-		model.mesh[m].vertex_type = GU_TRIANGLES|GU_TEXTURE_16BIT|GU_NORMAL_16BIT|GU_VERTEX_16BIT|GU_TRANSFORM_3D;
+		model.mesh[m].vertex_type = GU_TEXTURE_16BIT|GU_NORMAL_16BIT|GU_VERTEX_16BIT|GU_TRANSFORM_3D;
 		uint8_t num_weights = pp3d_subskeleton_info[pp3d_mesh_info[m].subskeleton_index].num_bones;
 		if (num_weights > 0) {
 			model.mesh[m].vertex_type |= GU_WEIGHT_32BITF|GU_WEIGHTS(num_weights);
@@ -681,14 +693,11 @@ peModel pe_model_load(char *file_path) {
 		}
 	}
 
-	for (int m = 0; m < model.num_mesh; m += 1) {
-		fprintf(stdout, "v:%d i:%d t:%d m:%d s:%d\n",
-			model.mesh[m].num_vertex,
-			model.mesh[m].num_index,
-			model.mesh[m].vertex_type,
-			model.mesh_material[m],
-			model.mesh_subskeleton[m]);
-	}
+	memcpy(model.bone_parent_index, pp3d_file_pointer, bone_parent_index_size);
+	pp3d_file_pointer += bone_parent_index_size;
+
+	memcpy(model.bone_inverse_model_space_pose_matrix, pp3d_file_pointer, bone_inverse_model_space_pose_matrix_size);
+	pp3d_file_pointer += bone_inverse_model_space_pose_matrix_size;
 
 	for (int a = 0; a < pp3d_static_info->num_animations; a += 1) {
 		size_t num_animation_joints = pp3d_static_info->num_bones * pp3d_animation_info[a].num_frames;
@@ -717,7 +726,30 @@ void pe_draw_mesh(Mesh mesh, HMM_Vec3 position, HMM_Vec3 rotation) {
 }
 */
 
+void hmm_v3_print_pair(HMM_Vec3 a, HMM_Vec3 b) {
+	fprintf(stdout, "(%3.2f, %3.2f, %3.2f) (%3.2f, %3.2f, %3.2f)\n",
+			a.X, a.Y, a.Z, b.X, b.Y, b.Z);
+}
+
+void pe_animation_joint_print(peAnimationJoint a) {
+	fprintf(stdout, "(%+.4f %+.4f %+.4f) (%+.4f %+4.4f %+.4f %+.4f) (%+.4f %+.4f %+.4f)\n",
+			a.translation.X, a.translation.Y, a.translation.Z, a.rotation.X, a.rotation.Y, a.rotation.Z, a.rotation.W, a.scale.X, a.scale.Y, a.scale.Z);
+}
+
+peAnimationJoint pe_concatenate_animation_joints(peAnimationJoint parent, peAnimationJoint child) {
+	peAnimationJoint result;
+	result.scale = HMM_MulV3(child.scale, parent.scale);
+	result.rotation = HMM_MulQ(parent.rotation, child.rotation);
+	HMM_Mat4 parent_rotation_matrix = HMM_QToM4(parent.rotation);
+	HMM_Vec3 child_scaled_position = HMM_MulV3(child.translation, parent.scale);
+	result.translation = HMM_AddV3(HMM_MulM4V4(parent_rotation_matrix, HMM_V4V(child_scaled_position, 1.0f)).XYZ, parent.translation);
+	return result;
+}
+
 void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
+	peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(&temp_arena);
+	peAllocator temp_allocator = pe_arena_allocator(&temp_arena);
+
 	sceGumMatrixMode(GU_MODEL);
 	sceGumPushMatrix();
 	sceGumLoadIdentity();
@@ -727,14 +759,54 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 	sceGumScale(&scale);
 	sceGuDisable(GU_TEXTURE_2D);
 
+
+	static int frame = 0;
+
+	peAnimationJoint *model_space_joints = pe_alloc(temp_allocator, model->num_bone * sizeof(peAnimationJoint));
+	peAnimationJoint *animation_joints = &model->animation[4].frames[frame * model->num_bone];
+	for (int b = 0; b < model->num_bone; b += 1) {
+		if (model->bone_parent_index[b] < UINT16_MAX) {
+			peAnimationJoint parent_transform = model_space_joints[model->bone_parent_index[b]];
+			model_space_joints[b] = pe_concatenate_animation_joints(parent_transform, animation_joints[b]);
+		} else {
+			model_space_joints[b] = animation_joints[b];
+		}
+	}
+
+	frame = (frame + 1) % model->animation[4].num_frames;
+
+	ScePspFMatrix4 bone_matrix[8];
+
 	sceGuTexImage(0, 0, 0, 0, NULL);
 	for (int m = 0; m < model->num_mesh; m += 1) {
-		sceGuColor(model->material[m].diffuse_color.rgba);
+		peSubskeleton *subskeleton = &model->subskeleton[model->mesh_subskeleton[m]];
+		for (int b = 0; b < subskeleton->num_bones; b += 1) {
+			peAnimationJoint *animation_joint = &model_space_joints[subskeleton->bone_indices[b]];
+			HMM_Mat4 translation = HMM_Translate(animation_joint->translation);
+			HMM_Mat4 rotation = HMM_QToM4(animation_joint->rotation);
+			HMM_Mat4 scale = HMM_Scale(animation_joint->scale);
+			HMM_Mat4 transform = HMM_MulM4(translation, HMM_MulM4(scale, rotation));
+
+			HMM_Mat4 *inverse_model_space = &model->bone_inverse_model_space_pose_matrix[subskeleton->bone_indices[b]];
+
+			HMM_Mat4 final_bone_matrix = HMM_MulM4(transform, *inverse_model_space);
+
+			sceGuBoneMatrix(b, (void*)&final_bone_matrix);
+			sceGuMorphWeight(b, 1.0f);
+		}
+
+		uint32_t diffuse_color = model->material[model->mesh_material[m]].diffuse_color.rgba;
+		sceGuColor(diffuse_color);
+
 		int count = (model->mesh[m].index != NULL) ? model->mesh[m].num_index : model->mesh[m].num_vertex;
 		sceGumDrawArray(GU_TRIANGLES, model->mesh[m].vertex_type, count, model->mesh[m].index, model->mesh[m].vertex);
 	}
 	sceGuColor(0xFFFFFFFF);
 	sceGumPopMatrix();
+
+
+	pe_temp_arena_memory_end(temp_arena_memory);
+
 }
 
 void pe_model_free(peModel *model) {
@@ -974,7 +1046,7 @@ int main(int argc, char* argv[])
 	float aspect = (float)pe_screen_width()/(float)pe_screen_height();
 	pe_perspective(55.0f, aspect, 0.5f, 1000.0f);
 
-	HMM_Vec3 eye_offset = { 0.0f, 3.0f, 3.0f };
+	HMM_Vec3 eye_offset = { 0.5f, 3.5f, 2.7f };
 	HMM_Vec3 target = { 0.0f, 0.0f, 0.0f };
 	HMM_Vec3 eye = HMM_AddV3(target, eye_offset);
 	HMM_Vec3 up = { 0.0f, 1.0f, 0.0f };
