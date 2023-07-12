@@ -427,13 +427,7 @@ def write_proc(operator, context, file_type):
 
         for bone in armature.data.bones:
             parent_index = armature.data.bones.find(bone.parent.name) if bone.parent else -1
-            # translation = bone.matrix_local.to_translation() / 100
-            #translation = bone.matrix_local.to_translation()
-            #rotation = bone.matrix_local.to_quaternion()
-            #scale = bone.matrix_local.to_scale()
-
             inverse_model_space_pose = (transform_matrix @ bone.matrix_local).inverted()
-            print(inverse_model_space_pose)
             skeleton_joint = SkeletonJoint(bone.name, parent_index,  inverse_model_space_pose)
             procyon_data.joints.append(skeleton_joint)
 
@@ -454,7 +448,6 @@ def write_proc(operator, context, file_type):
                         parent_space_pose = bone.parent.matrix.inverted() @ bone.matrix
                     else:
                         parent_space_pose = transform_matrix @ bone.matrix
-                    # translation = parent_space_pose.to_translation() / 100
                     translation = parent_space_pose.to_translation()
                     rotation = parent_space_pose.to_quaternion()
                     scale = parent_space_pose.to_scale()

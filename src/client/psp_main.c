@@ -713,19 +713,6 @@ peModel pe_model_load(char *file_path) {
 	return model;
 }
 
-/*
-void pe_draw_mesh(Mesh mesh, HMM_Vec3 position, HMM_Vec3 rotation) {
-	sceGumMatrixMode(GU_MODEL);
-	sceGumPushMatrix();
-	sceGumLoadIdentity();
-	sceGumTranslate((ScePspFVector3 *)&position);
-	sceGumRotateXYZ((ScePspFVector3 *)&rotation);
-	int count = (mesh.indices != NULL) ? mesh.index_count : mesh.vertex_count;
-	sceGumDrawArray(GU_TRIANGLES, mesh.vertex_type, count, mesh.indices, mesh.vertices);
-	sceGumPopMatrix();
-}
-*/
-
 void hmm_v3_print_pair(HMM_Vec3 a, HMM_Vec3 b) {
 	fprintf(stdout, "(%3.2f, %3.2f, %3.2f) (%3.2f, %3.2f, %3.2f)\n",
 			a.X, a.Y, a.Z, b.X, b.Y, b.Z);
@@ -755,15 +742,15 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 	sceGumLoadIdentity();
 	sceGumTranslate((ScePspFVector3 *)&position);
 	sceGumRotateXYZ((ScePspFVector3 *)&rotation);
-	ScePspFVector3 scale = { model->scale, model->scale, model->scale };
-	sceGumScale(&scale);
+	ScePspFVector3 scale_vector = { model->scale, model->scale, model->scale };
+	sceGumScale(&scale_vector);
 	sceGuDisable(GU_TEXTURE_2D);
 
 
 	static int frame = 0;
 
 	peAnimationJoint *model_space_joints = pe_alloc(temp_allocator, model->num_bone * sizeof(peAnimationJoint));
-	peAnimationJoint *animation_joints = &model->animation[4].frames[frame * model->num_bone];
+	peAnimationJoint *animation_joints = &model->animation[0].frames[frame * model->num_bone];
 	for (int b = 0; b < model->num_bone; b += 1) {
 		if (model->bone_parent_index[b] < UINT16_MAX) {
 			peAnimationJoint parent_transform = model_space_joints[model->bone_parent_index[b]];
@@ -773,7 +760,7 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 		}
 	}
 
-	frame = (frame + 1) % model->animation[4].num_frames;
+	frame = (frame + 1) % model->animation[0].num_frames;
 
 	ScePspFMatrix4 bone_matrix[8];
 
@@ -1032,7 +1019,7 @@ int main(int argc, char* argv[])
 	pe_time_init();
 	pe_input_init();
 
-	peModel model = pe_model_load("./res/ybot.pp3d");
+	peModel model = pe_model_load("./res/fox.pp3d");
 
 	pe_allocate_entities();
 
