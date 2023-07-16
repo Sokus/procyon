@@ -23,6 +23,7 @@ from bpy_extras.node_shader_utils import (PrincipledBSDFWrapper)
 file_write_mode = "wb"
 
 INT16_MAX = 32767
+INT16_MIN = -32768
 UINT16_MAX = 65535
 
 class Vertex:
@@ -137,7 +138,10 @@ def triangulate_mesh(mesh):
 
 def float_to_int16(value, a=-1.0, b=1.0):
     float_negative_one_to_one = 2.0 * ((value - a) / (b - a)) - 1.0
-    return int(float_negative_one_to_one * float(INT16_MAX))
+    if float_negative_one_to_one >= 0:
+        return int(float_negative_one_to_one * float(INT16_MAX))
+    else:
+        return int(float_negative_one_to_one * float(abs(INT16_MIN)))
 
 def float_to_uint16(value, a=-1.0, b=1.0):
     float_zero_to_one = (value - a) / (b - a)
@@ -265,7 +269,7 @@ def write_pp3d(context, file, procyon_data):
             for weight in vertex.joint_weights:
                 write_float(file, weight)
             for e in range(0, 2):
-                vertex_texcoord_element_int16 = float_to_int16(vertex.uv[e], a=0.0, b=1.0)
+                vertex_texcoord_element_int16 = float_to_int16(vertex.uv[e])
                 write_int16(file, vertex_texcoord_element_int16)
             for e in range(0, 3):
                 vertex_normal_element_int16 = float_to_int16(vertex.normal[e])
@@ -378,6 +382,7 @@ def write_proc(operator, context, file_type):
                         joint_weights = []
                         if armature:
                             for g, group in enumerate(mesh.vertices[loop.vertex_index].groups):
+                                # TODO: sort by weight and get the first 4 weights
                                 if g < 4:
                                     bone_name = object.vertex_groups[group.group].name
                                     joint_indices.append(armature.data.bones.find(bone_name))
@@ -433,7 +438,7 @@ def write_proc(operator, context, file_type):
 
         for action in bpy.data.actions:
             # Ignore animations with name ending with .001, .002 etc
-            if action.name[-4] == '.' and action.name[-3:].isdigit():
+            if len(action.name) >= 4 and action.name[-4] == '.' and action.name[-3:].isdigit():
                 continue
             p_animation = Animation(action.name)
             armature.animation_data.action = action

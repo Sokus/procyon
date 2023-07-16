@@ -17,6 +17,9 @@
 
 #include "HandmadeMath.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include <pspkernel.h>
 #include <pspdisplay.h>
 #include <pspdebug.h>
@@ -297,6 +300,7 @@ void pe_default_texture_init(void) {
 }
 
 void use_texture(peTexture texture) {
+	sceGuEnable(GU_TEXTURE_2D);
  	sceGuTexMode(texture.format, 0, 0, 1);
 	sceGuTexImage(0, texture.power_of_two_width, texture.power_of_two_height, texture.power_of_two_width, texture.data);
 	//sceGuTexEnvColor(0x00FFFFFF);
@@ -305,6 +309,10 @@ void use_texture(peTexture texture) {
 	sceGuTexFilter(GU_NEAREST,GU_NEAREST);
 	sceGuTexScale(1.0f,1.0f);
 	sceGuTexOffset(0.0f,0.0f);
+}
+
+void unbind_texture(void) {
+	sceGuDisable(GU_TEXTURE_2D);
 }
 
 typedef struct peMaterial {
@@ -675,9 +683,9 @@ peModel pe_model_load(char *file_path) {
 
 		size_t vertex_size = (
 			num_weights * sizeof(float) +
-			2 * sizeof(uint16_t) + // uv
-			3 * sizeof(uint16_t) + // normal
-			3 * sizeof(uint16_t)	 // position
+			2 * sizeof(int16_t) + // uv
+			3 * sizeof(int16_t) + // normal
+			3 * sizeof(int16_t)	 // position
 		);
 		size_t total_vertex_size = vertex_size * pp3d_mesh_info[m].num_vertex;
 		model.mesh[m].vertex = pe_alloc_align(model_allocator, total_vertex_size, VERT_MEM_ALIGN);
@@ -733,6 +741,8 @@ peAnimationJoint pe_concatenate_animation_joints(peAnimationJoint parent, peAnim
 	return result;
 }
 
+int frame = 0;
+
 void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 	peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(&temp_arena);
 	peAllocator temp_allocator = pe_arena_allocator(&temp_arena);
@@ -741,13 +751,9 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 	sceGumPushMatrix();
 	sceGumLoadIdentity();
 	sceGumTranslate((ScePspFVector3 *)&position);
-	sceGumRotateXYZ((ScePspFVector3 *)&rotation);
 	ScePspFVector3 scale_vector = { model->scale, model->scale, model->scale };
+	sceGumRotateXYZ((ScePspFVector3 *)&rotation);
 	sceGumScale(&scale_vector);
-	sceGuDisable(GU_TEXTURE_2D);
-
-
-	static int frame = 0;
 
 	peAnimationJoint *model_space_joints = pe_alloc(temp_allocator, model->num_bone * sizeof(peAnimationJoint));
 	peAnimationJoint *animation_joints = &model->animation[0].frames[frame * model->num_bone];
@@ -760,13 +766,12 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 		}
 	}
 
-	frame = (frame + 1) % model->animation[0].num_frames;
-
 	ScePspFMatrix4 bone_matrix[8];
 
 	sceGuTexImage(0, 0, 0, 0, NULL);
 	for (int m = 0; m < model->num_mesh; m += 1) {
 		peSubskeleton *subskeleton = &model->subskeleton[model->mesh_subskeleton[m]];
+
 		for (int b = 0; b < subskeleton->num_bones; b += 1) {
 			peAnimationJoint *animation_joint = &model_space_joints[subskeleton->bone_indices[b]];
 			HMM_Mat4 translation = HMM_Translate(animation_joint->translation);
@@ -782,8 +787,16 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 			sceGuMorphWeight(b, 1.0f);
 		}
 
-		uint32_t diffuse_color = model->material[model->mesh_material[m]].diffuse_color.rgba;
+		peMaterial *mesh_material = &model->material[model->mesh_material[m]];
+
+		uint32_t diffuse_color = mesh_material->diffuse_color.rgba;
 		sceGuColor(diffuse_color);
+
+		if (mesh_material->has_diffuse_map) {
+			use_texture(mesh_material->diffuse_map);
+		} else {
+			unbind_texture();
+		}
 
 		int count = (model->mesh[m].index != NULL) ? model->mesh[m].num_index : model->mesh[m].num_vertex;
 		sceGumDrawArray(GU_TRIANGLES, model->mesh[m].vertex_type, count, model->mesh[m].index, model->mesh[m].vertex);
@@ -908,7 +921,6 @@ void pe_gu_init(void) {
 	sceGuFrontFace(GU_CCW);
 	sceGuShadeModel(GU_SMOOTH);
 	sceGuEnable(GU_CULL_FACE);
-	sceGuEnable(GU_TEXTURE_2D);
 	sceGuEnable(GU_CLIP_PLANES);
 	sceGuFinish();
 	sceGuSync(0,0);
@@ -1014,12 +1026,11 @@ int main(int argc, char* argv[])
 	pe_arena_init_from_memory(&edram_arena, sceGeEdramGetAddr(), sceGeEdramGetSize());
 
 	pe_gu_init();
+	pe_default_texture_init();
 
 	pe_net_init();
 	pe_time_init();
 	pe_input_init();
-
-	peModel model = pe_model_load("./res/fox.pp3d");
 
 	pe_allocate_entities();
 
@@ -1028,13 +1039,26 @@ int main(int argc, char* argv[])
 
 	server_address = pe_address4(192, 168, 128, 81, SERVER_PORT);
 
-	pe_default_texture_init();
+    stbi_set_flip_vertically_on_load(GU_FALSE);
+
+	peModel model = pe_model_load("./res/fox.pp3d");
+
+	char *fox_diffuse_texture_paths[] = {
+		"./res/fox_body_diffuse.png",
+		"./res/fox_sword_diffuse.png"
+	};
+	for (int t = 0; t < 2; t += 1) {
+		int w, h, channels;
+		stbi_uc *stbi_data = stbi_load(fox_diffuse_texture_paths[t], &w, &h, &channels, STBI_rgb_alpha);
+		model.material[t].has_diffuse_map = true;
+		model.material[t].diffuse_map = pe_texture_create(stbi_data, w, h, GU_PSM_8888, true);
+	}
 
 	float aspect = (float)pe_screen_width()/(float)pe_screen_height();
 	pe_perspective(55.0f, aspect, 0.5f, 1000.0f);
 
-	HMM_Vec3 eye_offset = { 0.5f, 3.5f, 2.7f };
-	HMM_Vec3 target = { 0.0f, 0.0f, 0.0f };
+	HMM_Vec3 eye_offset = { 0.0f, 1.7f, 3.0f };
+	HMM_Vec3 target = { 0.0f, 0.0f, -1.0f };
 	HMM_Vec3 eye = HMM_AddV3(target, eye_offset);
 	HMM_Vec3 up = { 0.0f, 1.0f, 0.0f };
 	pe_view_lookat(eye, target, up);
@@ -1043,6 +1067,8 @@ int main(int argc, char* argv[])
 	HMM_Vec3 position = { 0.0f, 0.0f, 0.0f };
 	HMM_Vec3 rotation = {0.0f, 0.0f, 0.0f };
 
+	float frame_time = 1.0f/30.0f;
+	float current_frame_time = 0.0f;
 
 	float dt = 1.0f/60.0f;
 	while(!pe_should_quit())
@@ -1106,8 +1132,17 @@ int main(int argc, char* argv[])
 		pe_draw_line(zero, (HMM_Vec3){0.0f, 1.0f, 0.0f}, PE_COLOR_GREEN);
 		pe_draw_line(zero, (HMM_Vec3){0.0f, 0.0f, 1.0f}, PE_COLOR_BLUE);
 
-		//pe_draw_mesh(cube, HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 0.0f, 0.0f));
-		pe_model_draw(&model, HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 3.14f, 0.0f));
+		current_frame_time += dt;
+
+		static float rotate_y = 3.14f;
+		rotate_y += 3.14 * dt * 0.256f;
+
+		pe_model_draw(&model, HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, rotate_y, 0.0f));
+
+		if (current_frame_time > frame_time) {
+			current_frame_time = 0.0f;
+			frame = (frame + 1) % model.animation[0].num_frames;
+		}
 
 		for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
 			peEntity *entity = &entities[e];

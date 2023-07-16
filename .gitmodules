@@ -4,6 +4,6 @@
 [submodule "ext/HandmadeMath"]
 	path = ext/HandmadeMath
 	url = https://github.com/HandmadeMath/HandmadeMath
-[submodule "ext/stb"]
-	path = ext/stb
-	url = https://github.com/nothings/stb
+[submodule "ext/psp-stb"]
+	path = ext/psp-stb
+	url = gh:Sokus/psp-stb
