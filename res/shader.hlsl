@@ -1,20 +1,16 @@
-cbuffer constant_projection : register(b0)
-{
+cbuffer constant_projection : register(b0) {
     column_major float4x4 matrix_projection;
 }
 
-cbuffer constant_view : register(b1)
-{
+cbuffer constant_view : register(b1) {
     column_major float4x4 matrix_view;
 }
 
-cbuffer constant_model : register(b2)
-{
+cbuffer constant_model : register(b2) {
     column_major float4x4 matrix_model;
 }
 
-cbuffer constant_light : register(b3)
-{
+cbuffer constant_light : register(b3) {
     float3 lightvector;
 }
 
@@ -23,26 +19,32 @@ cbuffer constant_material : register(b4) {
     float4 diffuse_color;
 }
 
-struct vs_in
-{
+#define MAX_BONE_COUNT 100
+
+cbuffer constant_skeleton : register(b5) {
+    bool has_skeleton;
+    column_major float4x4 matrix_bone[MAX_BONE_COUNT];
+}
+
+struct vs_in {
     float3 position : POS;
-    float3 normal   : NOR;
+    float3 normal : NOR;
     float2 texcoord : TEX;
-    float3 color    : COL;
+    float3 color : COL;
+    uint bone_index[4] : BONEINDEX;
+    float bone_weight[4] : BONEWEIGHT;
 };
 
-struct vs_out
-{
+struct vs_out {
     float4 position : SV_POSITION;
     float2 texcoord : TEX;
-    float4 color    : COL;
+    float4 color : COL;
 };
 
 Texture2D    mytexture : register(t0);
 SamplerState mysampler : register(s0);
 
-vs_out vs_main(vs_in input)
-{
+vs_out vs_main(vs_in input) {
     float light = clamp(dot(normalize(-lightvector), mul(matrix_model, input.normal)), 0.0f, 1.0f) * 0.8f + 0.2f;
 
     float4x4 projection = mul(mul(matrix_projection, matrix_view), matrix_model);
@@ -56,7 +58,6 @@ vs_out vs_main(vs_in input)
     return output;
 }
 
-float4 ps_main(vs_out input) : SV_TARGET
-{
+float4 ps_main(vs_out input) : SV_TARGET {
     return mytexture.Sample(mysampler, input.texcoord) * input.color;
 }

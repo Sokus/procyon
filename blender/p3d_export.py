@@ -181,15 +181,34 @@ def join_arrays(a, b):
     return new_array
 
 def write_p3d(context, file, procyon_data):
-    # Write header
-    write_string(file, " P3D")
-    write_float(file, procyon_data.scale)
-    write_int32(file, procyon_data.num_vertex)
-    write_int32(file, procyon_data.num_index)
-    write_uint16(file, len(procyon_data.meshes))
-    write_uint16(file, 0) # alignment
+    # static info header
+    write_string(file, " P3D") # 4 bytes (4)
+    write_float(file, procyon_data.scale) # 4 bytes (8)
+    write_uint32(file, procyon_data.num_vertex) # 4 bytes (12)
+    write_uint32(file, procyon_data.num_index) # 4 bytes (16)
+    write_uint16(file, len(procyon_data.meshes)) # 2 bytes (18)
+    write_uint16(file, len(procyon_data.animations)) # 2 bytes (20)
+    write_uint8(file, len(procyon_data.joints)) # 1 byte (21)
+    for a in range(3): write_uint8(file, 0) # alignment (24)
 
-    # Write vertex data
+    # mesh infos
+    for mesh in procyon_data.meshes:
+        write_uint32(file, len(mesh.indices))
+        write_uint32(file, mesh.index_offset)
+        write_uint32(file, mesh.vertex_offset)
+        assert(mesh.material_index >= 0)
+        diffuse_color = procyon_data.materials[mesh.material_index].diffuse_color
+        write_uint32(file, color_to_uint32(diffuse_color))
+
+    # animation infos
+    for animation in procyon_data.animations:
+        assert(len(animation.name) < 64)
+        write_string(file, animation.name)
+        for i in range(64-len(animation.name)):
+            write_uint8(file, 0)
+        write_uint16(file, len(animation.frames))
+
+    # vertices
     for mesh in procyon_data.meshes:
         for vertex in mesh.vertices.keys():
             for e in range(0, 3):
@@ -205,18 +224,26 @@ def write_p3d(context, file, procyon_data):
             for e in range(0, 2):
                 vertex_texcoord_element_uint16 = float_to_uint16(vertex.uv[e], a=0.0, b=1.0)
                 write_uint16(file, vertex_texcoord_element_uint16)
+    for mesh in procyon_data.meshes:
+        for vertex in mesh.vertices.keys():
+            for e in range(0, 4):
+                if e < len(vertex.joint_indices):
+                    write_uint8(file, vertex.joint_indices[e])
+                else:
+                    write_uint8(file, 0)
+    for mesh in procyon_data.meshes:
+        for vertex in mesh.vertices.keys():
+            for e in range(0, 4):
+                vertex_bone_weight_element_uint16 = 0
+                if e < len(vertex.joint_weights):
+                    vertex_bone_weight_element_uint16 = float_to_uint16(vertex.joint_weights[e], a=0.0, b=1.0)
+                write_uint16(file, vertex_bone_weight_element_uint16)
 
-    # Write index data
+    # indices
     for mesh in procyon_data.meshes:
         for index in mesh.indices:
             write_uint32(file, index)
 
-    # Write meshes
-    for mesh in procyon_data.meshes:
-        write_uint32(file, len(mesh.indices))
-        write_uint32(file, mesh.index_offset)
-        write_uint32(file, mesh.vertex_offset)
-        write_uint32(file, color_to_uint32(mesh.diffuse_color))
     return True
 
 def write_pp3d(context, file, procyon_data):

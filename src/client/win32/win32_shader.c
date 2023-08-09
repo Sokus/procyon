@@ -12,7 +12,7 @@
 
 void pe_shader_constant_buffer_init(ID3D11Device *device, size_t size, ID3D11Buffer **buffer) {
     D3D11_BUFFER_DESC constant_buffer_desc = {
-        .ByteWidth = size,
+        .ByteWidth = (UINT)size,
         .Usage = D3D11_USAGE_DYNAMIC,
         .BindFlags = D3D11_BIND_CONSTANT_BUFFER,
         .CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,

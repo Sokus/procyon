@@ -63,6 +63,7 @@ ID3D11Buffer *pe_shader_constant_view_buffer;
 ID3D11Buffer *pe_shader_constant_model_buffer;
 ID3D11Buffer *pe_shader_constant_light_buffer;
 ID3D11Buffer *pe_shader_constant_material_buffer;
+ID3D11Buffer *pe_shader_constant_skeleton_buffer;
 
 static peArena temp_arena;
 
@@ -683,6 +684,8 @@ typedef struct peModel {
     ID3D11Buffer *norm_buffer;
     ID3D11Buffer *tex_buffer;
     ID3D11Buffer *color_buffer;
+    ID3D11Buffer *bone_index_buffer;
+    ID3D11Buffer *bone_weight_buffer;
     ID3D11Buffer *index_buffer;
 } peModel;
 
@@ -957,8 +960,17 @@ int main(int argc, char *argv[]) {
             { "POS", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,                            0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
             { "NOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
             { "TEX", 0, DXGI_FORMAT_R32G32_FLOAT,    2, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-            { "COL", 0, DXGI_FORMAT_R8G8B8A8_UNORM , 3, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+            { "COL", 0, DXGI_FORMAT_R8G8B8A8_UNORM , 3, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "BONEINDEX", 0, DXGI_FORMAT_R32_UINT, 4, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "BONEINDEX", 1, DXGI_FORMAT_R32_UINT, 4, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "BONEINDEX", 2, DXGI_FORMAT_R32_UINT, 4, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "BONEINDEX", 3, DXGI_FORMAT_R32_UINT, 4, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "BONEWEIGHT", 0, DXGI_FORMAT_R32_FLOAT, 5, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "BONEWEIGHT", 1, DXGI_FORMAT_R32_FLOAT, 5, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "BONEWEIGHT", 2, DXGI_FORMAT_R32_FLOAT, 5, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "BONEWEIGHT", 3, DXGI_FORMAT_R32_FLOAT, 5, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
         };
+
         HRESULT hr = ID3D11Device_CreateInputLayout(
             directx_state.device,
             input_element_descs,
@@ -1002,6 +1014,7 @@ int main(int argc, char *argv[]) {
     pe_shader_constant_buffer_init(directx_state.device, sizeof(peShaderConstant_Model), &pe_shader_constant_model_buffer);
     pe_shader_constant_buffer_init(directx_state.device, sizeof(peShaderConstant_Light), &pe_shader_constant_light_buffer);
     pe_shader_constant_buffer_init(directx_state.device, sizeof(peShaderConstant_Material), &pe_shader_constant_material_buffer);
+    pe_shader_constant_buffer_init(directx_state.device, sizeof(peShaderConstant_Skeleton), &pe_shader_constant_skeleton_buffer);
 
     d3d11_set_viewport(window_width, window_height);
 
@@ -1016,7 +1029,7 @@ int main(int argc, char *argv[]) {
 
     ///////////////////
 
-    peModel model = pe_model_load("./res/ybot.p3d");
+    peModel model = pe_model_load("./res/fox.p3d");
     //peModel model = pe_m3d_model_load("./res/amy/amy.m3d");
 
     peMesh mesh = pe_gen_mesh_cube(1.0f, 1.0f, 1.0f);
