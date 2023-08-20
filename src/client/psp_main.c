@@ -599,7 +599,6 @@ peModel pe_model_load(char *file_path) {
 	pe_alloc(measure_allocator, mesh_material_size);
 	pe_alloc(measure_allocator, mesh_subskeleton_size);
 
-
 	for (int a = 0; a < pp3d_static_info->num_animations; a += 1) {
 		size_t num_animation_joint = pp3d_animation_info[a].num_frames * pp3d_static_info->num_bones;
 		size_t animation_joint_size = num_animation_joint * sizeof(peAnimationJoint);

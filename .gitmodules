@@ -6,4 +6,4 @@
 	url = https://github.com/HandmadeMath/HandmadeMath
 [submodule "ext/psp-stb"]
 	path = ext/psp-stb
-	url = gh:Sokus/psp-stb
+	url = https://github.com/Sokus/psp-stb

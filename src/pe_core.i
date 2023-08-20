@@ -118,6 +118,10 @@ size_t size, size_t alignment, void *old_memory, size_t old_size) {
 }
 
 PE_INLINE peAllocator pe_measure_allocator(peMeasureAllocatorData *data) {
+    PE_ASSERT(data->alignment > 0);
+    PE_ASSERT(data->alignment <= 64);
+    PE_ASSERT(pe_is_power_of_two(data->alignment));
+
     peAllocator a;
     a.proc = pe_measure_allocator_proc;
     a.data = data;

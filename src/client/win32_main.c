@@ -23,10 +23,6 @@
 
 #include "HandmadeMath.h"
 
-void *pe_m3d_malloc(size_t size);
-void  pe_m3d_free(void *ptr);
-void *pe_m3d_realloc(void *ptr, size_t new_size);
-
 #include <stdbool.h>
 #include <wchar.h>
 #include <stdio.h>
@@ -345,7 +341,7 @@ void pe_draw_mesh(peMesh *mesh, peMaterial material, HMM_Vec3 position, HMM_Vec3
         2 * sizeof(float), // texcoords
         sizeof(uint32_t),
     };
-    uint32_t vertex_buffer_offsets[] = { 0, 0, 0, 0 };
+    uint32_t vertex_buffer_offsets[] = { 0, 0, 0, 0};
 
     ID3D11DeviceContext_IASetPrimitiveTopology(directx_state.context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     ID3D11DeviceContext_IASetInputLayout(directx_state.context, directx_state.input_layout);
@@ -669,16 +665,34 @@ static bool pe_collision_ray_plane(peRay ray, HMM_Vec3 plane_normal, float plane
 // MODELS
 //
 
+typedef struct peAnimationJoint {
+    HMM_Vec3 translation;
+    HMM_Quat rotation;
+    HMM_Vec3 scale;
+} peAnimationJoint;
+
+typedef struct peAnimation {
+    char name[64];
+    uint16_t num_frames;
+
+    peAnimationJoint *frames; // count = num_frames * num_bones
+} peAnimation;
+
 typedef struct peModel {
     peArena arena;
 
-    int num_vertex;
+    unsigned int num_vertex;
     int num_mesh;
-    int *num_index;
-    int *index_offset;
+    int num_bone;
+    unsigned int *num_index;
+    unsigned int *index_offset;
     int *vertex_offset;
 
     peMaterial *material;
+
+    uint8_t *bone_parent_index;
+    HMM_Mat4 *bone_inverse_model_space_pose_matrix;
+    peAnimation *animation;
 
     ID3D11Buffer *pos_buffer;
     ID3D11Buffer *norm_buffer;
@@ -688,6 +702,51 @@ typedef struct peModel {
     ID3D11Buffer *bone_weight_buffer;
     ID3D11Buffer *index_buffer;
 } peModel;
+
+void pe_model_alloc(peModel *model, peAllocator allocator, p3dStaticInfo *p3d_static_info, p3dAnimation *p3d_animation) {
+    size_t num_index_size = p3d_static_info->num_meshes * sizeof(unsigned int);
+    size_t index_offset_size = p3d_static_info->num_meshes * sizeof(unsigned int);
+    size_t vertex_offset_size = p3d_static_info->num_meshes * sizeof(int);
+    size_t material_size = p3d_static_info->num_meshes * sizeof(peMaterial);
+    size_t bone_parent_index_size = p3d_static_info->num_bones * sizeof(int);
+    size_t bone_inverse_model_space_pose_matrix_size = p3d_static_info->num_bones * sizeof(HMM_Mat4);
+    size_t animation_size = p3d_static_info->num_animations * sizeof(peAnimation);
+
+    model->num_index = pe_alloc(allocator, num_index_size);
+    model->index_offset = pe_alloc(allocator, index_offset_size);
+    model->vertex_offset = pe_alloc(allocator, vertex_offset_size);
+    model->material = pe_alloc(allocator, material_size);
+    model->bone_parent_index = pe_alloc(allocator, bone_parent_index_size);
+    model->bone_inverse_model_space_pose_matrix = pe_alloc(allocator, bone_inverse_model_space_pose_matrix_size);
+    model->animation = pe_alloc(allocator, animation_size);
+
+    for (int a = 0; a < p3d_static_info->num_animations; a += 1) {
+        unsigned int num_animation_joint = p3d_animation[a].num_frames * p3d_static_info->num_bones;
+        size_t animation_joint_size = num_animation_joint * sizeof(peAnimationJoint);
+        void *frames = pe_alloc(allocator, animation_joint_size);
+        if (model->animation) {
+            model->animation[a].frames = frames;
+        }
+    }
+}
+
+float pe_int16_to_float(int16_t value, float a, float b) {
+    float float_negative_one_to_one;
+    if (value >= 0) {
+        float_negative_one_to_one = (float)value / (float)INT16_MAX;
+    } else {
+        float_negative_one_to_one = -1.0f * (float)value / (float)INT16_MIN;
+    }
+    PE_ASSERT(b > a);
+    float float_a_to_b = (float_negative_one_to_one + 1.0f) * (b - a) / 2.0f + a;
+    return float_a_to_b;
+}
+
+float pe_uint16_to_float(uint16_t value, float a, float b) {
+    float float_zero_to_one = (float)value / (float)UINT16_MAX;
+    float float_a_to_b = float_zero_to_one * (b - a) + a;
+    return float_a_to_b;
+}
 
 peModel pe_model_load(char *file_path) {
     peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(&temp_arena);
@@ -699,134 +758,151 @@ peModel pe_model_load(char *file_path) {
     p3dStaticInfo *p3d_static_info = (void*)p3d_file_pointer;
     p3d_file_pointer += sizeof(p3dStaticInfo);
 
+    p3dMesh *p3d_mesh = (p3dMesh*)p3d_file_pointer;
+    p3d_file_pointer += p3d_static_info->num_meshes * sizeof(p3dMesh);
+
+    p3dAnimation *p3d_animation = (p3dAnimation*)p3d_file_pointer;
+    p3d_file_pointer += p3d_static_info->num_animations * sizeof(p3dAnimation);
+
     int16_t *p3d_position = (int16_t*)p3d_file_pointer;
     p3d_file_pointer += 3 * p3d_static_info->num_vertex * sizeof(int16_t);
 
     int16_t *p3d_normal = (int16_t*)p3d_file_pointer;
     p3d_file_pointer += 3 * p3d_static_info->num_vertex * sizeof(int16_t);
 
-    uint16_t *p3d_texcoord = (uint16_t*)p3d_file_pointer;
-    p3d_file_pointer += 2 * p3d_static_info->num_vertex * sizeof(uint16_t);
+    int16_t *p3d_texcoord = (int16_t*)p3d_file_pointer;
+    p3d_file_pointer += 2 * p3d_static_info->num_vertex * sizeof(int16_t);
+
+    uint8_t *p3d_bone_index = (uint8_t*)p3d_file_pointer;
+    p3d_file_pointer += 4 * p3d_static_info->num_vertex * sizeof(uint8_t);
+
+    uint16_t *p3d_bone_weight = (uint16_t*)p3d_file_pointer;
+    p3d_file_pointer += 4 * p3d_static_info->num_vertex * sizeof(uint16_t);
 
     uint32_t *p3d_index = (uint32_t*)p3d_file_pointer;
     p3d_file_pointer += p3d_static_info->num_index * sizeof(uint32_t);
 
-    p3dMesh *p3d_mesh = (p3dMesh*)p3d_file_pointer;
-    p3d_file_pointer += p3d_static_info->num_meshes * sizeof(p3dMesh);
+    uint8_t *p3d_bone_parent_indices = (uint8_t*)p3d_file_pointer;
+    p3d_file_pointer += p3d_static_info->num_bones * sizeof(uint8_t);
+
+    p3dMatrix *p3d_inverse_model_space_pose_matrix = (p3dMatrix*)p3d_file_pointer;
+    p3d_file_pointer += p3d_static_info->num_bones * sizeof(p3dMatrix);
+
+    p3dAnimationJoint *p3d_animation_joint = (p3dAnimationJoint*)p3d_file_pointer;
+    p3d_file_pointer += (uintptr_t)p3d_static_info->num_frames_total * (uintptr_t)p3d_static_info->num_bones * sizeof(p3dAnimationJoint);
 
     peModel model = {0};
-    model.num_mesh = p3d_static_info->num_meshes;
+    {
+        peMeasureAllocatorData measure_data = { .alignment = PE_DEFAULT_MEMORY_ALIGNMENT };
+        peAllocator measure_allocator = pe_measure_allocator(&measure_data);
+        pe_model_alloc(&model, measure_allocator, p3d_static_info, p3d_animation);
+
+        pe_arena_init_from_allocator(&model.arena, pe_heap_allocator(), measure_data.total_allocated);
+        peAllocator model_allocator = pe_arena_allocator(&model.arena);
+        pe_model_alloc(&model, model_allocator, p3d_static_info, p3d_animation);
+    }
+
     model.num_vertex = p3d_static_info->num_vertex;
-    int num_index = p3d_static_info->num_index;
+    model.num_mesh = (int)p3d_static_info->num_meshes;
+    model.num_bone = (int)p3d_static_info->num_bones;
 
-    size_t num_index_size = model.num_mesh*sizeof(int);
-    size_t index_offset_size = model.num_mesh*sizeof(int);
-    size_t vertex_offset_size = model.num_mesh*sizeof(int);
-    size_t material_size = model.num_mesh*sizeof(peMaterial);
-
-    size_t estimated_memory_size = num_index_size + index_offset_size + vertex_offset_size + material_size + 3*(PE_DEFAULT_MEMORY_ALIGNMENT-1);
-
-    pe_arena_init_from_allocator(&model.arena, pe_heap_allocator(), estimated_memory_size);
-    peAllocator model_allocator = pe_arena_allocator(&model.arena);
-
-    model.num_index = pe_alloc(model_allocator, num_index_size);
-    pe_zero_size(model.num_index, num_index_size);
-    model.index_offset = pe_alloc(model_allocator, index_offset_size);
-    model.vertex_offset = pe_alloc(model_allocator, vertex_offset_size);
-
-    model.material = pe_alloc(model_allocator, material_size);
-    for (int i = 0; i < model.num_mesh; i += 1) {
-        model.material[i] = pe_default_material();
-    }
-
-    float *pos = pe_alloc(temp_allocator, 3*model.num_vertex*sizeof(float));
-    float *norm = pe_alloc(temp_allocator, 3*model.num_vertex*sizeof(float));
-    float *tex = pe_alloc(temp_allocator, 2*model.num_vertex*sizeof(float));
-    uint32_t *color = pe_alloc(temp_allocator, model.num_vertex*sizeof(uint32_t));
-    //uint32_t *index = pe_alloc(temp_allocator, p3d_static_info->num_index*sizeof(uint32_t));
-
-    for (int p = 0; p < 3*model.num_vertex; p += 1) {
-        pos[p] = (float)p3d_position[p] / (float)INT16_MAX * p3d_static_info->scale;
-    }
-
-    for (int n = 0; n < 3*model.num_vertex; n += 1) {
-        norm[n] = (float)p3d_normal[n] / (float)INT16_MAX;
-    }
-
-    for (int t = 0; t < 2*model.num_vertex; t += 1) {
-        tex[t] = (float)p3d_texcoord[t] / (float)UINT16_MAX;
-    }
-
-    for (int c = 0; c < model.num_vertex; c += 1) {
-        color[c] = PE_COLOR_WHITE.rgba;
-    }
-
-    for (int m = 0; m < model.num_mesh; m += 1) {
+    for (int m = 0; m < p3d_static_info->num_meshes; m += 1) {
         model.num_index[m] = p3d_mesh[m].num_index;
         model.index_offset[m] = p3d_mesh[m].index_offset;
+        PE_ASSERT(p3d_mesh[m].vertex_offset <= INT32_MAX);
         model.vertex_offset[m] = p3d_mesh[m].vertex_offset;
+
+        model.material[m] = pe_default_material();
         model.material[m].diffuse_color.rgba = p3d_mesh[m].diffuse_color;
-
-        /* TODO: diffuse textures
-        if (p3d_mesh[m].has_diffuse_texture) {
-            int diffuse_texture_x, diffuse_texture_y = 0;
-            stbi_uc *diffuse_texture;
-            {
-                stbi_uc *buffer = p3d_binary_data + p3d_mesh[m].diffuse_map_data_offset;
-                int buffer_size = p3d_mesh[m].diffuse_map_data_size;
-                diffuse_texture = stbi_load_from_memory(buffer, buffer_size, &diffuse_texture_x, &diffuse_texture_y, NULL, 4);
-                model.material[m].diffuse_map = pe_texture_upload(diffuse_texture, diffuse_texture_x, diffuse_texture_y, 4);
-            }
-        }
-        */
-
     }
 
-    model.pos_buffer = pe_d3d11_create_buffer(pos, 3*model.num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    model.norm_buffer = pe_d3d11_create_buffer(norm, 3*model.num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    model.tex_buffer = pe_d3d11_create_buffer(tex, 2*model.num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    model.color_buffer = pe_d3d11_create_buffer(color, model.num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    model.index_buffer = pe_d3d11_create_buffer(p3d_index, num_index*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER);
+    for (int a = 0; a < p3d_static_info->num_animations; a += 1) {
+        PE_ASSERT(sizeof(model.animation[a].name) == sizeof(p3d_animation[a].name));
+        memcpy(model.animation[a].name, p3d_animation[a].name, sizeof(model.animation[a].name));
+        model.animation[a].num_frames = p3d_animation[a].num_frames;
+    }
+
+    float *pos_buffer = pe_alloc(temp_allocator, 3*p3d_static_info->num_vertex*sizeof(float));
+    float *nor_buffer = pe_alloc(temp_allocator, 3*p3d_static_info->num_vertex*sizeof(float));
+    float *tex_buffer = pe_alloc(temp_allocator, 2*p3d_static_info->num_vertex*sizeof(float));
+    uint32_t *col_buffer = pe_alloc(temp_allocator, p3d_static_info->num_vertex*sizeof(uint32_t));
+    uint32_t *bone_index_buffer = pe_alloc(temp_allocator, 4*p3d_static_info->num_vertex*sizeof(uint32_t));
+    float *bone_weight_buffer = pe_alloc(temp_allocator, 4*p3d_static_info->num_vertex*sizeof(float));
+
+    for (unsigned int p = 0; p < 3*p3d_static_info->num_vertex; p += 1) {
+        pos_buffer[p] = p3d_static_info->scale * pe_int16_to_float(p3d_position[p], -1.0f, 1.0f);
+    }
+
+    for (unsigned int n = 0; n < 3*p3d_static_info->num_vertex; n += 1) {
+        nor_buffer[n] = pe_int16_to_float(p3d_normal[n], -1.0f, 1.0f);
+    }
+
+    for (unsigned int t = 0; t < 2*p3d_static_info->num_vertex; t += 1) {
+        tex_buffer[t] = pe_int16_to_float(p3d_texcoord[t], -1.0f, 1.0f);
+    }
+
+    for (unsigned int c = 0; c < p3d_static_info->num_vertex; c += 1) {
+        col_buffer[c] = PE_COLOR_WHITE.rgba;
+    }
+
+    for (unsigned int b = 0; b < 4*p3d_static_info->num_vertex; b += 1) {
+        bone_index_buffer[b] = (uint32_t)p3d_bone_index[b];
+    }
+
+    for (unsigned int b = 0; b < 4*p3d_static_info->num_vertex; b += 1) {
+        bone_weight_buffer[b] = pe_uint16_to_float(p3d_bone_weight[b], 0.0f, 1.0f);
+    }
+
+    for (unsigned int b = 0; b < p3d_static_info->num_bones; b += 1) {
+        model.bone_parent_index[b] = p3d_bone_parent_indices[b];
+    }
+
+    memcpy(model.bone_inverse_model_space_pose_matrix, p3d_inverse_model_space_pose_matrix, p3d_static_info->num_bones*sizeof(p3dMatrix));
+
+    int p3d_animation_joint_offset = 0;
+    for (int a = 0; a < p3d_static_info->num_animations; a += 1) {
+        for (int f = 0; f < model.animation[a].num_frames; f += 1) {
+            for (int j = 0; j < p3d_static_info->num_bones; j += 1) {
+                peAnimationJoint *pe_animation_joint = &model.animation[a].frames[f * p3d_static_info->num_bones + j];
+                p3dAnimationJoint *p3d_animation_joint_ptr = p3d_animation_joint + p3d_animation_joint_offset;
+                memcpy(pe_animation_joint->translation.Elements, &p3d_animation_joint_ptr->position, 3*sizeof(float));
+                memcpy(pe_animation_joint->rotation.Elements, &p3d_animation_joint_ptr->rotation, 4*sizeof(float));
+                memcpy(pe_animation_joint->scale.Elements, &p3d_animation_joint_ptr->scale, 3*sizeof(float));
+
+                p3d_animation_joint_offset += 1;
+            }
+        }
+    }
+
+    model.pos_buffer = pe_d3d11_create_buffer(pos_buffer, 3*p3d_static_info->num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    model.norm_buffer = pe_d3d11_create_buffer(nor_buffer, 3*p3d_static_info->num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    model.tex_buffer = pe_d3d11_create_buffer(tex_buffer, 2*p3d_static_info->num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    model.color_buffer = pe_d3d11_create_buffer(col_buffer, p3d_static_info->num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    model.bone_index_buffer = pe_d3d11_create_buffer(bone_index_buffer, 4*p3d_static_info->num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    model.bone_weight_buffer = pe_d3d11_create_buffer(bone_weight_buffer, 4*p3d_static_info->num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    model.index_buffer = pe_d3d11_create_buffer(p3d_index, p3d_static_info->num_index*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER);
 
     pe_temp_arena_memory_end(temp_arena_memory);
 
     return model;
 }
 
-static char *pe_m3d_current_path = NULL;
-static peAllocator m3d_allocator = {0};
-
-void *pe_m3d_malloc(size_t size) {
-    return pe_alloc(m3d_allocator, size);
-};
-
-void pe_m3d_free(void *ptr) {
-    pe_free(m3d_allocator, ptr);
+peAnimationJoint pe_concatenate_animation_joints(peAnimationJoint parent, peAnimationJoint child) {
+	peAnimationJoint result;
+	result.scale = HMM_MulV3(child.scale, parent.scale);
+	result.rotation = HMM_MulQ(parent.rotation, child.rotation);
+	HMM_Mat4 parent_rotation_matrix = HMM_QToM4(parent.rotation);
+	HMM_Vec3 child_scaled_position = HMM_MulV3(child.translation, parent.scale);
+	result.translation = HMM_AddV3(HMM_MulM4V4(parent_rotation_matrix, HMM_V4V(child_scaled_position, 1.0f)).XYZ, parent.translation);
+	return result;
 }
 
-unsigned char *pe_m3d_read_callback(char *filename, unsigned int *size) {
-    char file_path[512] = "\0";
-    int file_path_length = 0;
-    if (pe_m3d_current_path != NULL) {
-        int one_past_last_slash_offset = 0;
-        for (int i = 0; i < PE_COUNT_OF(file_path)-1; i += 1) {
-            if (pe_m3d_current_path[i] == '\0') break;
-            if (pe_m3d_current_path[i] == '/') {
-                one_past_last_slash_offset = i + 1;
-            }
-        }
-        memcpy(file_path, pe_m3d_current_path, one_past_last_slash_offset);
-        file_path_length += one_past_last_slash_offset;
-    }
-    strcat_s(file_path+file_path_length, sizeof(file_path)-file_path_length-1, filename);
+int frame = 0;
 
-    printf("M3D read callback: %s\n", file_path);
-    peFileContents file_contents = pe_file_read_contents(m3d_allocator, file_path, false);
-    *size = (unsigned int)file_contents.size;
-    return file_contents.data;
-}
+void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
+    peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(&temp_arena);
+    peAllocator temp_allocator = pe_arena_allocator(&temp_arena);
 
-void pe_draw_model(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
     HMM_Mat4 rotate_x = HMM_Rotate_RH(rotation.X, (HMM_Vec3){1.0f, 0.0f, 0.0f});
     HMM_Mat4 rotate_y = HMM_Rotate_RH(rotation.Y, (HMM_Vec3){0.0f, 1.0f, 0.0f});
     HMM_Mat4 rotate_z = HMM_Rotate_RH(rotation.Z, (HMM_Vec3){0.0f, 0.0f, 1.0f});
@@ -842,19 +918,50 @@ void pe_draw_model(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
         model->norm_buffer,
         model->tex_buffer,
         model->color_buffer,
+        model->bone_index_buffer,
+        model->bone_weight_buffer,
     };
     uint32_t strides[] = {
         3*sizeof(float),
         3*sizeof(float),
         2*sizeof(float),
         sizeof(uint32_t),
+        4*sizeof(uint32_t),
+        4*sizeof(float),
     };
-    uint32_t offsets[4] = {0, 0, 0, 0};
+    uint32_t offsets[6] = {0, 0, 0, 0, 0, 0};
 
     ID3D11DeviceContext_IASetPrimitiveTopology(directx_state.context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     ID3D11DeviceContext_IASetInputLayout(directx_state.context, directx_state.input_layout);
-    ID3D11DeviceContext_IASetVertexBuffers(directx_state.context, 0, 4, buffs, strides, offsets);
+    ID3D11DeviceContext_IASetVertexBuffers(directx_state.context, 0, 6, buffs, strides, offsets);
     ID3D11DeviceContext_IASetIndexBuffer(directx_state.context, model->index_buffer, DXGI_FORMAT_R32_UINT, 0);
+
+    {
+        peAnimationJoint *model_space_joints = pe_alloc(temp_allocator, model->num_bone * sizeof(peAnimationJoint));
+        peAnimationJoint *animation_joints = &model->animation[0].frames[frame * model->num_bone];
+        for (int b = 0; b < model->num_bone; b += 1) {
+            if (model->bone_parent_index[b] < UINT8_MAX) {
+                peAnimationJoint parent_transform = model_space_joints[model->bone_parent_index[b]];
+                model_space_joints[b] = pe_concatenate_animation_joints(parent_transform, animation_joints[b]);
+            } else {
+                model_space_joints[b] = animation_joints[b];
+            }
+        }
+
+        peShaderConstant_Skeleton *constant_skeleton = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_skeleton_buffer);
+        constant_skeleton->has_skeleton = true;
+        for (int b = 0; b < model->num_bone; b += 1) {
+            peAnimationJoint *animation_joint = &model_space_joints[b];
+			HMM_Mat4 translation = HMM_Translate(animation_joint->translation);
+			HMM_Mat4 rotation = HMM_QToM4(animation_joint->rotation);
+			HMM_Mat4 scale = HMM_Scale(animation_joint->scale);
+			HMM_Mat4 transform = HMM_MulM4(translation, HMM_MulM4(scale, rotation));
+
+            HMM_Mat4 final_bone_matrix = HMM_MulM4(transform, model->bone_inverse_model_space_pose_matrix[b]);
+            constant_skeleton->matrix_bone[b] = final_bone_matrix;
+        }
+        pe_shader_constant_end_map(directx_state.context, pe_shader_constant_skeleton_buffer);
+    }
 
     for (int m = 0; m < model->num_mesh; m += 1) {
         peShaderConstant_Material *constant_material = pe_shader_constant_begin_map(directx_state.context, pe_shader_constant_material_buffer);
@@ -865,6 +972,8 @@ void pe_draw_model(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 
         ID3D11DeviceContext_DrawIndexed(directx_state.context, model->num_index[m], model->index_offset[m], model->vertex_offset[m]);
     }
+
+    pe_temp_arena_memory_end(temp_arena_memory);
 }
 
 
@@ -1030,7 +1139,6 @@ int main(int argc, char *argv[]) {
     ///////////////////
 
     peModel model = pe_model_load("./res/fox.p3d");
-    //peModel model = pe_m3d_model_load("./res/amy/amy.m3d");
 
     peMesh mesh = pe_gen_mesh_cube(1.0f, 1.0f, 1.0f);
     peMesh quad = pe_gen_mesh_quad(1.0f, 1.0f);
@@ -1053,6 +1161,9 @@ int main(int argc, char *argv[]) {
     camera.position = HMM_AddV3(camera.target, camera_offset);
 
     float look_angle = 0.0f;
+
+    float frame_time = 1.0f/30.0f;
+    float current_frame_time = 0.0f;
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -1142,6 +1253,7 @@ int main(int argc, char *argv[]) {
             pe_shader_constant_model_buffer,
             pe_shader_constant_light_buffer,
             pe_shader_constant_material_buffer,
+            pe_shader_constant_skeleton_buffer,
         };
         ID3D11DeviceContext_VSSetConstantBuffers(directx_state.context, 0, PE_COUNT_OF(constant_buffers), constant_buffers);
 
@@ -1154,16 +1266,23 @@ int main(int argc, char *argv[]) {
         ID3D11DeviceContext_OMSetDepthStencilState(directx_state.context, directx_state.depth_stencil_state, 0);
         ID3D11DeviceContext_OMSetBlendState(directx_state.context, NULL, NULL, ~(uint32_t)(0));
 
+        current_frame_time += 1.0f/60.0f;
+
 		for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
 			peEntity *entity = &entities[e];
 			if (!entity->active) continue;
 
             if (entity->mesh == peEntityMesh_Cube) {
-                pe_draw_model(&model, entity->position, (HMM_Vec3){ .Y = entity->angle });
+                pe_model_draw(&model, entity->position, (HMM_Vec3){ .Y = entity->angle });
             } else if (entity->mesh == peEntityMesh_Quad) {
                 //pe_draw_mesh(&quad, entity->position, (HMM_Vec3){ .Y = entity->angle });
             }
 		}
+
+        if (current_frame_time > frame_time) {
+            current_frame_time = 0.0f;
+            frame = (frame + 1) % model.animation[0].num_frames;
+        }
 
         IDXGISwapChain1_Present(directx_state.swapchain, 1, 0);
 

@@ -19,9 +19,7 @@ from bpy.props import (StringProperty, BoolProperty, IntProperty, FloatProperty,
 from bpy_extras.io_utils import (axis_conversion)
 from bpy_extras.node_shader_utils import (PrincipledBSDFWrapper)
 
-# Set to "wb" to output binary, or "w" to output plain text
-file_write_mode = "wb"
-
+UINT8_MAX = 255
 INT16_MAX = 32767
 INT16_MIN = -32768
 UINT16_MAX = 65535
@@ -91,36 +89,44 @@ class ProcyonData:
         self.bone_groups = []
 
 def write_int32(file, value):
-    if file_write_mode == "wb": file.write(struct.pack("i", value))
-    else: file.write(str(value) + ' ')
+    use_ascii = bpy.context.scene.export_properties.use_ascii
+    if use_ascii: file.write(str(value) + ' ')
+    else: file.write(struct.pack("i", value))
 
 def write_uint32(file, value):
-    if file_write_mode == "wb": file.write(struct.pack("I", value))
-    else: file.write(str(value) + ' ')
+    use_ascii = bpy.context.scene.export_properties.use_ascii
+    if use_ascii: file.write(str(value) + ' ')
+    else: file.write(struct.pack("I", value))
 
 def write_int16(file, value):
-    if file_write_mode == "wb": file.write(struct.pack("h", value))
-    else: file.write(str(value) + ' ')
+    use_ascii = bpy.context.scene.export_properties.use_ascii
+    if use_ascii: file.write(str(value) + ' ')
+    else: file.write(struct.pack("h", value))
 
 def write_uint16(file, value):
-    if file_write_mode == "wb": file.write(struct.pack("H", value))
-    else: file.write(str(value) + ' ')
+    use_ascii = bpy.context.scene.export_properties.use_ascii
+    if use_ascii: file.write(str(value) + ' ')
+    else: file.write(struct.pack("H", value))
 
 def write_uint8(file, value):
-    if file_write_mode == "wb": file.write(struct.pack("B", value))
-    else: file.write(str(value) + ' ')
+    use_ascii = bpy.context.scene.export_properties.use_ascii
+    if use_ascii: file.write(str(value) + ' ')
+    else: file.write(struct.pack("B", value))
 
 def write_float(file, value):
-    if file_write_mode == "wb": file.write(struct.pack("f", value))
-    else: file.write(str(value) + ' ')
+    use_ascii = bpy.context.scene.export_properties.use_ascii
+    if use_ascii: file.write(str(value) + ' ')
+    else: file.write(struct.pack("f", value))
 
 def write_bool(file, value):
-    if file_write_mode == "wb": file.write(struct.pack("?", value))
-    else: file.write(str(value) + ' ')
+    use_ascii = bpy.context.scene.export_properties.use_ascii
+    if use_ascii: file.write(str(value) + ' ')
+    else: file.write(struct.pack("?", value))
 
 def write_string(file, text):
-    if file_write_mode == "wb": file.write(text.encode('ascii'))
-    else: file.write(text)
+    use_ascii = bpy.context.scene.export_properties.use_ascii
+    if use_ascii: file.write(text)
+    else: file.write(text.encode('ascii'))
 
 def normalize_joint_weights(weights):
     total_weight = sum(weights)
@@ -179,163 +185,6 @@ def join_arrays(a, b):
     new_array = a.copy()
     new_array.extend(x for x in b if x not in new_array)
     return new_array
-
-def write_p3d(context, file, procyon_data):
-    # static info header
-    write_string(file, " P3D") # 4 bytes (4)
-    write_float(file, procyon_data.scale) # 4 bytes (8)
-    write_uint32(file, procyon_data.num_vertex) # 4 bytes (12)
-    write_uint32(file, procyon_data.num_index) # 4 bytes (16)
-    write_uint16(file, len(procyon_data.meshes)) # 2 bytes (18)
-    write_uint16(file, len(procyon_data.animations)) # 2 bytes (20)
-    write_uint8(file, len(procyon_data.joints)) # 1 byte (21)
-    for a in range(3): write_uint8(file, 0) # alignment (24)
-
-    # mesh infos
-    for mesh in procyon_data.meshes:
-        write_uint32(file, len(mesh.indices))
-        write_uint32(file, mesh.index_offset)
-        write_uint32(file, mesh.vertex_offset)
-        assert(mesh.material_index >= 0)
-        diffuse_color = procyon_data.materials[mesh.material_index].diffuse_color
-        write_uint32(file, color_to_uint32(diffuse_color))
-
-    # animation infos
-    for animation in procyon_data.animations:
-        assert(len(animation.name) < 64)
-        write_string(file, animation.name)
-        for i in range(64-len(animation.name)):
-            write_uint8(file, 0)
-        write_uint16(file, len(animation.frames))
-
-    # vertices
-    for mesh in procyon_data.meshes:
-        for vertex in mesh.vertices.keys():
-            for e in range(0, 3):
-                vertex_position_element_int16 = float_to_int16(vertex.position[e] / procyon_data.scale)
-                write_int16(file, vertex_position_element_int16)
-    for mesh in procyon_data.meshes:
-        for vertex in mesh.vertices.keys():
-            for e in range(0, 3):
-                vertex_normal_element_int16 = float_to_int16(vertex.normal[e])
-                write_int16(file, vertex_normal_element_int16)
-    for mesh in procyon_data.meshes:
-        for vertex in mesh.vertices.keys():
-            for e in range(0, 2):
-                vertex_texcoord_element_uint16 = float_to_uint16(vertex.uv[e], a=0.0, b=1.0)
-                write_uint16(file, vertex_texcoord_element_uint16)
-    for mesh in procyon_data.meshes:
-        for vertex in mesh.vertices.keys():
-            for e in range(0, 4):
-                if e < len(vertex.joint_indices):
-                    write_uint8(file, vertex.joint_indices[e])
-                else:
-                    write_uint8(file, 0)
-    for mesh in procyon_data.meshes:
-        for vertex in mesh.vertices.keys():
-            for e in range(0, 4):
-                vertex_bone_weight_element_uint16 = 0
-                if e < len(vertex.joint_weights):
-                    vertex_bone_weight_element_uint16 = float_to_uint16(vertex.joint_weights[e], a=0.0, b=1.0)
-                write_uint16(file, vertex_bone_weight_element_uint16)
-
-    # indices
-    for mesh in procyon_data.meshes:
-        for index in mesh.indices:
-            write_uint32(file, index)
-
-    return True
-
-def write_pp3d(context, file, procyon_data):
-    # static info header
-    write_string(file, "PP3D") # 4 bytes (4)
-    write_float(file, procyon_data.scale) # 4 bytes (8)
-    write_uint16(file, len(procyon_data.meshes)) # 2 bytes (10)
-    write_uint16(file, len(procyon_data.materials)) # 2 bytes (12)
-    write_uint16(file, len(procyon_data.bone_groups)) # 2 bytes (14)
-    write_uint16(file, len(procyon_data.animations)) # 2 bytes (16)
-    write_uint16(file, len(procyon_data.joints)) # 2 bytes (18)
-    num_frames_total = sum([len(animation.frames) for animation in procyon_data.animations])
-    write_uint16(file, num_frames_total) # 2 bytes (20)
-
-    # mesh infos
-    for mesh in procyon_data.meshes:
-        material_index = mesh.material_index if mesh.material_index >= 0 else UINT16_MAX
-        write_uint16(file, material_index)
-
-        subskeleton_index = mesh.subskeleton_index if mesh.subskeleton_index >= 0 else UINT16_MAX
-        write_uint16(file, subskeleton_index)
-
-        write_uint16(file, len(mesh.vertices))
-        write_uint16(file, len(mesh.indices))
-
-    # material infos
-    for material in procyon_data.materials:
-        write_uint32(file, color_to_uint32(material.diffuse_color))
-
-    # subskeleton infos
-    for bone_group in procyon_data.bone_groups:
-        write_uint8(file, len(bone_group))
-        for b in range(8):
-            bone_index = bone_group[b] if b < len(bone_group) else 255
-            write_uint8(file, bone_index)
-        for a in range(3): write_uint8(file, 0) # alignment
-
-    # animation infos
-    for animation in procyon_data.animations:
-        assert(len(animation.name) < 64)
-        write_string(file, animation.name)
-        for i in range(64-len(animation.name)):
-            write_uint8(file, 0)
-        write_uint16(file, len(animation.frames))
-        write_uint16(file, 0) # alignment
-
-    # mesh vertices and indices
-    for mesh in procyon_data.meshes:
-        for v, vertex in enumerate(mesh.vertices.keys()):
-            for weight in vertex.joint_weights:
-                write_float(file, weight)
-            for e in range(0, 2):
-                vertex_texcoord_element_int16 = float_to_int16(vertex.uv[e])
-                write_int16(file, vertex_texcoord_element_int16)
-            for e in range(0, 3):
-                vertex_normal_element_int16 = float_to_int16(vertex.normal[e])
-                write_int16(file, vertex_normal_element_int16)
-            for e in range(0, 3):
-                vertex_position_element_int16 = float_to_int16(vertex.position[e] / procyon_data.scale)
-                write_int16(file, vertex_position_element_int16)
-        for i, index in enumerate(mesh.indices):
-            write_uint16(file, index)
-
-    # bone parent indices
-    for joint in procyon_data.joints:
-        bone_parent_index_uint16 = joint.parent_index if joint.parent_index >= 0 else UINT16_MAX
-        write_uint16(file, bone_parent_index_uint16)
-
-    # inverse model space pose matrices
-    for joint in procyon_data.joints:
-        for vector in joint.inverse_model_space_pose.transposed():
-            for element in vector:
-                write_float(file, element)
-
-    # animation frame infos
-    for animation in procyon_data.animations:
-        for frame in animation.frames:
-            for joint in frame.joints:
-                write_float(file, joint.position.x)
-                write_float(file, joint.position.y)
-                write_float(file, joint.position.z)
-
-                write_float(file, joint.rotation.x)
-                write_float(file, joint.rotation.y)
-                write_float(file, joint.rotation.z)
-                write_float(file, joint.rotation.w)
-
-                write_float(file, joint.scale.x)
-                write_float(file, joint.scale.y)
-                write_float(file, joint.scale.z)
-
-    return True
 
 def write_proc(operator, context, file_type):
     procyon_data = ProcyonData()
@@ -620,16 +469,192 @@ def write_proc(operator, context, file_type):
             new_meshes = sorted(new_meshes, key=lambda m: (m.subskeleton_index, m.material_index))
             procyon_data.meshes = new_meshes
 
+    if bpy.context.scene.export_properties.use_ascii:
+        file_write_mode = "w"
+    else:
+        file_write_mode = "wb"
+
     if file_type == "P3D":
         file = open(bpy.path.abspath(context.scene.export_properties.standard_path), file_write_mode)
-        write_p3d(context, file, procyon_data)
+        write_static_info_header(file, file_type, procyon_data)
+        write_mesh_info(file, file_type, procyon_data)
+        write_animation_info(file, file_type, procyon_data)
+        write_mesh_data(file, file_type, procyon_data)
+        write_bone_parent_indices(file, file_type, procyon_data)
+        write_inverse_model_space_matrix(file, file_type, procyon_data)
+        write_animation_data(file, file_type, procyon_data)
     elif file_type == "PP3D":
         file = open(bpy.path.abspath(context.scene.export_properties.portable_path), file_write_mode)
-        write_pp3d(context, file, procyon_data)
+        write_static_info_header(file, "PP3D", procyon_data)
+        write_mesh_info(file, "PP3D", procyon_data)
+        write_material_info(file, "PP3D", procyon_data)
+
+        # subskeleton infos
+        for bone_group in procyon_data.bone_groups:
+            write_uint8(file, len(bone_group))
+            for b in range(8):
+                bone_index = bone_group[b] if b < len(bone_group) else UINT8_MAX
+                write_uint8(file, bone_index)
+            for a in range(3): write_uint8(file, 0) # alignment
+
+        write_animation_info(file, "PP3D", procyon_data)
+        write_mesh_data(file, "PP3D", procyon_data)
+        write_bone_parent_indices(file, "PP3D", procyon_data)
+        write_inverse_model_space_matrix(file, "PP3D", procyon_data)
+        write_animation_data(file, "PP3D", procyon_data)
     file.close()
 
     return True
 
+def write_static_info_header(file, file_type, procyon_data):
+    if file_type == "P3D":
+        write_string(file, " P3D") # 4 bytes (4)
+        write_float(file, procyon_data.scale) # 4 bytes (8)
+        write_uint32(file, procyon_data.num_vertex) # 4 bytes (12)
+        write_uint32(file, procyon_data.num_index) # 4 bytes (16)
+        write_uint16(file, len(procyon_data.meshes)) # 2 bytes (18)
+        write_uint16(file, len(procyon_data.animations)) # 2 bytes (20)
+        num_frames_total = sum([len(animation.frames) for animation in procyon_data.animations])
+        write_uint16(file, num_frames_total)
+        write_uint8(file, len(procyon_data.joints)) # 1 byte (21)
+        write_uint8(file, 0) # alignment (24)
+    elif file_type == "PP3D":
+        write_string(file, "PP3D") # 4 bytes (4)
+        write_float(file, procyon_data.scale) # 4 bytes (8)
+        write_uint16(file, len(procyon_data.meshes)) # 2 bytes (10)
+        write_uint16(file, len(procyon_data.materials)) # 2 bytes (12)
+        write_uint16(file, len(procyon_data.bone_groups)) # 2 bytes (14)
+        write_uint16(file, len(procyon_data.animations)) # 2 bytes (16)
+        write_uint16(file, len(procyon_data.joints)) # 2 bytes (18)
+        num_frames_total = sum([len(animation.frames) for animation in procyon_data.animations])
+        write_uint16(file, num_frames_total) # 2 bytes (20)
+
+def write_mesh_info(file, file_type, procyon_data):
+    if file_type == "P3D":
+        for mesh in procyon_data.meshes:
+            write_uint32(file, len(mesh.indices))
+            write_uint32(file, mesh.index_offset)
+            write_uint32(file, mesh.vertex_offset)
+            assert(mesh.material_index >= 0)
+            diffuse_color = procyon_data.materials[mesh.material_index].diffuse_color
+            write_uint32(file, color_to_uint32(diffuse_color))
+    elif file_type == "PP3D":
+        for mesh in procyon_data.meshes:
+            material_index = mesh.material_index if mesh.material_index >= 0 else UINT16_MAX
+            write_uint16(file, material_index)
+            subskeleton_index = mesh.subskeleton_index if mesh.subskeleton_index >= 0 else UINT16_MAX
+            write_uint16(file, subskeleton_index)
+            write_uint16(file, len(mesh.vertices))
+            write_uint16(file, len(mesh.indices))
+
+def write_animation_info(file, file_type, procyon_data):
+    if file_type == "P3D":
+        for animation in procyon_data.animations:
+            assert(len(animation.name) < 64)
+            write_string(file, animation.name)
+            for i in range(64-len(animation.name)):
+                write_uint8(file, 0)
+            write_uint16(file, len(animation.frames))
+    elif file_type == "PP3D":
+        for animation in procyon_data.animations:
+            assert(len(animation.name) < 64)
+            write_string(file, animation.name)
+            for i in range(64-len(animation.name)):
+                write_uint8(file, 0)
+            write_uint16(file, len(animation.frames))
+            write_uint16(file, 0) # alignment
+
+def write_mesh_data(file, file_type, procyon_data):
+    print("Writing mesh data")
+    if file_type == "P3D":
+        # vertices
+        for mesh in procyon_data.meshes:
+            for vertex in mesh.vertices.keys():
+                for e in range(0, 3):
+                    vertex_position_element_int16 = float_to_int16(vertex.position[e] / procyon_data.scale)
+                    write_int16(file, vertex_position_element_int16)
+        for mesh in procyon_data.meshes:
+            for vertex in mesh.vertices.keys():
+                for e in range(0, 3):
+                    vertex_normal_element_int16 = float_to_int16(vertex.normal[e])
+                    write_int16(file, vertex_normal_element_int16)
+        for mesh in procyon_data.meshes:
+            for vertex in mesh.vertices.keys():
+                for e in range(0, 2):
+                    vertex_texcoord_element_int16 = float_to_int16(vertex.uv[e])
+                    write_int16(file, vertex_texcoord_element_int16)
+        for mesh in procyon_data.meshes:
+            for vertex in mesh.vertices.keys():
+                for e in range(0, 4):
+                    if e < len(vertex.joint_indices):
+                        write_uint8(file, vertex.joint_indices[e])
+                    else:
+                        write_uint8(file, 255)
+        for mesh in procyon_data.meshes:
+            for vertex in mesh.vertices.keys():
+                for e in range(0, 4):
+                    vertex_bone_weight_element_uint16 = 0
+                    if e < len(vertex.joint_weights):
+                        vertex_bone_weight_element_uint16 = float_to_uint16(vertex.joint_weights[e], a=0.0, b=1.0)
+                    write_uint16(file, vertex_bone_weight_element_uint16)
+        # indices
+        for mesh in procyon_data.meshes:
+            for index in mesh.indices:
+                write_uint32(file, index)
+    elif file_type == "PP3D":
+        for mesh in procyon_data.meshes:
+            for v, vertex in enumerate(mesh.vertices.keys()):
+                for weight in vertex.joint_weights:
+                    write_float(file, weight)
+                for e in range(0, 2):
+                    vertex_texcoord_element_int16 = float_to_int16(vertex.uv[e])
+                    write_int16(file, vertex_texcoord_element_int16)
+                for e in range(0, 3):
+                    vertex_normal_element_int16 = float_to_int16(vertex.normal[e])
+                    write_int16(file, vertex_normal_element_int16)
+                for e in range(0, 3):
+                    vertex_position_element_int16 = float_to_int16(vertex.position[e] / procyon_data.scale)
+                    write_int16(file, vertex_position_element_int16)
+            for i, index in enumerate(mesh.indices):
+                write_uint16(file, index)
+
+def write_material_info(file, file_type, procyon_data):
+    if file_type == "P3D":
+        pass
+    elif file_type == "PP3D":
+        for material in procyon_data.materials:
+            write_uint32(file, color_to_uint32(material.diffuse_color))
+
+def write_bone_parent_indices(file, file_type, procyon_data):
+    if file_type == "P3D":
+        for joint in procyon_data.joints:
+            bone_parent_index_uint8 = joint.parent_index if joint.parent_index >= 0 else UINT8_MAX
+            write_uint8(file, bone_parent_index_uint8)
+    elif file_type == "PP3D":
+        for joint in procyon_data.joints:
+            bone_parent_index_uint16 = joint.parent_index if joint.parent_index >= 0 else UINT16_MAX
+            write_uint16(file, bone_parent_index_uint16)
+
+def write_inverse_model_space_matrix(file, file_type, procyon_data):
+    for joint in procyon_data.joints:
+        for vector in joint.inverse_model_space_pose.transposed():
+            for element in vector:
+                write_float(file, element)
+
+def write_animation_data(file, file_type, procyon_data):
+    for animation in procyon_data.animations:
+        for frame in animation.frames:
+            for joint in frame.joints:
+                write_float(file, joint.position.x)
+                write_float(file, joint.position.y)
+                write_float(file, joint.position.z)
+                write_float(file, joint.rotation.x)
+                write_float(file, joint.rotation.y)
+                write_float(file, joint.rotation.z)
+                write_float(file, joint.rotation.w)
+                write_float(file, joint.scale.x)
+                write_float(file, joint.scale.y)
+                write_float(file, joint.scale.z)
 
 axes_enum = [("X","X","",1),("-X","-X","",2),("Y","Y","",3),("-Y","-Y","",4),("Z","Z","",5),("-Z","-Z","",6)]
 
@@ -637,6 +662,7 @@ class ExportProperties(bpy.types.PropertyGroup):
     # use_colors: bpy.props.BoolProperty(name="Use Colors", description="Include Vertex Colors", default=False)
     use_materials: bpy.props.BoolProperty(name="Use Materials", description="Include Mesh Materials", default=True)
     use_indices: bpy.props.BoolProperty(name="Use Indices (P3D)", description="Include Indices in P3D file", default=True)
+    use_ascii: bpy.props.BoolProperty(name="Use ASCII (Debug)", description="Export data as plain text for debugging purposes", default=False)
 
     forward_axis: bpy.props.EnumProperty(name="", items=axes_enum, default="-Y")
     up_axis: bpy.props.EnumProperty(name="", items=axes_enum, default="Z")
@@ -681,6 +707,7 @@ class ExportPanel(bpy.types.Panel):
         # properties_right_column.prop(context.scene.export_properties, "use_colors")
         properties_right_column.prop(context.scene.export_properties, "use_materials")
         properties_right_column.prop(context.scene.export_properties, "use_indices")
+        properties_right_column.prop(context.scene.export_properties, "use_ascii")
 
         axes_left_column, axes_right_column = self.split_columns(factor=split_factor)
         axes_left_column.label(text="Forward / Up")
@@ -695,6 +722,8 @@ class ExportPanel(bpy.types.Panel):
         portable_row = self.layout.row(align=False)
         portable_row.prop(context.scene.export_properties, "portable_path")
         portable_row.operator('object.export_portable')
+
+
 
 def register():
     bpy.utils.register_class(ExportProperties)

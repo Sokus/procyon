@@ -19,11 +19,9 @@ cbuffer constant_material : register(b4) {
     float4 diffuse_color;
 }
 
-#define MAX_BONE_COUNT 100
-
 cbuffer constant_skeleton : register(b5) {
     bool has_skeleton;
-    column_major float4x4 matrix_bone[MAX_BONE_COUNT];
+    column_major float4x4 matrix_bone[256];
 }
 
 struct vs_in {
@@ -47,14 +45,31 @@ SamplerState mysampler : register(s0);
 vs_out vs_main(vs_in input) {
     float light = clamp(dot(normalize(-lightvector), mul(matrix_model, input.normal)), 0.0f, 1.0f) * 0.8f + 0.2f;
 
+    float4 skinned_position = float4(0.0f, 0.0f, 0.0f, 0.0f);
+    if (has_skeleton) {
+        for (int b = 0; b < 4; b += 1) {
+            uint bone_index = input.bone_index[b];
+            if (bone_index >= 255) {
+                continue;
+            }
+            float4 single_bone_skinned_position = mul(matrix_bone[input.bone_index[b]], float4(input.position, 1.0f));
+            skinned_position += mul(single_bone_skinned_position, input.bone_weight[b]);
+
+            // TODO: Normals
+        }
+
+    } else {
+        skinned_position = float4(input.position, 1.0f);
+    }
+
+
     float4x4 projection = mul(mul(matrix_projection, matrix_view), matrix_model);
     vs_out output;
-    output.position = mul(projection, float4(input.position, 1.0f));
+    output.position = mul(projection, skinned_position);
     output.texcoord = input.texcoord;
     //float4 base_color = has_diffuse ? diffuse_color : float4(input.color, 1.0f);
     float4 base_color = diffuse_color;
     output.color    = base_color * light;
-
     return output;
 }
 

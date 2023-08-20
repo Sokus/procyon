@@ -28,11 +28,10 @@ typedef __declspec(align(16)) struct peShaderConstant_Material {
     HMM_Vec4 diffuse_color;
 } peShaderConstant_Material;
 
-#define MAX_BONE_COUNT 100
 
 typedef __declspec(align(16)) struct peShaderConstant_Skeleton {
     bool has_skeleton;
-    HMM_Mat4 matrix_bone[MAX_BONE_COUNT];
+    HMM_Mat4 matrix_bone[256];
 } peShaderConstant_Skeleton;
 
 typedef struct ID3D11DeviceContext ID3D11DeviceContext;

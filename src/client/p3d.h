@@ -11,8 +11,9 @@ typedef struct p3dStaticInfo {
     uint32_t num_index;
     uint16_t num_meshes;
     uint16_t num_animations;
+    uint16_t num_frames_total;
     uint8_t num_bones;
-    uint8_t alignment[3]; // align to 24 bytes
+    uint8_t alignment; // align to 24 bytes
 } p3dStaticInfo;
 // p3dStaticInfo static_info;
 
@@ -43,7 +44,7 @@ typedef struct p3dAnimation {
 // uint32_t index[num_index];
 
 // 6. bone parent indices
-// uint16_t bone_parent_indices[static_info.num_bones];
+// uint8_t bone_parent_indices[static_info.num_bones];
 
 // 7. bone inverse model sapce pose matrices
 typedef struct p3dMatrix {
