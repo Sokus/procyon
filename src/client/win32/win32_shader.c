@@ -7,9 +7,6 @@
 
 #include <stdio.h>
 
-#pragma comment (lib, "d3d11")
-#pragma comment (lib, "d3dcompiler")
-
 void pe_shader_constant_buffer_init(ID3D11Device *device, size_t size, ID3D11Buffer **buffer) {
     D3D11_BUFFER_DESC constant_buffer_desc = {
         .ByteWidth = (UINT)size,

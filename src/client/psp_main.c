@@ -260,7 +260,7 @@ peTexture pe_texture_create(void *data, int width, int height, int format, bool 
 	texture.height = height;
 	texture.power_of_two_width = power_of_two_width;
 	texture.power_of_two_height = power_of_two_height;
-	texture.vram = vram;
+	texture. = vram;
 	texture.format = format;
 
    sceKernelDcacheWritebackInvalidateAll();

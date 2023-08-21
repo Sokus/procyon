@@ -3,6 +3,10 @@
 
 #include <stdbool.h>
 
+#if defined(_WIN32)
+
+#elif defined(PSP)
+
 typedef enum peGamepadButton {
 	peGamepadButton_ActionDown  = 0,
 	peGamepadButton_ActionRight = 1,
@@ -41,5 +45,7 @@ typedef struct peGamepad {
 void pe_input_init(void);
 void pe_input_update(void);
 float pe_input_axis(peGamepadAxis axis);
+
+#endif // #elif defined(PSP)
 
 #endif // PE_INPUT_H

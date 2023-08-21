@@ -9,6 +9,7 @@ add_library(shared STATIC
     src/pe_net.c
     src/pe_bit_stream.c
     src/pe_protocol.c
+    src/pe_file_io.c
     src/game/pe_entity.c
 )
 target_include_directories(shared PRIVATE src)
@@ -19,8 +20,12 @@ endif()
 
 if(WIN32)
     add_executable(procyon
-        #src/client/win32_net_sample.c
         src/client/win32_main.c
+        #src/client/win32_net_sample.c
+        src/client/pe_graphics.c
+        src/client/pe_model.c
+        src/client/win32/win32_glfw.c
+        src/client/win32/win32_d3d.c
         src/client/win32/win32_shader.c
     )
     target_include_directories(procyon PRIVATE src)
@@ -41,7 +46,10 @@ if (PSP)
     add_executable(procyon
         src/client/psp_main.c
         #src/client/psp_net_sample.c
-        src/pe_input.c
+        src/client/pe_graphics.c
+        src/client/pe_model.c
+        src/client/pe_input.c
+
     )
     target_compile_options(procyon PRIVATE -g -O0)
     target_include_directories(procyon PRIVATE src)

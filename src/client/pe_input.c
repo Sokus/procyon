@@ -2,7 +2,11 @@
 #include "pe_core.h"
 
 #include <stdbool.h>
-#include <string.h>
+
+#if defined(_WIN32)
+
+#elif defined(PSP)
+
 #include <pspctrl.h>
 
 peGamepad gamepad = {0};
@@ -33,8 +37,6 @@ static float pe_psp_process_axis_value(unsigned char value, float deadzone_radiu
 void pe_input_update(void) {
     PE_ASSERT(input_initialized);
 
-	//memcpy(gamepad.prev_buttons, gamepad.curr_buttons, sizeof(gamepad.curr_buttons));
-
 	SceCtrlData ctrl_data;
 	sceCtrlReadBufferPositive(&ctrl_data, 1);
 
@@ -58,3 +60,5 @@ void pe_input_update(void) {
 float pe_input_axis(peGamepadAxis axis) {
     return gamepad.axis[axis];
 }
+
+#endif // #elif defined(PSP)

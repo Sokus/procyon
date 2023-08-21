@@ -119,7 +119,7 @@ typedef void *peAllocatorProc(
 
 typedef struct peAllocator {
 	peAllocatorProc *proc;
-	void *         data;
+	void *data;
 } peAllocator;
 
 // NOTE: Temporary
