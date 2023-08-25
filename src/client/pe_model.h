@@ -3,11 +3,11 @@
 
 #include "pe_core.h"
 #include "pe_graphics.h"
-#include "p3d.h"
 
 #include "HandmadeMath.h"
 
 #include <stdint.h>
+#include <stdbool.h>
 
 struct ID3D11ShaderResourceView;
 struct ID3D11Buffer;
@@ -16,6 +16,9 @@ typedef struct peMaterial {
     peColor diffuse_color;
 #if defined(_WIN32)
     struct ID3D11ShaderResourceView *diffuse_map;
+#elif defined(PSP)
+    bool has_diffuse_map;
+    peTexture diffuse_map;
 #endif
 } peMaterial;
 
@@ -31,6 +34,10 @@ typedef struct peMesh {
     struct ID3D11Buffer *tex_buffer;
     struct ID3D11Buffer *color_buffer;
     struct ID3D11Buffer *index_buffer;
+#elif defined(PSP)
+    int vertex_type;
+    void *vertex;
+    void *index;
 #endif
 } peMesh;
 
@@ -48,21 +55,28 @@ typedef struct peAnimation {
     peAnimationJoint *frames; // count = num_frames * num_bones
 } peAnimation;
 
+#if defined(PSP)
+typedef struct peSubskeleton {
+	uint8_t num_bones;
+	uint8_t bone_indices[8];
+} peSubskeleton;
+#endif
+
 typedef struct peModel {
     peArena arena;
 
-    unsigned int num_vertex;
     int num_mesh;
+    int num_material;
     int num_bone;
+    int num_animations;
+
+#if defined(_WIN32)
+    unsigned int num_vertex;
     unsigned int *num_index;
     unsigned int *index_offset;
     int *vertex_offset;
 
-    peMaterial *material;
-
     uint8_t *bone_parent_index;
-    HMM_Mat4 *bone_inverse_model_space_pose_matrix;
-    peAnimation *animation;
 
     struct ID3D11Buffer *pos_buffer;
     struct ID3D11Buffer *norm_buffer;
@@ -71,10 +85,31 @@ typedef struct peModel {
     struct ID3D11Buffer *bone_index_buffer;
     struct ID3D11Buffer *bone_weight_buffer;
     struct ID3D11Buffer *index_buffer;
+#elif defined(PSP)
+    float scale;
+
+    peMesh *mesh;
+    int *mesh_material;
+    int *mesh_subskeleton;
+
+    // TODO: Change this to uint8_t
+    uint16_t *bone_parent_index;
+
+    int num_subskeleton;
+    peSubskeleton *subskeleton;
+#endif
+    peMaterial *material;
+
+    HMM_Mat4 *bone_inverse_model_space_pose_matrix;
+    peAnimation *animation;
 } peModel;
 
-void pe_model_alloc(peModel *model, peAllocator allocator, p3dStaticInfo *p3d_static_info, p3dAnimation *p3d_animation);
+struct p3dStaticInfo;
+struct p3dAnimation;
+
+void pe_model_alloc(peModel *model, peAllocator allocator, struct p3dStaticInfo *p3d_static_info, struct p3dAnimation *p3d_animation);
 peModel pe_model_load(char *file_path);
+void pe_model_free(peModel *model);
 void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation);
 
 

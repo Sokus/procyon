@@ -168,7 +168,7 @@ typedef struct peCamera {
 
 static void pe_camera_update(peCamera camera) {
     peShaderConstant_Projection *projection = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_projection_buffer);
-    projection->matrix = pe_mat4_perspective((float)pe_glfw.window_width/(float)pe_glfw.window_height, 1.0f, 1.0f, 9.0f);
+    projection->matrix = pe_mat4_perspective((float)pe_screen_width()/(float)pe_screen_height(), 1.0f, 1.0f, 9.0f);
     pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_projection_buffer);
 
     peShaderConstant_View *constant_view = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_view_buffer);
@@ -182,8 +182,8 @@ typedef struct peRay {
 } peRay;
 
 static peRay pe_get_mouse_ray(HMM_Vec2 mouse, peCamera camera) {
-    float window_width_float = (float)pe_glfw.window_width;
-    float window_height_float = (float)pe_glfw.window_height;
+    float window_width_float = (float)pe_screen_width();
+    float window_height_float = (float)pe_screen_height();
     HMM_Mat4 projection = pe_mat4_perspective(window_width_float/window_height_float, 1.0f, 1.0f, 9.0f);
     HMM_Mat4 view = HMM_LookAt_RH(camera.position, camera.target, camera.up);
 
@@ -227,19 +227,6 @@ ID3D11ShaderResourceView *pe_create_grid_texture(void) {
         0xFF7F7F7F, 0xFFFFFFFF,
     };
     return pe_texture_upload(texture_data, 2, 2, 4);
-}
-
-void pe_clear_background(peColor color) {
-#if defined(_WIN32)
-    float r = (float)color.r / 255.0f;
-    float g = (float)color.g / 255.0f;
-    float b = (float)color.b / 255.0f;
-
-    // FIXME: render a sprite to get exact background color
-    FLOAT clear_color[4] = { powf(r, 2.0f), powf(g, 2.0f), powf(b, 2.0f), 1.0f };
-    ID3D11DeviceContext_ClearRenderTargetView(pe_d3d.context, pe_d3d.render_target_view, clear_color);
-    ID3D11DeviceContext_ClearDepthStencilView(pe_d3d.context, pe_d3d.depth_stencil_view, D3D11_CLEAR_DEPTH, 1, 0);
-#endif
 }
 
 int main(int argc, char *argv[]) {
@@ -367,6 +354,8 @@ int main(int argc, char *argv[]) {
 			}
 			outgoing_packet.message_count = 0;
 		}
+
+        pe_graphics_frame_begin();
         pe_clear_background((peColor){ 20, 20, 20, 255 });
 
         pe_bind_texture(pe_d3d.default_texture_view);
@@ -389,7 +378,7 @@ int main(int argc, char *argv[]) {
             frame = (frame + 1) % model.animation[0].num_frames;
         }
 
-        IDXGISwapChain1_Present(pe_d3d.swapchain, 1, 0);
+        pe_graphics_frame_end(true);
 
         pe_free_all(pe_arena_allocator(&temp_arena));
     }

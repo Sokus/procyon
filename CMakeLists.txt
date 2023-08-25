@@ -49,7 +49,7 @@ if (PSP)
         src/client/pe_graphics.c
         src/client/pe_model.c
         src/client/pe_input.c
-
+        src/client/psp/psp_gu.c
     )
     target_compile_options(procyon PRIVATE -g -O0)
     target_include_directories(procyon PRIVATE src)
