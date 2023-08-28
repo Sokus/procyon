@@ -19,6 +19,7 @@ uint32_t pe_color_to_8888(peColor color);
 #define PE_COLOR_RED   (peColor){ 255,   0,   0, 255 }
 #define PE_COLOR_GREEN (peColor){   0, 255,   0, 255 }
 #define PE_COLOR_BLUE  (peColor){   0,   0, 255, 255 }
+#define PE_COLOR_BLACK (peColor){   0,   0,   0,   0 }
 
 #if defined(PSP)
 typedef struct peTexture {

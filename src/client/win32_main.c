@@ -4,9 +4,10 @@
 #include "pe_graphics.h"
 #include "pe_time.h"
 #include "pe_file_io.h"
+#include "pe_platform.h"
 #include "win32/win32_shader.h"
 #include "win32/win32_d3d.h"
-#include "win32/win32_glfw.h"
+#include "pe_window_glfw.h"
 #include "pe_model.h"
 #include "p3d.h"
 
@@ -22,8 +23,6 @@
 #include <wchar.h>
 #include <stdio.h>
 #include <math.h>
-
-peArena temp_arena;
 
 //
 // NET CLIENT STUFF
@@ -216,11 +215,6 @@ static bool pe_collision_ray_plane(peRay ray, HMM_Vec3 plane_normal, float plane
 
 int frame = 0;
 
-ID3D11ShaderResourceView *pe_create_default_texture(void) {
-    uint32_t texture_data[1] = { 0xFFFFFFFF };
-    return pe_texture_upload(texture_data, 1, 1, 4);
-};
-
 ID3D11ShaderResourceView *pe_create_grid_texture(void) {
     uint32_t texture_data[2*2] = {
         0xFFFFFFFF, 0xFF7F7F7F,
@@ -232,14 +226,11 @@ ID3D11ShaderResourceView *pe_create_grid_texture(void) {
 int main(int argc, char *argv[]) {
     pe_time_init();
     pe_net_init();
-
-    pe_arena_init_from_allocator(&temp_arena, pe_heap_allocator(), PE_MEGABYTES(128));
+    pe_platform_init();
 
     pe_graphics_init(960, 540, "Procyon");
 
     pe_allocate_entities();
-
-    pe_d3d.default_texture_view = pe_create_default_texture();
 
     ///////////////////
 
@@ -277,8 +268,8 @@ int main(int argc, char *argv[]) {
     float frame_time = 1.0f/30.0f;
     float current_frame_time = 0.0f;
 
-    while (!glfwWindowShouldClose(pe_glfw.window)) {
-        glfwPollEvents();
+    while (!pe_platform_should_quit()) {
+        pe_platform_poll_events();
 
 		if (network_state != peClientNetworkState_Disconnected) {
 			pe_receive_packets();
@@ -358,8 +349,6 @@ int main(int argc, char *argv[]) {
         pe_graphics_frame_begin();
         pe_clear_background((peColor){ 20, 20, 20, 255 });
 
-        pe_bind_texture(pe_d3d.default_texture_view);
-
         current_frame_time += 1.0f/60.0f;
 
 		for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
@@ -380,7 +369,7 @@ int main(int argc, char *argv[]) {
 
         pe_graphics_frame_end(true);
 
-        pe_free_all(pe_arena_allocator(&temp_arena));
+        pe_free_all(pe_temp_allocator());
     }
 
     pe_glfw_shutdown();

@@ -29,42 +29,7 @@
 #include <pspgu.h>
 #include <pspgum.h>
 
-PSP_MODULE_INFO("Procyon", 0, 1, 1);
-PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER);
-
-static bool should_quit = false;
-
-peArena temp_arena;
-
-bool pe_should_quit(void) {
-	return should_quit;
-}
-
-int pe_exit_callback(int arg1, int arg2, void* common) {
-	should_quit = true;
-	return 0;
-}
-
-
-int pe_exit_callback_thread(SceSize args, void* argp) {
-	int cbid = sceKernelCreateCallback("Exit Callback", pe_exit_callback, NULL);
-	sceKernelRegisterExitCallback(cbid);
-	sceKernelSleepThreadCB();
-
-	return 0;
-}
-
-int pe_setup_callbacks(void) {
-	int thid = sceKernelCreateThread("update_thread", pe_exit_callback_thread, 0x11, 0xFA0, 0, 0);
-	if (thid >= 0) {
-		sceKernelStartThread(thid, 0, 0);
-	}
-	return thid;
-}
-
-//
-//
-//
+#include "pe_platform.h"
 
 static peTexture default_texture;
 
@@ -73,10 +38,9 @@ void pe_default_texture_init(void) {
 	int texture_height = 8;
 	size_t texture_data_size = texture_width * texture_height * sizeof(uint16_t);
 
-	peAllocator temp_allocator = pe_arena_allocator(&temp_arena);
-	peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(&temp_arena);
+	peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(pe_temp_arena());
 	{
-		uint16_t *texture_data = pe_alloc(temp_allocator, texture_data_size);
+		uint16_t *texture_data = pe_alloc(pe_temp_allocator(), texture_data_size);
 		for (int y = 0; y < texture_height; y++) {
 			for (int x = 0; x < texture_width; x++) {
 				if (y < texture_height/2 && x < texture_width/2 || y >= texture_height/2 && x >= texture_width/2) {
@@ -191,9 +155,7 @@ message_cleanup:
 
 int main(int argc, char* argv[])
 {
-	pe_setup_callbacks();
-
-	pe_arena_init_from_allocator(&temp_arena, pe_heap_allocator(), PE_MEGABYTES(4));
+	pe_platform_init();
 
 	pe_graphics_init(0, 0, NULL);
 	pe_default_texture_init();
@@ -237,7 +199,7 @@ int main(int argc, char* argv[])
 	float current_frame_time = 0.0f;
 
 	float dt = 1.0f/60.0f;
-	while(!pe_should_quit())
+	while(!pe_platform_should_quit())
 	{
 		pe_net_update();
 		pe_input_update();
@@ -311,7 +273,7 @@ int main(int argc, char* argv[])
 
 		pe_graphics_frame_end(true);
 
-		pe_free_all(pe_arena_allocator(&temp_arena));
+		pe_free_all(pe_temp_allocator());
 	}
 
 	sceGuTerm();

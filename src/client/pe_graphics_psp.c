@@ -1,4 +1,4 @@
-#include "psp_gu.h"
+#include "pe_graphics_psp.h"
 
 #include "pe_core.h"
 
@@ -13,7 +13,7 @@ static bool gu_initialized = false;
 
 unsigned int __attribute__((aligned(16))) list[262144];
 
-void pe_gu_init(void) {
+void pe_graphics_init_psp(void) {
 	pe_arena_init_from_memory(&edram_arena, sceGeEdramGetAddr(), sceGeEdramGetSize());
 	edram_allocator = pe_arena_allocator(&edram_arena);
 

@@ -1,5 +1,5 @@
-#ifndef PE_WIN32_GLFW_H
-#define PE_WIN32_GLFW_H
+#ifndef PE_WINDOW_GLFW_H_HEADER_GUARD
+#define PE_WINDOW_GLFW_H_HEADER_GUARD
 
 #include <stdbool.h>
 
@@ -17,5 +17,7 @@ extern peGLFW pe_glfw;
 void pe_glfw_init(int window_width, int window_height, const char *window_name);
 void pe_glfw_shutdown(void);
 
+bool pe_window_should_quit_glfw(void);
+void pe_window_poll_events_glfw(void);
 
-#endif // PE_WIN32_GLFW_H
+#endif // PE_WINDOW_GLFW_H_HEADER_GUARD

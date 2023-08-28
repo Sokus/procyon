@@ -1,4 +1,4 @@
-#include "win32_glfw.h"
+#include "pe_window_glfw.h"
 
 #include "pe_core.h"
 
@@ -28,4 +28,12 @@ void pe_glfw_shutdown(void) {
     glfwDestroyWindow(pe_glfw.window);
     glfwTerminate();
     pe_glfw.initialized = false;
+}
+
+bool pe_window_should_quit_glfw(void) {
+    return glfwWindowShouldClose(pe_glfw.window);
+}
+
+void pe_window_poll_events_glfw(void) {
+    glfwPollEvents();
 }

@@ -1,15 +1,16 @@
 #include "pe_graphics.h"
 
 #include "pe_core.h"
+#include "pe_platform.h"
 
 #if defined(_WIN32)
     #include "win32/win32_d3d.h"
-    #include "win32/win32_glfw.h"
+    #include "pe_window_glfw.h"
 
     #define WIN32_LEAN_AND_MEAN
     #include <windows.h>
 #elif defined(PSP)
-    #include "psp/psp_gu.h"
+	#include "pe_graphics_psp.h"
 
     #include <pspkernel.h> // sceKernelDcacheWritebackInvalidateRange
     #include <pspdisplay.h> // sceDisplayWaitVblankStart
@@ -19,8 +20,6 @@
 #include "HandmadeMath.h"
 
 #include <stdbool.h>
-
-extern peArena temp_arena;
 
 HMM_Vec4 pe_color_to_vec4(peColor color) {
     HMM_Vec4 vec4 = {
@@ -110,9 +109,9 @@ peTexture pe_texture_create(void *data, int width, int height, int format, bool 
 	int power_of_two_height = closest_greater_power_of_two(height);
 	unsigned int size = power_of_two_width * power_of_two_height * bytes_per_pixel(format);
 
-	peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(&temp_arena);
+	peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(pe_temp_arena());
 
-	unsigned int *data_buffer = pe_alloc_align(pe_arena_allocator(&temp_arena), size, 16);
+	unsigned int *data_buffer = pe_alloc_align(pe_temp_allocator(), size, 16);
 	copy_texture_data(data_buffer, data, power_of_two_width, width, height);
 
 	peAllocator texture_allocator = vram ? pe_edram_allocator() : pe_heap_allocator();
@@ -164,7 +163,7 @@ void pe_graphics_init(int window_width, int window_height, const char *window_na
     pe_glfw_init(window_width, window_height, "Procyon");
     pe_d3d11_init();
 #elif defined(PSP)
-    pe_gu_init();
+    pe_graphics_init_psp();
 #endif
 }
 

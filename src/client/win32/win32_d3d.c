@@ -1,5 +1,5 @@
 #include "win32_d3d.h"
-#include "win32_glfw.h"
+#include "client/pe_window_glfw.h"
 #include "win32_shader.h"
 
 #include "pe_core.h"
@@ -303,6 +303,12 @@ void pe_d3d11_init(void) {
             pe_shader_constant_skeleton_buffer,
         };
         ID3D11DeviceContext_VSSetConstantBuffers(pe_d3d.context, 0, PE_COUNT_OF(constant_buffers), constant_buffers);
+    }
+
+    // Create default texture
+    {
+        uint32_t texture_data[1] = { 0xFFFFFFFF };
+        pe_d3d.default_texture_view = pe_texture_upload(texture_data, 1, 1, 4);
     }
 
     ID3D11DeviceContext_OMSetBlendState(pe_d3d.context, NULL, NULL, ~(uint32_t)(0));
