@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 project(procyon)
 
+set(LINUX (UNIX AND NOT APPLE))
+
 add_subdirectory(ext)
 
 add_library(shared STATIC
@@ -19,26 +21,34 @@ if (PSP)
     target_compile_options(shared PRIVATE -g -O0)
 endif()
 
-if(WIN32)
+if(WIN32 OR LINUX)
     add_executable(procyon
         src/client/main.c
-        #src/client/win32_main.c
-        #src/client/win32_net_sample.c
         src/client/pe_graphics.c
         src/client/pe_platform.c
         src/client/pe_model.c
         src/client/pe_window_glfw.c
-        src/client/win32/win32_d3d.c
-        src/client/win32/win32_shader.c
     )
+
+    if(WIN32)
+        target_sources(procyon
+            #src/client/win32_main.c
+            #src/client/win32_net_sample.c
+            src/client/win32/win32_d3d.c
+            src/client/win32/win32_shader.c
+        )
+    endif()
+
     target_include_directories(procyon PRIVATE src)
     target_link_libraries(procyon shared glfw handmade-math psp-stb)
 
-    add_executable(server
-        src/server/win32_main.c
-    )
-    target_include_directories(server PRIVATE src)
-    target_link_libraries(server shared)
+    if(WIN32)
+        add_executable(server
+            src/server/win32_main.c
+        )
+        target_include_directories(server PRIVATE src)
+        target_link_libraries(server shared)
+    endif()
 
     if(MSVC)
         add_compile_options(-WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127)

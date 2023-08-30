@@ -7,7 +7,13 @@
     #include <windows.h>
 #elif defined(PSP)
     #include <pspiofilemgr.h>
+#elif defined(__linux__)
+    #include <unistd.h>
+    #include <fcntl.h>
+    #include <sys/stat.h>
 #endif
+
+#include <stdint.h>
 
 
 peFileContents pe_file_read_contents(peAllocator allocator, char *file_path, bool zero_terminate) {
@@ -17,12 +23,14 @@ peFileContents pe_file_read_contents(peAllocator allocator, char *file_path, boo
 #if defined(_WIN32)
     HANDLE file_handle;
     DWORD file_size;
-    size_t total_size;
 #elif defined(PSP)
-    SceUID fuid;
+    SceUID file_handle;
     SceSize file_size;
-    size_t total_size;
+#elif defined(__linux__)
+    int file_handle;
+    int file_size;
 #endif
+    size_t total_size;
 
     // Open the file
     {
@@ -32,8 +40,13 @@ peFileContents pe_file_read_contents(peAllocator allocator, char *file_path, boo
             return result;
         }
 #elif defined(PSP)
-        fuid = sceIoOpen(file_path, PSP_O_RDONLY, 0);
-        if (fuid < 0) {
+        file_handle = sceIoOpen(file_path, PSP_O_RDONLY, 0);
+        if (file_handle < 0) {
+            return result;
+        }
+#elif defined(__linux__)
+        file_handle = open(file_path, O_RDONLY);
+        if (file_handle < 0) {
             return result;
         }
 #endif
@@ -47,12 +60,19 @@ peFileContents pe_file_read_contents(peAllocator allocator, char *file_path, boo
             return result;
         }
 #elif defined(PSP)
-        SceIoStat io_stat;
-        if (sceIoGetstat(file_path, &io_stat) < 0) {
-            sceIoClose(fuid);
+        SceIoStat file_stat;
+        if (sceIoGetstat(file_path, &file_stat) < 0) {
+            sceIoClose(file_handle);
             return result;
         }
-        file_size = io_stat.st_size;
+        file_size = file_stat.st_size;
+#elif defined(__linux__)
+        struct stat file_stat;
+        if (fstat(file_handle, &file_stat) < 0) {
+            close(file_handle);
+            return result;
+        }
+        file_size = file_stat.st_size;
 #endif
         total_size = (size_t)(zero_terminate ? file_size + 1 : file_size);
     }
@@ -62,7 +82,9 @@ peFileContents pe_file_read_contents(peAllocator allocator, char *file_path, boo
 #if defined(_WIN32)
         CloseHandle(file_handle);
 #elif defined(PSP)
-        sceIoClose(fuid);
+        sceIoClose(file_handle);
+#elif defined(__linux__)
+        close(file_handle);
 #endif
         return result;
     }
@@ -79,14 +101,23 @@ peFileContents pe_file_read_contents(peAllocator allocator, char *file_path, boo
         PE_ASSERT(bytes_read == file_size);
         CloseHandle(file_handle);
 #elif defined(PSP)
-        int bytes_read = sceIoRead(fuid, data, file_size);
+        int bytes_read = sceIoRead(file_handle, data, file_size);
         if (bytes_read < 0) {
-            sceIoClose(fuid);
+            sceIoClose(file_handle);
             pe_free(allocator, data);
             return result;
         }
         PE_ASSERT(bytes_read == file_size);
-        sceIoClose(fuid);
+        sceIoClose(file_handle);
+#elif defined(__linux__)
+        ssize_t bytes_read = read(file_handle, data, file_size);
+        if (bytes_read < 0) {
+            close(file_handle);
+            pe_free(allocator, data);
+            return result;
+        }
+        PE_ASSERT(bytes_read == file_size);
+        close(file_handle);
 #endif
     }
 

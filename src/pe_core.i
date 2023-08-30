@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <malloc.h>
+#include <stdlib.h>
 
 PE_INLINE void *pe_alloc_align(peAllocator a, size_t size, size_t alignment) {
     return a.proc(a.data, peAllocation_Alloc, size, alignment, NULL, 0);
@@ -66,7 +67,7 @@ size_t size, size_t alignment, void *old_memory, size_t old_size) {
 #elif defined(PSP)
             ptr = memalign(alignment, size);
 #else
-            PE_UNIMPLEMENTED();
+            posix_memalign(&ptr, alignment, size);
 #endif
         } break;
 
