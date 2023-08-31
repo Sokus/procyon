@@ -22,6 +22,10 @@ void pe_glfw_init(int window_width, int window_height, const char *window_name) 
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 #endif
 
+#if defined(__linux__) && !defined(NDEBUG)
+        glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
+#endif
+
         pe_glfw.window = glfwCreateWindow(window_width, window_height, window_name, NULL, NULL);
         pe_glfw.window_width = window_width;
         pe_glfw.window_height = window_height;
