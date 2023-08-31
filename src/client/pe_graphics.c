@@ -15,6 +15,14 @@
     #include <pspkernel.h> // sceKernelDcacheWritebackInvalidateRange
     #include <pspdisplay.h> // sceDisplayWaitVblankStart
     #include <pspgu.h>
+#elif defined(__linux__)
+    #include "pe_window_glfw.h"
+	#include "pe_graphics_linux.h"
+
+	#define GLFW_INCLUDE_NONE
+	#include "GLFW/glfw3.h"
+
+	#include "glad/glad.h"
 #endif
 
 #include "HandmadeMath.h"
@@ -160,10 +168,19 @@ void pe_texture_unbind(void) {
 
 void pe_graphics_init(int window_width, int window_height, const char *window_name) {
 #if defined(_WIN32)
-    pe_glfw_init(window_width, window_height, "Procyon");
+    pe_glfw_init(window_width, window_height, window_name);
     pe_d3d11_init();
 #elif defined(PSP)
     pe_graphics_init_psp();
+#elif defined(__linux__)
+	pe_glfw_init(window_width, window_height, window_name);
+	pe_graphics_init_linux();
+#endif
+}
+
+void pe_graphics_shutdown(void) {
+#if defined(_WIN32) || defined(__linux__)
+	pe_glfw_shutdown();
 #endif
 }
 
@@ -184,27 +201,27 @@ void pe_graphics_frame_end(bool vsync) {
         sceDisplayWaitVblankStart();
     }
     sceGuSwapBuffers();
+#elif defined(__linux__)
+	int interval = (vsync ? 1 : 0);
+	glfwSwapInterval(interval);
+	glfwSwapBuffers(pe_glfw.window);
 #endif
 }
 
 
 int pe_screen_width(void) {
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(__linux__)
     return pe_glfw.window_width;
 #elif defined(PSP)
     return PSP_SCREEN_W;
-#else
-	#error unimplemented
 #endif
 }
 
 int pe_screen_height(void) {
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(__linux__)
     return pe_glfw.window_height;
 #elif defined(PSP)
     return PSP_SCREEN_H;
-#else
-    #error unimplemented
 #endif
 }
 
@@ -222,7 +239,12 @@ void pe_clear_background(peColor color) {
 	sceGuClearColor(pe_color_to_8888(color));
 	sceGuClearDepth(0);
 	sceGuClear(GU_COLOR_BUFFER_BIT|GU_DEPTH_BUFFER_BIT);
-#else
-	#error unimplemented
+#elif defined(__linux__)
+	float r = (float)color.r / 255.0f;
+	float g = (float)color.g / 255.0f;
+	float b = (float)color.b / 255.0f;
+	float a = (float)color.a / 255.0f;
+	glClearColor(r, g, b, a);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 #endif
 }

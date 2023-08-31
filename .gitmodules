@@ -7,3 +7,6 @@
 [submodule "ext/psp-stb"]
 	path = ext/psp-stb
 	url = https://github.com/Sokus/psp-stb
+[submodule "ext/glad-gl-4.2-core"]
+	path = ext/glad-gl-4.2-core
+	url = https://github.com/Sokus/glad-gl-4.2-core

@@ -1,5 +1,9 @@
 #include "pe_temp_allocator.h"
 
+#include "pe_core.h"
+
+#include <stddef.h>
+
 peArena temp_arena;
 peAllocator temp_allocator;
 

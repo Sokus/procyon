@@ -2,7 +2,7 @@
 
 #include <stdbool.h>
 
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(__linux__)
     #include "pe_window_glfw.h"
 #elif defined(PSP)
     #include "pe_platform_psp.h"
@@ -19,7 +19,7 @@ void pe_platform_init(void) {
 }
 
 bool pe_platform_should_quit(void) {
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(__linux__)
     return pe_window_should_quit_glfw();
 #elif defined(PSP)
     return pe_platform_should_quit_psp();
@@ -27,7 +27,7 @@ bool pe_platform_should_quit(void) {
 }
 
 void pe_platform_poll_events(void) {
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(__linux__)
     pe_window_poll_events_glfw();
 #endif
 }

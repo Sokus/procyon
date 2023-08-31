@@ -39,6 +39,7 @@ void pe_texture_unbind(void);
 #endif
 
 void pe_graphics_init(int window_width, int window_height, const char *window_name);
+void pe_graphics_shutdown(void);
 void pe_graphics_frame_begin(void);
 void pe_graphics_frame_end(bool vsync);
 

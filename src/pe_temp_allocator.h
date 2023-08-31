@@ -1,7 +1,7 @@
 #ifndef PE_TEMP_ALLOCATOR_H_HEADER_GUARD
 #define PE_TEMP_ALLOCATOR_H_HEADER_GUARD
 
-#include <stdint.h>
+#include <stddef.h>
 
 void pe_temp_allocator_init(size_t size);
 

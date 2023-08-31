@@ -1,0 +1,6 @@
+#ifndef PE_GRAPHICS_LINUX_H_HEADER_GUARD
+#define PE_GRAPHICS_LINUX_H_HEADER_GUARD
+
+void pe_graphics_init_linux(void);
+
+#endif // PE_GRAPHICS_LINUX_H_HEADER_GUARD

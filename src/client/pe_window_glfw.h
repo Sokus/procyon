@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 
+#define GLFW_INCLUDE_NONE
 #include "GLFW/glfw3.h"
 
 typedef struct peGLFW {
