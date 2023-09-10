@@ -8,6 +8,7 @@
 #include "pe_file_io.h"
 #include "pe_graphics.h"
 #include "pe_model.h"
+#include "pe_temp_allocator.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -153,8 +154,29 @@ message_cleanup:
 	}
 }
 
+void pe_draw_line(HMM_Vec3 start_pos, HMM_Vec3 end_pos, peColor color) {
+	struct VertexP {
+		float x, y, z;
+	};
+	size_t vertices_size = 2*sizeof(struct VertexP);
+	struct VertexP *vertices = sceGuGetMemory(vertices_size);
+	vertices[0].x = start_pos.X;
+	vertices[0].y = start_pos.Y;
+	vertices[0].z = start_pos.Z;
+	vertices[1].x = end_pos.X;
+	vertices[1].y = end_pos.Y;
+	vertices[1].z = end_pos.Z;
+
+	sceKernelDcacheWritebackInvalidateRange(vertices, vertices_size);
+
+	sceGuColor(pe_color_to_8888(color));
+	sceGumDrawArray(GU_LINES, GU_VERTEX_32BITF|GU_TRANSFORM_3D, 2, NULL, vertices);
+	sceGuColor(pe_color_to_8888(PE_COLOR_WHITE));
+}
+
 int main(int argc, char* argv[])
 {
+	pe_temp_allocator_init(PE_MEGABYTES(4));
 	pe_platform_init();
 
 	pe_graphics_init(0, 0, NULL);
@@ -253,6 +275,11 @@ int main(int argc, char* argv[])
 		pe_clear_background((peColor){20, 20, 20, 255});
 
 		pe_texture_bind(default_texture);
+
+		HMM_Vec3 zero = {0.0f};
+		pe_draw_line(zero, (HMM_Vec3){1.0f, 0.0f, 0.0f}, PE_COLOR_RED);
+		pe_draw_line(zero, (HMM_Vec3){0.0f, 1.0f, 0.0f}, PE_COLOR_GREEN);
+		pe_draw_line(zero, (HMM_Vec3){0.0f, 0.0f, 1.0f}, PE_COLOR_BLUE);
 
 		current_frame_time += dt;
 

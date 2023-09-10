@@ -9,7 +9,7 @@ typedef struct peFileContents {
     size_t size;
 } peFileContents;
 
-peFileContents pe_file_read_contents(peAllocator allocator, char *file_path, bool zero_terminate);
+peFileContents pe_file_read_contents(peAllocator allocator, const char *file_path, bool zero_terminate);
 void pe_file_free_contents(peFileContents contents);
 
 #endif // PE_FILE_IO_H

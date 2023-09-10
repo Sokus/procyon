@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.5)
 project(procyon)
 
-set(LINUX (UNIX AND NOT APPLE))
+if (UNIX AND NOT APPLE AND NOT PSP)
+    set(LINUX TRUE)
+endif()
 
 add_subdirectory(ext)
 
@@ -64,8 +66,8 @@ endif()
 
 if (PSP)
     add_executable(procyon
-        src/client/main.c
-        #src/client/psp_main.c
+        #src/client/main.c
+        src/client/psp_main.c
         #src/client/psp_net_sample.c
         src/client/pe_graphics.c
         src/client/pe_graphics_psp.c

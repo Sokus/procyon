@@ -2,6 +2,7 @@
 
 #include "pe_core.h"
 #include "pe_platform.h"
+#include "pe_temp_allocator.h"
 
 #if defined(_WIN32)
     #include "win32/win32_d3d.h"

@@ -16,7 +16,7 @@
 #include <stdint.h>
 
 
-peFileContents pe_file_read_contents(peAllocator allocator, char *file_path, bool zero_terminate) {
+peFileContents pe_file_read_contents(peAllocator allocator, const char *file_path, bool zero_terminate) {
     peFileContents result = {0};
     result.allocator = allocator;
 
