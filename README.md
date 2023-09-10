@@ -1,7 +1,23 @@
 # procyon
 This is my current ongoing project in which I am trying to create a Co-Op Action-Adventure game for PC and PlayStation Portable.
 Why the PSP? Well, it was my first childhood console and also the reason I have started learning low-level programming in the first place.
-I am very curious to see what 333MHz MIPS R4000 CPU, 32MB of RAM and 2MB of GPU memory is capable of.
+
+## 14/07/2023
+With model rendering working on both PC and PSP its now time to work on skeletal animation. As it turns out its very easy to get the math
+wrong - one poorly constructed matrix and your character turns into a [disorderly mess](https://github.com/Sokus/procyon/assets/26815390/95a6520f-d3bd-489b-99c7-40b99431eed3).
+Another issue that has to be addressed is the bone count. The model I am using for tests has 31 bones, while PSP has a hardware bone limit
+of 8. How I decided to go around this limitation is to group the bones together based on the triangles they control and then tried to merge
+them together to create subskeletons with bone counts lower than 8 that can then be rendered separately. It's basically a Bin Packing
+Problem with Overlapping Items. This problem is NP-hard so finding the optimal solution cannot be done in reasonable time - my algorithm is
+supposed to be ran every time a model is being exported, that's why I've settled with a greedy algorithm. 
+
+https://github.com/Sokus/procyon/assets/26815390/92b95a77-1a6b-4918-a1b3-c97a3e412a1f
+
+## 27/06/2023
+Using Model 3D (M3D) format turned out to be a bad idea. The exporter messes up the UVs on mesh triangulation and the loader doesn't quite
+work on the PSP... Thanks to [Jacob's Blender Export Scripting Guide](https://github.com/MysteriousJ/Blender-Export-Scripting-Guide) I was
+able to drop M3D dependency entirely and write my very own Blender exporter and model format - easy to load on PC and PSP. Right know I've
+got static mesh rendering on both platforms and about to work on skeletal animation next. 
 
 ## 11/05/2023
 I've decided not to use Model 3D (M3D) format in the client app directly. To render a model on PC or PSP I need to convert the data from

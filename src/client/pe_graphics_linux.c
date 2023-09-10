@@ -88,5 +88,16 @@ void pe_graphics_init_linux(void) {
     }
 #endif
 
+    // init shader
+    {
+        GLuint shader_program = pe_shader_create_from_file("res/shader.glsl");
+        glUseProgram(shader_program);
+    }
+
     glViewport(0, 0, window_width, window_height);
+
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
 }
