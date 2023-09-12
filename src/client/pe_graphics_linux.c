@@ -2,13 +2,18 @@
 
 #include "pe_core.h"
 #include "pe_window_glfw.h"
+#include "pe_file_io.h"
 
 #include "glad/glad.h"
 
 #define GLFW_INCLUDE_NONE
 #include "GLFW/glfw3.h"
 
+#include "HandmadeMath.h"
+
 #include <stdio.h>
+
+peOpenGL pe_opengl = {0};
 
 static void glfw_framebuffer_size_proc(GLFWwindow *window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -71,6 +76,61 @@ static void gl_debug_message_proc(
     );
 }
 
+
+static const char *gl_shader_type_string(GLenum type) {
+    switch (type) {
+        case GL_VERTEX_SHADER: return "GL_VERTEX_SHADER";
+        case GL_FRAGMENT_SHADER: return "GL_FRAGMENT_SHADER";
+        default: return "???";
+    }
+}
+
+static GLuint pe_shader_compile(GLenum type, const GLchar *shader_source) {
+    GLuint shader = glCreateShader(type);
+
+    const char *shader_version = "#version 420 core\n";
+    const char *shader_define = (
+        type == GL_VERTEX_SHADER   ? "#define PE_VERTEX_SHADER 1\n"   :
+        type == GL_FRAGMENT_SHADER ? "#define PE_FRAGMENT_SHADER 1\n" : ""
+    );
+    const char *complete_shader_source[] = { shader_version, shader_define, shader_source };
+    glShaderSource(shader, PE_COUNT_OF(complete_shader_source), complete_shader_source, NULL);
+
+    glCompileShader(shader);
+    // NOTE: We don't check whether compilation succeeded or not because
+    // it will be catched by the glDebugMessageCallback anyway.
+    return shader;
+}
+
+static GLuint pe_shader_create_from_file(const char *source_file_path) {
+    GLuint vertex_shader, fragment_shader;
+    {
+        peFileContents shader_source_file_contents = pe_file_read_contents(pe_heap_allocator(), source_file_path, true);
+        vertex_shader = pe_shader_compile(GL_VERTEX_SHADER, shader_source_file_contents.data);
+        fragment_shader = pe_shader_compile(GL_FRAGMENT_SHADER, shader_source_file_contents.data);
+        pe_file_free_contents(shader_source_file_contents);
+    }
+
+    GLuint shader_program = glCreateProgram();
+    {
+        glAttachShader(shader_program, vertex_shader);
+        glAttachShader(shader_program, fragment_shader);
+        glLinkProgram(shader_program);
+        GLint success;
+        char info_log[512];
+        glGetProgramiv(shader_program, GL_LINK_STATUS, &success);
+        if (!success) {
+            glGetProgramInfoLog(shader_program, 512, NULL,  info_log);
+            fprintf(stderr, "Linking error:\n%s\n", info_log);
+        }
+    }
+
+    glDeleteShader(vertex_shader);
+    glDeleteShader(fragment_shader);
+
+    return shader_program;
+}
+
 void pe_graphics_init_linux(void) {
     int window_width, window_height;
 
@@ -88,10 +148,10 @@ void pe_graphics_init_linux(void) {
     }
 #endif
 
-    // init shader
+    // init shader_program
     {
-        GLuint shader_program = pe_shader_create_from_file("res/shader.glsl");
-        glUseProgram(shader_program);
+        pe_opengl.shader_program = pe_shader_create_from_file("res/shader.glsl");
+        glUseProgram(pe_opengl.shader_program);
     }
 
     glViewport(0, 0, window_width, window_height);
@@ -100,4 +160,14 @@ void pe_graphics_init_linux(void) {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
+}
+
+void pe_shader_set_vec3(GLuint shader_program, const GLchar *name, HMM_Vec3 value) {
+    GLint uniform_location = glGetUniformLocation(shader_program, name);
+    glUniform3fv(uniform_location, 1, value.Elements);
+}
+
+void pe_shader_set_mat4(GLuint shader_program, const GLchar *name, HMM_Mat4 *value) {
+    GLint uniform_location = glGetUniformLocation(shader_program, name);
+    glUniformMatrix4fv(uniform_location, 1, false, value->Elements[0]);
 }
