@@ -4,14 +4,16 @@
 #include "pe_platform.h"
 #include "pe_model.h"
 #include "pe_temp_allocator.h"
+#include "pe_graphics_linux.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 #include "glad/glad.h"
-
 #include "HandmadeMath.h"
 
 #include <stdio.h>
 
-#include "pe_graphics_linux.h"
 
 typedef struct peCamera {
     HMM_Vec3 position;
@@ -136,9 +138,22 @@ int main(int, char*[]) {
 
     peModel model = pe_model_load("./res/fox.p3d");
 
-    HMM_Vec3 camera_offset = { 0.0f, 1.2f, 2.5f };
+    stbi_set_flip_vertically_on_load(false);
+
+	char *fox_diffuse_texture_paths[] = {
+		"./res/fox_body_diffuse.png",
+		"./res/fox_sword_diffuse.png"
+	};
+	for (int t = 0; t < 2; t += 1) {
+		int w, h, channels;
+		stbi_uc *stbi_data = stbi_load(fox_diffuse_texture_paths[t], &w, &h, &channels, STBI_rgb_alpha);
+		model.material[t].has_diffuse_map = true;
+		model.material[t].diffuse_map = pe_texture_create(pe_heap_allocator(), stbi_data, w, h, channels);
+	}
+
+    HMM_Vec3 camera_offset = { 0.0f, 1.0f, 1.3f };
     peCamera camera = {
-        .target = {0.0f, 0.0f, -1.0f},
+        .target = {0.0f, 0.5f, 0.0f},
         .up = {0.0f, 1.0f, 0.0f},
         .fovy = 55.0f
     };

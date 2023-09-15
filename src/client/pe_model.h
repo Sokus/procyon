@@ -23,6 +23,9 @@ typedef struct peMaterial {
     peColor diffuse_color;
 #if defined(_WIN32)
     struct ID3D11ShaderResourceView *diffuse_map;
+#elif defined(__linux__)
+    bool has_diffuse_map;
+    peTexture diffuse_map;
 #elif defined(PSP)
     bool has_diffuse_map;
     peTexture diffuse_map;

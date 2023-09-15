@@ -6,8 +6,10 @@ uniform vec3 light_vector;
 
 layout (location = 0) in vec3 in_position;
 layout (location = 1) in vec3 in_normal;
+layout (location = 2) in vec2 in_tex_coord;
 
 out vec3 frag_color;
+out vec2 tex_coord;
 
 void main() {
     gl_Position = matrix_projection * matrix_view * matrix_model * vec4(in_position, 1.0);
@@ -15,10 +17,8 @@ void main() {
     vec3 model_space_normal = vec3(matrix_model * vec4(in_normal, 1.0));
     float light = clamp(dot(normalize(-light_vector), model_space_normal), 0.0, 1.0) * 0.8 + 0.2;
 
-
-
-
     frag_color = vec3(light, light, light);
+    tex_coord = in_tex_coord;
 }
 #endif // PE_VERTEX_SHADER
 
@@ -28,10 +28,13 @@ void main() {
 uniform vec3 diffuse_color;
 
 in vec3 frag_color;
+in vec2 tex_coord;
 
 out vec3 out_color;
 
+uniform sampler2D diffuse_map;
+
 void main() {
-    out_color = frag_color;
+    out_color = frag_color * vec3(texture(diffuse_map, tex_coord));
 }
 #endif // PE_FRAGMENT_SHADER

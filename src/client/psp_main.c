@@ -9,6 +9,7 @@
 #include "pe_graphics.h"
 #include "pe_model.h"
 #include "pe_temp_allocator.h"
+#include "pe_graphics_psp.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,7 +52,7 @@ void pe_default_texture_init(void) {
 				}
 			}
 		}
-		default_texture = pe_texture_create(texture_data, texture_width, texture_height, GU_PSM_5650, true);
+		default_texture = pe_texture_create(pe_edram_allocator(), texture_data, texture_width, texture_height, GU_PSM_5650);
 	}
 	pe_temp_arena_memory_end(temp_arena_memory);
 }
@@ -193,7 +194,7 @@ int main(int argc, char* argv[])
 
 	server_address = pe_address4(192, 168, 128, 81, SERVER_PORT);
 
-    stbi_set_flip_vertically_on_load(GU_FALSE);
+    stbi_set_flip_vertically_on_load(false);
 
 	peModel model = pe_model_load("./res/fox.pp3d");
 
@@ -205,7 +206,7 @@ int main(int argc, char* argv[])
 		int w, h, channels;
 		stbi_uc *stbi_data = stbi_load(fox_diffuse_texture_paths[t], &w, &h, &channels, STBI_rgb_alpha);
 		model.material[t].has_diffuse_map = true;
-		model.material[t].diffuse_map = pe_texture_create(stbi_data, w, h, GU_PSM_8888, true);
+		model.material[t].diffuse_map = pe_texture_create(pe_edram_allocator(), stbi_data, w, h, GU_PSM_8888);
 	}
 
 	float aspect = (float)pe_screen_width()/(float)pe_screen_height();

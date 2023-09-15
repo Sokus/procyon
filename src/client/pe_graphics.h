@@ -1,6 +1,12 @@
 #ifndef PE_GRAPHICS_H
 #define PE_GRAPHICS_H
 
+#include "pe_core.h"
+
+#if defined(__linux__)
+	#include "glad/glad.h"
+#endif
+
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -21,8 +27,12 @@ uint32_t pe_color_to_8888(peColor color);
 #define PE_COLOR_BLUE  (peColor){   0,   0, 255, 255 }
 #define PE_COLOR_BLACK (peColor){   0,   0,   0,   0 }
 
-#if defined(PSP)
 typedef struct peTexture {
+#if defined(__linux__)
+	GLuint texture_object;
+#endif
+#if defined(PSP)
+	peAllocator allocator;
 	void *data;
 	int width;
 	int height;
@@ -30,13 +40,13 @@ typedef struct peTexture {
 	int power_of_two_height;
 	bool vram;
 	int format;
+#endif
 } peTexture;
 
-peTexture pe_texture_create(void *data, int width, int height, int format, bool vram);
+peTexture pe_texture_create(peAllocator allocator, void *data, int width, int height, int format);
 void pe_texture_destroy(peTexture texture);
 void pe_texture_bind(peTexture texture);
 void pe_texture_unbind(void);
-#endif
 
 void pe_graphics_init(int window_width, int window_height, const char *window_name);
 void pe_graphics_shutdown(void);

@@ -745,10 +745,11 @@ peModel pe_model_load(char *file_path) {
 
 	size_t pos_buffer_size = 3*p3d_static_info->num_vertex*sizeof(float);
 	size_t nor_buffer_size = 3*p3d_static_info->num_vertex*sizeof(float);
+	size_t tex_buffer_size = 2*p3d_static_info->num_vertex*sizeof(float);
 
     float *pos_buffer = pe_alloc(pe_temp_allocator(), pos_buffer_size);
     float *nor_buffer = pe_alloc(pe_temp_allocator(), nor_buffer_size);
-    float *tex_buffer = pe_alloc(pe_temp_allocator(), 2*p3d_static_info->num_vertex*sizeof(float));
+    float *tex_buffer = pe_alloc(pe_temp_allocator(), tex_buffer_size);
     uint32_t *col_buffer = pe_alloc(pe_temp_allocator(), p3d_static_info->num_vertex*sizeof(uint32_t));
     uint32_t *bone_index_buffer = pe_alloc(pe_temp_allocator(), 4*p3d_static_info->num_vertex*sizeof(uint32_t));
     float *bone_weight_buffer = pe_alloc(pe_temp_allocator(), 4*p3d_static_info->num_vertex*sizeof(float));
@@ -801,14 +802,14 @@ peModel pe_model_load(char *file_path) {
 #if defined(_WIN32)
     model.pos_buffer = pe_d3d11_create_buffer(pos_buffer, pos_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
     model.norm_buffer = pe_d3d11_create_buffer(nor_buffer, nor_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    model.tex_buffer = pe_d3d11_create_buffer(tex_buffer, 2*p3d_static_info->num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    model.tex_buffer = pe_d3d11_create_buffer(tex_buffer, tex_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
     model.color_buffer = pe_d3d11_create_buffer(col_buffer, p3d_static_info->num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
     model.bone_index_buffer = pe_d3d11_create_buffer(bone_index_buffer, 4*p3d_static_info->num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
     model.bone_weight_buffer = pe_d3d11_create_buffer(bone_weight_buffer, 4*p3d_static_info->num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
     model.index_buffer = pe_d3d11_create_buffer(p3d_index, p3d_index_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER);
 #endif
 #if defined(__linux__)
-	size_t total_size = pos_buffer_size + nor_buffer_size;
+	size_t total_size = pos_buffer_size + nor_buffer_size + tex_buffer_size;
 
 	glGenVertexArrays(1, &model.vertex_array_object);
     glBindVertexArray(model.vertex_array_object);
@@ -817,14 +818,17 @@ peModel pe_model_load(char *file_path) {
     glBindBuffer(GL_ARRAY_BUFFER, model.vertex_buffer_object);
     glBufferData(GL_ARRAY_BUFFER, total_size, NULL, GL_STATIC_DRAW);
 
-    glBufferSubData(GL_ARRAY_BUFFER,               0, pos_buffer_size, pos_buffer);
-    glBufferSubData(GL_ARRAY_BUFFER, pos_buffer_size, nor_buffer_size, nor_buffer);
+    glBufferSubData(GL_ARRAY_BUFFER,                               0, pos_buffer_size, pos_buffer);
+    glBufferSubData(GL_ARRAY_BUFFER,                 pos_buffer_size, nor_buffer_size, nor_buffer);
+	glBufferSubData(GL_ARRAY_BUFFER, pos_buffer_size+nor_buffer_size, tex_buffer_size, tex_buffer);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*)0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*)pos_buffer_size);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)pos_buffer_size+nor_buffer_size);
 
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(2);
 
     glGenBuffers(1, &model.element_buffer_object);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.element_buffer_object);
@@ -932,10 +936,17 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 
 	glBindVertexArray(model->vertex_array_object);
 	for (int m = 0; m < model->num_mesh; m += 1) {
-		size_t vertex_size = 6*sizeof(float);
+		peMaterial *mesh_material = &model->material[m];
+
+		if (mesh_material->has_diffuse_map) {
+            pe_texture_bind(mesh_material->diffuse_map);
+		} else {
+            pe_texture_unbind();
+		}
+
 		glDrawElementsBaseVertex(
 			GL_TRIANGLES, model->num_index[m], GL_UNSIGNED_INT,
-			(void*)(model->index_offset[m]*vertex_size), model->vertex_offset[m]
+			(void*)(model->index_offset[m]*sizeof(uint32_t)), model->vertex_offset[m]
 		);
 	}
 	glBindVertexArray(0);

@@ -1,3 +1,4 @@
+#include "pe_graphics.h"
 #include "pe_graphics_linux.h"
 
 #include "pe_core.h"
@@ -152,6 +153,11 @@ void pe_graphics_init_linux(void) {
     {
         pe_opengl.shader_program = pe_shader_create_from_file("res/shader.glsl");
         glUseProgram(pe_opengl.shader_program);
+
+        GLint diffuse_map_uniform_location = glGetUniformLocation(
+            pe_opengl.shader_program, "diffuse_map"
+        );
+        glUniform1i(diffuse_map_uniform_location, 0);
     }
 
     glViewport(0, 0, window_width, window_height);
@@ -170,4 +176,27 @@ void pe_shader_set_vec3(GLuint shader_program, const GLchar *name, HMM_Vec3 valu
 void pe_shader_set_mat4(GLuint shader_program, const GLchar *name, HMM_Mat4 *value) {
     GLint uniform_location = glGetUniformLocation(shader_program, name);
     glUniformMatrix4fv(uniform_location, 1, false, value->Elements[0]);
+}
+
+peTexture pe_texture_create_linux(void *data, int width, int height, int channels) {
+    GLint texture_object;
+    glGenTextures(1, &texture_object);
+    glBindTexture(GL_TEXTURE_2D, texture_object);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float border_color[] = { 1.0f, 0.0f, 1.0f, 1.0f };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_color);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    PE_ASSERT(channels == 3 || channels == 4);
+    GLint gl_format = (
+        channels == 3 ? GL_RGB  :
+        channels == 4 ? GL_RGBA : GL_INVALID_ENUM
+    );
+    glTexImage2D(GL_TEXTURE_2D, 0, gl_format, width, height, 0, gl_format, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    peTexture texture = { .texture_object = texture_object };
+    return texture;
 }
