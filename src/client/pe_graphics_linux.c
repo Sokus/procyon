@@ -94,7 +94,8 @@ static GLuint pe_shader_compile(GLenum type, const GLchar *shader_source) {
         type == GL_VERTEX_SHADER   ? "#define PE_VERTEX_SHADER 1\n"   :
         type == GL_FRAGMENT_SHADER ? "#define PE_FRAGMENT_SHADER 1\n" : ""
     );
-    const char *complete_shader_source[] = { shader_version, shader_define, shader_source };
+    const char *shader_line_offset = "#line 1\n";
+    const char *complete_shader_source[] = { shader_version, shader_define, shader_line_offset, shader_source };
     glShaderSource(shader, PE_COUNT_OF(complete_shader_source), complete_shader_source, NULL);
 
     glCompileShader(shader);
@@ -175,7 +176,18 @@ void pe_shader_set_vec3(GLuint shader_program, const GLchar *name, HMM_Vec3 valu
 
 void pe_shader_set_mat4(GLuint shader_program, const GLchar *name, HMM_Mat4 *value) {
     GLint uniform_location = glGetUniformLocation(shader_program, name);
-    glUniformMatrix4fv(uniform_location, 1, false, value->Elements[0]);
+    glUniformMatrix4fv(uniform_location, 1, GL_FALSE, (void*)value);
+}
+
+void pe_shader_set_mat4_array(GLuint shader_program, const GLchar *name, HMM_Mat4 *values, GLsizei count) {
+    GLint uniform_location = glGetUniformLocation(shader_program, name);
+    glUniformMatrix4fv(uniform_location, count, GL_FALSE, (void*)values);
+}
+
+void pe_shader_set_bool(GLuint shader_program, const GLchar *name, bool value) {
+    GLint uniform_location = glGetUniformLocation(shader_program, name);
+    GLint gl_value = value ? 1 : 0;
+    glUniform1i(uniform_location, gl_value);
 }
 
 peTexture pe_texture_create_linux(void *data, int width, int height, int channels) {

@@ -746,13 +746,15 @@ peModel pe_model_load(char *file_path) {
 	size_t pos_buffer_size = 3*p3d_static_info->num_vertex*sizeof(float);
 	size_t nor_buffer_size = 3*p3d_static_info->num_vertex*sizeof(float);
 	size_t tex_buffer_size = 2*p3d_static_info->num_vertex*sizeof(float);
+	size_t bone_index_buffer_size = 4*p3d_static_info->num_vertex*sizeof(uint32_t);
+	size_t bone_weight_buffer_size = 4*p3d_static_info->num_vertex*sizeof(float);
 
     float *pos_buffer = pe_alloc(pe_temp_allocator(), pos_buffer_size);
     float *nor_buffer = pe_alloc(pe_temp_allocator(), nor_buffer_size);
     float *tex_buffer = pe_alloc(pe_temp_allocator(), tex_buffer_size);
     uint32_t *col_buffer = pe_alloc(pe_temp_allocator(), p3d_static_info->num_vertex*sizeof(uint32_t));
-    uint32_t *bone_index_buffer = pe_alloc(pe_temp_allocator(), 4*p3d_static_info->num_vertex*sizeof(uint32_t));
-    float *bone_weight_buffer = pe_alloc(pe_temp_allocator(), 4*p3d_static_info->num_vertex*sizeof(float));
+    uint32_t *bone_index_buffer = pe_alloc(pe_temp_allocator(), bone_index_buffer_size);
+    float *bone_weight_buffer = pe_alloc(pe_temp_allocator(), bone_weight_buffer_size);
 
     for (unsigned int p = 0; p < 3*p3d_static_info->num_vertex; p += 1) {
         pos_buffer[p] = p3d_static_info->scale * pe_int16_to_float(p3d_position[p], -1.0f, 1.0f);
@@ -804,12 +806,12 @@ peModel pe_model_load(char *file_path) {
     model.norm_buffer = pe_d3d11_create_buffer(nor_buffer, nor_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
     model.tex_buffer = pe_d3d11_create_buffer(tex_buffer, tex_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
     model.color_buffer = pe_d3d11_create_buffer(col_buffer, p3d_static_info->num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    model.bone_index_buffer = pe_d3d11_create_buffer(bone_index_buffer, 4*p3d_static_info->num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    model.bone_weight_buffer = pe_d3d11_create_buffer(bone_weight_buffer, 4*p3d_static_info->num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    model.bone_index_buffer = pe_d3d11_create_buffer(bone_index_buffer, bone_index_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    model.bone_weight_buffer = pe_d3d11_create_buffer(bone_weight_buffer, bone_weight_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
     model.index_buffer = pe_d3d11_create_buffer(p3d_index, p3d_index_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER);
 #endif
 #if defined(__linux__)
-	size_t total_size = pos_buffer_size + nor_buffer_size + tex_buffer_size;
+	size_t total_size = pos_buffer_size + nor_buffer_size + tex_buffer_size + bone_index_buffer_size + bone_weight_buffer_size;
 
 	glGenVertexArrays(1, &model.vertex_array_object);
     glBindVertexArray(model.vertex_array_object);
@@ -818,17 +820,23 @@ peModel pe_model_load(char *file_path) {
     glBindBuffer(GL_ARRAY_BUFFER, model.vertex_buffer_object);
     glBufferData(GL_ARRAY_BUFFER, total_size, NULL, GL_STATIC_DRAW);
 
-    glBufferSubData(GL_ARRAY_BUFFER,                               0, pos_buffer_size, pos_buffer);
-    glBufferSubData(GL_ARRAY_BUFFER,                 pos_buffer_size, nor_buffer_size, nor_buffer);
-	glBufferSubData(GL_ARRAY_BUFFER, pos_buffer_size+nor_buffer_size, tex_buffer_size, tex_buffer);
+    glBufferSubData(GL_ARRAY_BUFFER, 0,                                                                      pos_buffer_size, pos_buffer);
+    glBufferSubData(GL_ARRAY_BUFFER, pos_buffer_size,                                                        nor_buffer_size, nor_buffer);
+	glBufferSubData(GL_ARRAY_BUFFER, pos_buffer_size+nor_buffer_size,                                        tex_buffer_size, tex_buffer);
+	glBufferSubData(GL_ARRAY_BUFFER, pos_buffer_size+nor_buffer_size+tex_buffer_size,                        bone_index_buffer_size, bone_index_buffer);
+	glBufferSubData(GL_ARRAY_BUFFER, pos_buffer_size+nor_buffer_size+tex_buffer_size+bone_index_buffer_size, bone_weight_buffer_size, bone_weight_buffer);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*)0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*)pos_buffer_size);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*)pos_buffer_size+nor_buffer_size);
+    glVertexAttribPointer( 0, 3, GL_FLOAT,        GL_FALSE, 0,    (void*)0);
+    glVertexAttribPointer( 1, 3, GL_FLOAT,        GL_FALSE, 0,    (void*)(pos_buffer_size));
+	glVertexAttribPointer( 2, 2, GL_FLOAT,        GL_FALSE, 0,    (void*)(pos_buffer_size+nor_buffer_size));
+	glVertexAttribIPointer(3, 4, GL_UNSIGNED_INT,           0,    (void*)(pos_buffer_size+nor_buffer_size+tex_buffer_size));
+	glVertexAttribPointer( 4, 4, GL_FLOAT,        GL_FALSE, 0,    (void*)(pos_buffer_size+nor_buffer_size+tex_buffer_size+bone_index_buffer_size));
 
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
 	glEnableVertexAttribArray(2);
+	glEnableVertexAttribArray(3);
+	glEnableVertexAttribArray(4);
 
     glGenBuffers(1, &model.element_buffer_object);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model.element_buffer_object);
@@ -836,7 +844,6 @@ peModel pe_model_load(char *file_path) {
 
     glBindVertexArray(0);
 #endif
-
     pe_temp_arena_memory_end(temp_arena_memory);
 
     return model;
@@ -850,9 +857,8 @@ void pe_model_free(peModel *model) {
 }
 
 void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
-#if defined(_WIN32)
     peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(pe_temp_arena());
-
+#if defined(_WIN32)
     HMM_Mat4 rotate_x = HMM_Rotate_RH(rotation.X, (HMM_Vec3){1.0f, 0.0f, 0.0f});
     HMM_Mat4 rotate_y = HMM_Rotate_RH(rotation.Y, (HMM_Vec3){0.0f, 1.0f, 0.0f});
     HMM_Mat4 rotate_z = HMM_Rotate_RH(rotation.Z, (HMM_Vec3){0.0f, 0.0f, 1.0f});
@@ -921,18 +927,41 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 
         ID3D11DeviceContext_DrawIndexed(pe_d3d.context, model->num_index[m], model->index_offset[m], model->vertex_offset[m]);
     }
-
-    pe_temp_arena_memory_end(temp_arena_memory);
 #endif
 #if defined(__linux__)
-    peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(pe_temp_arena());
-
     HMM_Mat4 rotate_x = HMM_Rotate_RH(rotation.X, (HMM_Vec3){1.0f, 0.0f, 0.0f});
     HMM_Mat4 rotate_y = HMM_Rotate_RH(rotation.Y, (HMM_Vec3){0.0f, 1.0f, 0.0f});
     HMM_Mat4 rotate_z = HMM_Rotate_RH(rotation.Z, (HMM_Vec3){0.0f, 0.0f, 1.0f});
     HMM_Mat4 translate = HMM_Translate(position);
     HMM_Mat4 model_matrix = HMM_MulM4(HMM_MulM4(HMM_MulM4(translate, rotate_z), rotate_y), rotate_x);
 	pe_shader_set_mat4(pe_opengl.shader_program, "matrix_model", &model_matrix);
+
+    {
+        peAnimationJoint *model_space_joints = pe_alloc(pe_temp_allocator(), model->num_bone * sizeof(peAnimationJoint));
+        peAnimationJoint *animation_joints = &model->animation[0].frames[0 * model->num_bone];
+        for (int b = 0; b < model->num_bone; b += 1) {
+            if (model->bone_parent_index[b] < UINT8_MAX) {
+                peAnimationJoint parent_transform = model_space_joints[model->bone_parent_index[b]];
+                model_space_joints[b] = pe_concatenate_animation_joints(parent_transform, animation_joints[b]);
+            } else {
+                model_space_joints[b] = animation_joints[b];
+            }
+        }
+
+
+		HMM_Mat4 *final_bone_matrix = pe_alloc(pe_temp_allocator(), model->num_bone * sizeof(HMM_Mat4));
+        for (int b = 0; b < model->num_bone; b += 1) {
+            peAnimationJoint *animation_joint = &model_space_joints[b];
+			HMM_Mat4 translation = HMM_Translate(animation_joint->translation);
+			HMM_Mat4 rotation = HMM_QToM4(animation_joint->rotation);
+			HMM_Mat4 scale = HMM_Scale(animation_joint->scale);
+			HMM_Mat4 transform = HMM_MulM4(translation, HMM_MulM4(scale, rotation));
+            final_bone_matrix[b] = HMM_MulM4(transform, model->bone_inverse_model_space_pose_matrix[b]);
+        }
+
+		pe_shader_set_bool(pe_opengl.shader_program, "has_skeleton", true);
+		pe_shader_set_mat4_array(pe_opengl.shader_program, "matrix_bone", final_bone_matrix, model->num_bone);
+    }
 
 	glBindVertexArray(model->vertex_array_object);
 	for (int m = 0; m < model->num_mesh; m += 1) {
@@ -950,12 +979,8 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 		);
 	}
 	glBindVertexArray(0);
-
-    pe_temp_arena_memory_end(temp_arena_memory);
 #endif
 #if defined(PSP)
-    peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(pe_temp_arena());
-
 	sceGumMatrixMode(GU_MODEL);
 	sceGumPushMatrix();
 	sceGumLoadIdentity();
@@ -1012,7 +1037,6 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 	}
 	sceGuColor(0xFFFFFFFF);
 	sceGumPopMatrix();
-
-	pe_temp_arena_memory_end(temp_arena_memory);
 #endif
+	pe_temp_arena_memory_end(temp_arena_memory);
 }
