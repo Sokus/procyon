@@ -3,7 +3,7 @@
 #include "pe_graphics.h"
 #include "pe_platform.h"
 #include "pe_model.h"
-#include "pe_temp_allocator.h"
+#include "pe_temp_arena.h"
 #include "pe_graphics_linux.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -130,7 +130,7 @@ glCube pe_gen_mesh_cube(float width, float height, float length) {
 
 
 int main(int, char*[]) {
-    pe_temp_allocator_init(PE_MEGABYTES(4));
+    pe_temp_arena_init(PE_MEGABYTES(4));
     pe_platform_init();
     pe_graphics_init(960, 540, "Procyon");
 
@@ -148,7 +148,7 @@ int main(int, char*[]) {
 		int w, h, channels;
 		stbi_uc *stbi_data = stbi_load(fox_diffuse_texture_paths[t], &w, &h, &channels, STBI_rgb_alpha);
 		model.material[t].has_diffuse_map = true;
-		model.material[t].diffuse_map = pe_texture_create(pe_heap_allocator(), stbi_data, w, h, channels);
+		model.material[t].diffuse_map = pe_texture_create(stbi_data, w, h, channels);
 	}
 
     HMM_Vec3 camera_offset = { 0.0f, 1.0f, 1.3f };

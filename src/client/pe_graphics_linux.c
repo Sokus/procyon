@@ -2,6 +2,7 @@
 #include "pe_graphics_linux.h"
 
 #include "pe_core.h"
+#include "pe_temp_arena.h"
 #include "pe_window_glfw.h"
 #include "pe_file_io.h"
 
@@ -107,10 +108,12 @@ static GLuint pe_shader_compile(GLenum type, const GLchar *shader_source) {
 static GLuint pe_shader_create_from_file(const char *source_file_path) {
     GLuint vertex_shader, fragment_shader;
     {
-        peFileContents shader_source_file_contents = pe_file_read_contents(pe_heap_allocator(), source_file_path, true);
+        peArena *temp_arena = pe_temp_arena();
+        peArenaTemp arena_temp = pe_arena_temp_begin(temp_arena);
+        peFileContents shader_source_file_contents = pe_file_read_contents(temp_arena, source_file_path, true);
         vertex_shader = pe_shader_compile(GL_VERTEX_SHADER, shader_source_file_contents.data);
         fragment_shader = pe_shader_compile(GL_FRAGMENT_SHADER, shader_source_file_contents.data);
-        pe_file_free_contents(shader_source_file_contents);
+        pe_arena_temp_end(arena_temp);
     }
 
     GLuint shader_program = glCreateProgram();

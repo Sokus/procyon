@@ -4,6 +4,7 @@
 #include "pe_net.h"
 #include "pe_protocol.h"
 #include "game/pe_entity.h"
+#include "pe_temp_arena.h"
 
 
 #include <stdio.h>
@@ -204,8 +205,15 @@ void pe_process_input_state_message(peInputStateMessage *msg, peAddress address,
 void pe_receive_packets(void) {
     peAddress address;
     pePacket packet = {0};
-    peAllocator allocator = pe_heap_allocator();
-    while (pe_receive_packet(socket, allocator, &address, &packet)) {
+    peArena *temp_arena = pe_temp_arena();
+    peArenaTemp receive_packets_arena_temp = pe_arena_temp_begin(temp_arena);
+    while (true) {
+        peArenaTemp loop_arena_temp = pe_arena_temp_begin(temp_arena);
+        bool packet_received = pe_receive_packet(socket, temp_arena, &address, &packet);
+        if (!packet_received) {
+            break;
+        }
+
         int client_index;
         bool client_exists = pe_find_existing_client_index(address, &client_index);
         for (int i = 0; i < packet.message_count; i += 1) {
@@ -224,11 +232,10 @@ void pe_receive_packets(void) {
             }
         }
 
-        for (int i = 0; i < packet.message_count; i += 1) {
-            pe_message_destroy(allocator, packet.messages[i]);
-        }
+        pe_arena_temp_end(loop_arena_temp);
         packet.message_count = 0;
     }
+    pe_arena_temp_end(receive_packets_arena_temp);
 }
 
 void pe_send_packets(void) {

@@ -8,7 +8,7 @@
 #include "pe_file_io.h"
 #include "pe_graphics.h"
 #include "pe_model.h"
-#include "pe_temp_allocator.h"
+#include "pe_temp_arena.h"
 #include "pe_graphics_psp.h"
 
 #include <stdio.h>
@@ -42,7 +42,7 @@ void pe_default_texture_init(void) {
 
 	peArenaTemp temp_arena_memory = pe_arena_temp_begin(pe_temp_arena());
 	{
-		uint16_t *texture_data = pe_alloc(pe_temp_allocator(), texture_data_size);
+		uint16_t *texture_data = pe_alloc(pe_temp_arena(), texture_data_size);
 		for (int y = 0; y < texture_height; y++) {
 			for (int x = 0; x < texture_width; x++) {
 				if (y < texture_height/2 && x < texture_width/2 || y >= texture_height/2 && x >= texture_width/2) {
@@ -301,7 +301,7 @@ int main(int argc, char* argv[])
 
 		pe_graphics_frame_end(true);
 
-		pe_free_all(pe_temp_allocator());
+		pe_free_all(pe_temp_arena());
 	}
 
 	sceGuTerm();

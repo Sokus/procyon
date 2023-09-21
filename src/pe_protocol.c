@@ -40,7 +40,7 @@ static peSerializationError pe_serialize_world_state_message(peBitStream *bs, pe
     return err;
 }
 
-peMessage pe_message_create(peAllocator a, peMessageType type) {
+peMessage pe_message_create(peArena *arena, peMessageType type) {
     PE_ASSERT(type >= 0);
     PE_ASSERT(type < peMessageType_Count);
     peMessage message = {0};
@@ -55,12 +55,8 @@ peMessage pe_message_create(peAllocator a, peMessageType type) {
         default: PE_PANIC(); return message;
     }
     message.type = type;
-    message.any = pe_alloc(a, message_size);
+    message.any = pe_arena_alloc(arena, message_size);
     return message;
-}
-
-void pe_message_destroy(peAllocator a, peMessage msg) {
-    pe_free(a, msg.any);
 }
 
 peSerializationError pe_serialize_message(peBitStream *bs, peMessage *msg) {
@@ -113,7 +109,7 @@ bool pe_send_packet(peSocket socket, peAddress address, pePacket *packet) {
     return true;
 }
 
-bool pe_receive_packet(peSocket socket, peAllocator allocator, peAddress *address, pePacket *packet) {
+bool pe_receive_packet(peSocket socket, peArena *arena, peAddress *address, pePacket *packet) {
     PE_ASSERT(packet->message_count == 0);
 
     uint8_t buffer[1400];
@@ -142,23 +138,12 @@ bool pe_receive_packet(peSocket socket, peAllocator allocator, peAddress *addres
         peMessageType message_type;
         peSerializationError s_error;
         s_error = pe_serialize_enum(&read_stream, &message_type, peMessageType_Count);
-        if (s_error) goto cleanup;
-        peMessage msg = pe_message_create(allocator, message_type);
+        if (s_error) return false;
+        peMessage msg = pe_message_create(arena, message_type);
         packet->messages[packet->message_count] = msg;
         packet->message_count += 1;
         s_error = pe_serialize_message(&read_stream, &msg);
-        if (s_error) goto cleanup;
+        if (s_error) return false;
     }
     return true;
-
-cleanup:
-    pe_free_packet(allocator, packet);
-    return false;
-}
-
-void pe_free_packet(peAllocator a, pePacket *packet) {
-    for (int i = 0; i < packet->message_count; i += 1) {
-        pe_message_destroy(a, packet->messages[i]);
-    }
-    packet->message_count = 0;
 }

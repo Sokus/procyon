@@ -35,7 +35,6 @@ typedef struct peTexture {
 	GLuint texture_object;
 #endif
 #if defined(PSP)
-	peAllocator allocator;
 	void *data;
 	int width;
 	int height;
@@ -46,7 +45,7 @@ typedef struct peTexture {
 #endif
 } peTexture;
 
-peTexture pe_texture_create(peAllocator allocator, void *data, int width, int height, int format);
+peTexture pe_texture_create(void *data, int width, int height, int format);
 void pe_texture_destroy(peTexture texture);
 void pe_texture_bind(peTexture texture);
 void pe_texture_unbind(void);

@@ -15,6 +15,6 @@ struct peAllocator;
 struct peAllocator pe_edram_allocator(void);
 
 struct peTexture;
-struct peTexture pe_texture_create_psp(struct peAllocator allocator, void *data, int width, int height, int format);
+struct peTexture pe_texture_create_psp(void *data, int width, int height, int format);
 
 #endif // PE_GRAPHICS_PSP_H_HEADER_GUARD

@@ -16,9 +16,8 @@
 #include <stdint.h>
 
 
-peFileContents pe_file_read_contents(peAllocator allocator, const char *file_path, bool zero_terminate) {
+peFileContents pe_file_read_contents(peArena *arena, const char *file_path, bool zero_terminate) {
     peFileContents result = {0};
-    result.allocator = allocator;
 
 #if defined(_WIN32)
     HANDLE file_handle;
@@ -77,7 +76,7 @@ peFileContents pe_file_read_contents(peAllocator allocator, const char *file_pat
         total_size = (size_t)(zero_terminate ? file_size + 1 : file_size);
     }
 
-    void *data = pe_alloc(allocator, total_size);
+    void *data = pe_arena_alloc(arena, total_size);
     if (data == NULL) {
 #if defined(_WIN32)
         CloseHandle(file_handle);
@@ -113,7 +112,6 @@ peFileContents pe_file_read_contents(peAllocator allocator, const char *file_pat
         ssize_t bytes_read = read(file_handle, data, file_size);
         if (bytes_read < 0) {
             close(file_handle);
-            pe_free(allocator, data);
             return result;
         }
         PE_ASSERT(bytes_read == file_size);
@@ -127,8 +125,4 @@ peFileContents pe_file_read_contents(peAllocator allocator, const char *file_pat
         ((uint8_t*)data)[file_size] = 0;
     }
     return result;
-}
-
-void pe_file_free_contents(peFileContents contents) {
-    pe_free(contents.allocator, contents.data);
 }

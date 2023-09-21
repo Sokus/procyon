@@ -10,7 +10,7 @@
 #include "pe_window_glfw.h"
 #include "pe_model.h"
 #include "p3d.h"
-#include "pe_temp_allocator.h"
+#include "pe_temp_arena.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -373,7 +373,7 @@ int main(int argc, char *argv[]) {
 
         pe_graphics_frame_end(true);
 
-        pe_free_all(pe_temp_allocator());
+        pe_free_all(pe_temp_arena());
     }
 
     pe_glfw_shutdown();

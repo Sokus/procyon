@@ -1,7 +1,7 @@
 #include "pe_core.h"
 #include "pe_platform.h"
 #include "pe_graphics.h"
-#include "pe_temp_allocator.h"
+#include "pe_temp_arena.h"
 
 #if defined(_WIN32)
 #include "pe_window_glfw.h"
@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) {
 		// do model rendering here
 
 		pe_graphics_frame_end(true);
-		pe_free_all(pe_temp_allocator());
+		pe_free_all(pe_temp_arena());
 	}
 
 #if defined(_WIN32)

@@ -2,7 +2,7 @@
 
 #include "pe_core.h"
 #include "pe_platform.h"
-#include "pe_temp_allocator.h"
+#include "pe_temp_arena.h"
 
 #if defined(_WIN32)
     #include "win32/win32_d3d.h"
@@ -59,11 +59,11 @@ uint32_t pe_color_to_8888(peColor color) {
 	return result;
 }
 
-peTexture pe_texture_create(peAllocator allocator, void *data, int width, int height, int format) {
+peTexture pe_texture_create(void *data, int width, int height, int format) {
 #if defined(__linux__)
 	return pe_texture_create_linux(data, width, height, format);
 #elif defined(PSP)
-	return pe_texture_create_psp(allocator, data, width, height, format);
+	return pe_texture_create_psp(data, width, height, format);
 #endif
 }
 

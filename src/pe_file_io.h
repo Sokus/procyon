@@ -4,12 +4,10 @@
 #include "pe_core.h"
 
 typedef struct peFileContents {
-    peAllocator allocator;
     void *data;
     size_t size;
 } peFileContents;
 
-peFileContents pe_file_read_contents(peAllocator allocator, const char *file_path, bool zero_terminate);
-void pe_file_free_contents(peFileContents contents);
+peFileContents pe_file_read_contents(peArena *arena, const char *file_path, bool zero_terminate);
 
 #endif // PE_FILE_IO_H

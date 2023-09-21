@@ -14,7 +14,7 @@ add_library(shared STATIC
     src/pe_bit_stream.c
     src/pe_protocol.c
     src/pe_file_io.c
-    src/pe_temp_allocator.c
+    src/pe_temp_arena.c
     src/game/pe_entity.c
 )
 target_include_directories(shared PRIVATE src)
@@ -26,7 +26,6 @@ endif()
 if(WIN32 OR LINUX)
     add_executable(procyon
         #src/client/main.c
-        #src/client/linux_main.c
         src/client/pe_graphics.c
         src/client/pe_platform.c
         src/client/pe_model.c
@@ -42,6 +41,7 @@ if(WIN32 OR LINUX)
         )
     elseif(LINUX)
         target_sources(procyon PRIVATE
+            src/client/linux_main.c
             ext/glad-gl-4.2-core/src/glad.c
             src/client/pe_graphics_linux.c
         )

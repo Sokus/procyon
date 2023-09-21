@@ -1,7 +1,7 @@
 #include "pe_graphics.h"
 #include "pe_graphics_psp.h"
 #include "pe_core.h"
-#include "pe_temp_allocator.h"
+#include "pe_temp_arena.h"
 
 #include <pspge.h>
 #include <pspgu.h>
@@ -126,14 +126,14 @@ static void swizzle_fast(u8 *out, const u8 *in, unsigned int width, unsigned int
 	}
 }
 
-peTexture pe_texture_create_psp(peAllocator allocator, void *data, int width, int height, int format) {
+peTexture pe_texture_create_psp(void *data, int width, int height, int format) {
 	int power_of_two_width = closest_greater_power_of_two(width);
 	int power_of_two_height = closest_greater_power_of_two(height);
 	unsigned int size = power_of_two_width * power_of_two_height * bytes_per_pixel(format);
 
 	peArenaTemp temp_arena_memory = pe_arena_temp_begin(pe_temp_arena());
 
-	unsigned int *data_buffer = pe_alloc_align(pe_temp_allocator(), size, 16);
+	unsigned int *data_buffer = pe_alloc_align(pe_temp_arena(), size, 16);
 	copy_texture_data(data_buffer, data, power_of_two_width, width, height);
 
     unsigned int* swizzled_pixels = pe_alloc_align(allocator, size, 16);

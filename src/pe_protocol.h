@@ -71,18 +71,16 @@ typedef struct pePacket {
     int message_count;
 } pePacket;
 
-typedef struct peAllocator peAllocator;
-typedef enum peSerializationError peSerializationError;
-typedef struct peBitStream peBitStream;
-peMessage pe_message_create(peAllocator a, peMessageType type);
-void pe_message_destroy(peAllocator a, peMessage msg);
-peSerializationError pe_serialize_message(peBitStream *bs, peMessage *msg);
+struct peArena;
+struct peBitStream;
+enum peSerializationError;
+peMessage pe_message_create(struct peArena *arena, peMessageType type);
+enum peSerializationError pe_serialize_message(struct peBitStream *bs, peMessage *msg);
 void pe_append_message(pePacket *packet, peMessage msg);
 
 typedef struct peSocket peSocket;
 typedef struct peAddress peAddress;
 bool pe_send_packet(peSocket socket, peAddress address, pePacket *packet);
-bool pe_receive_packet(peSocket socket, peAllocator allocator, peAddress *address, pePacket *packet);
-void pe_free_packet(peAllocator a, pePacket *packet);
+bool pe_receive_packet(peSocket socket, struct peArena *arena, peAddress *address, pePacket *packet);
 
 #endif // PE_PROTOCOL_H
