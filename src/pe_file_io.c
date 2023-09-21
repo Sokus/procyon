@@ -94,7 +94,6 @@ peFileContents pe_file_read_contents(peArena *arena, const char *file_path, bool
         DWORD bytes_read;
         if (!ReadFile(file_handle, data, file_size, &bytes_read, NULL)) {
             CloseHandle(file_handle);
-            pe_free(allocator, data);
             return result;
         }
         PE_ASSERT(bytes_read == file_size);
@@ -103,7 +102,6 @@ peFileContents pe_file_read_contents(peArena *arena, const char *file_path, bool
         int bytes_read = sceIoRead(file_handle, data, file_size);
         if (bytes_read < 0) {
             sceIoClose(file_handle);
-            pe_free(allocator, data);
             return result;
         }
         PE_ASSERT(bytes_read == file_size);

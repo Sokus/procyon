@@ -42,7 +42,7 @@ void pe_default_texture_init(void) {
 
 	peArenaTemp temp_arena_memory = pe_arena_temp_begin(pe_temp_arena());
 	{
-		uint16_t *texture_data = pe_alloc(pe_temp_arena(), texture_data_size);
+		uint16_t *texture_data = pe_arena_alloc(pe_temp_arena(), texture_data_size);
 		for (int y = 0; y < texture_height; y++) {
 			for (int x = 0; x < texture_width; x++) {
 				if (y < texture_height/2 && x < texture_width/2 || y >= texture_height/2 && x >= texture_width/2) {
@@ -52,7 +52,7 @@ void pe_default_texture_init(void) {
 				}
 			}
 		}
-		default_texture = pe_texture_create(pe_edram_allocator(), texture_data, texture_width, texture_height, GU_PSM_5650);
+		default_texture = pe_texture_create(texture_data, texture_width, texture_height, GU_PSM_5650);
 	}
 	pe_arena_temp_end(temp_arena_memory);
 }
@@ -106,10 +106,16 @@ extern peEntity *entities;
 void pe_receive_packets(void) {
 	peAddress address;
 	pePacket packet = {0};
-	peAllocator allocator = pe_heap_allocator();
-	while (pe_receive_packet(socket, allocator, &address, &packet)) {
-		if (!pe_address_compare(address, server_address)) {
-			goto message_cleanup;
+
+
+	peArena *temp_arena = pe_temp_arena();
+	peArenaTemp receive_packets_arena_temp = pe_arena_temp_begin(temp_arena);
+	while (true) {
+		peArenaTemp loop_arena_temp = pe_arena_temp_begin(temp_arena);
+
+		bool packet_received = pe_receive_packet(socket, temp_arena, &address, &packet);
+		if (!packet_received || !pe_address_compare(address, server_address)) {
+			break;
 		}
 
 		for (int m = 0; m < packet.message_count; m += 1) {
@@ -147,12 +153,10 @@ void pe_receive_packets(void) {
 			}
 		}
 
-message_cleanup:
-		for (int m = 0; m < packet.message_count; m += 1) {
-			pe_message_destroy(allocator, packet.messages[m]);
-		}
 		packet.message_count = 0;
+		pe_arena_temp_end(loop_arena_temp);
 	}
+	pe_arena_temp_end(receive_packets_arena_temp);
 }
 
 void pe_draw_line(HMM_Vec3 start_pos, HMM_Vec3 end_pos, peColor color) {
@@ -177,7 +181,9 @@ void pe_draw_line(HMM_Vec3 start_pos, HMM_Vec3 end_pos, peColor color) {
 
 int main(int argc, char* argv[])
 {
-	pe_temp_allocator_init(PE_MEGABYTES(4));
+	pe_temp_arena_init(PE_MEGABYTES(4));
+	peArena *temp_arena = pe_temp_arena();
+
 	pe_platform_init();
 
 	pe_graphics_init(0, 0, NULL);
@@ -206,7 +212,7 @@ int main(int argc, char* argv[])
 		int w, h, channels;
 		stbi_uc *stbi_data = stbi_load(fox_diffuse_texture_paths[t], &w, &h, &channels, STBI_rgb_alpha);
 		model.material[t].has_diffuse_map = true;
-		model.material[t].diffuse_map = pe_texture_create(pe_edram_allocator(), stbi_data, w, h, GU_PSM_8888);
+		model.material[t].diffuse_map = pe_texture_create(stbi_data, w, h, GU_PSM_8888);
 	}
 
 	float aspect = (float)pe_screen_width()/(float)pe_screen_height();
@@ -231,6 +237,7 @@ int main(int argc, char* argv[])
 			//pe_receive_packets();
 		}
 
+		peArenaTemp send_packets_arena_temp = pe_arena_temp_begin(pe_temp_arena());
 		switch (network_state) {
 			case peClientNetworkState_Disconnected: {
 				fprintf(stdout, "connecting to the server\n");
@@ -249,27 +256,20 @@ int main(int argc, char* argv[])
 				uint64_t ticks_since_last_sent_packet = pe_time_since(last_packet_send_time);
 				float seconds_since_last_sent_packet = (float)pe_time_sec(ticks_since_last_sent_packet);
 				if (seconds_since_last_sent_packet > connection_request_send_interval) {
-					peMessage message = pe_message_create(pe_heap_allocator(), peMessageType_ConnectionRequest);
+					peMessage message = pe_message_create(temp_arena, peMessageType_ConnectionRequest);
 					pe_append_message(&outgoing_packet, message);
 				}
 			} break;
 			case peClientNetworkState_Connected: {
-				peMessage message = pe_message_create(pe_heap_allocator(), peMessageType_InputState);
+				peMessage message = pe_message_create(temp_arena, peMessageType_InputState);
 				message.input_state->input.movement.X = pe_input_axis(peGamepadAxis_LeftX);
 				message.input_state->input.movement.Y = pe_input_axis(peGamepadAxis_LeftY);
 				pe_append_message(&outgoing_packet, message);
 			} break;
 			default: break;
 		}
-
-		if (outgoing_packet.message_count > 0) {
-			//pe_send_packet(socket, server_address, &outgoing_packet);
-			last_packet_send_time = pe_time_now();
-			for (int m = 0; m < outgoing_packet.message_count; m += 1) {
-				pe_message_destroy(pe_heap_allocator(), outgoing_packet.messages[m]);
-			}
-			outgoing_packet.message_count = 0;
-		}
+		outgoing_packet.message_count = 0;
+		pe_arena_temp_end(send_packets_arena_temp);
 
 		pe_graphics_frame_begin();
 
@@ -301,7 +301,7 @@ int main(int argc, char* argv[])
 
 		pe_graphics_frame_end(true);
 
-		pe_free_all(pe_temp_arena());
+		pe_arena_clear(pe_temp_arena());
 	}
 
 	sceGuTerm();

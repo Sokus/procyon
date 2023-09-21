@@ -11,7 +11,6 @@
 
 
 static peArena edram_arena;
-static peAllocator edram_allocator;
 static bool gu_initialized = false;
 
 unsigned int __attribute__((aligned(16))) list[262144];
@@ -36,15 +35,14 @@ static unsigned int bytes_per_pixel(unsigned int psm) {
 }
 
 void pe_graphics_init_psp(void) {
-	pe_arena_init_from_memory(&edram_arena, sceGeEdramGetAddr(), sceGeEdramGetSize());
-	edram_allocator = pe_arena_allocator(&edram_arena);
+	pe_arena_init(&edram_arena, sceGeEdramGetAddr(), sceGeEdramGetSize());
 
 	unsigned int framebuffer_size = PSP_BUFF_W * PSP_SCREEN_H * bytes_per_pixel(GU_PSM_5650);
-	void *framebuffer0 = pe_alloc_align(edram_allocator, framebuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
-	void *framebuffer1 = pe_alloc_align(edram_allocator, framebuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
+	void *framebuffer0 = pe_arena_alloc_align(&edram_arena, framebuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
+	void *framebuffer1 = pe_arena_alloc_align(&edram_arena, framebuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
 
     unsigned int depthbuffer_size = PSP_BUFF_W * PSP_SCREEN_H * bytes_per_pixel(GU_PSM_4444);
-	void *depthbuffer = pe_alloc_align(edram_allocator, depthbuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
+	void *depthbuffer = pe_arena_alloc_align(&edram_arena, depthbuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
 
 	sceGuInit();
 
@@ -52,10 +50,10 @@ void pe_graphics_init_psp(void) {
 	sceGuDrawBuffer(GU_PSM_5650, framebuffer0, PSP_BUFF_W);
 	sceGuDispBuffer(PSP_SCREEN_W, PSP_SCREEN_H, framebuffer1, PSP_BUFF_W);
 	sceGuDepthBuffer(depthbuffer, PSP_BUFF_W);
-	sceGuOffset(2048 - (PSP_SCREEN_W/2),2048 - (PSP_SCREEN_H/2));
-	sceGuViewport(2048,2048,PSP_SCREEN_W,PSP_SCREEN_H);
-	sceGuDepthRange(65535,0);
-	sceGuScissor(0,0,PSP_SCREEN_W,PSP_SCREEN_H);
+	sceGuOffset(2048 - (PSP_SCREEN_W/2), 2048 - (PSP_SCREEN_H/2));
+	sceGuViewport(2048, 2048, PSP_SCREEN_W, PSP_SCREEN_H);
+	sceGuDepthRange(65535, 0);
+	sceGuScissor(0, 0, PSP_SCREEN_W, PSP_SCREEN_H);
 	sceGuEnable(GU_SCISSOR_TEST);
 	sceGuDepthFunc(GU_GEQUAL);
 	sceGuEnable(GU_DEPTH_TEST);
@@ -64,7 +62,7 @@ void pe_graphics_init_psp(void) {
 	sceGuEnable(GU_CULL_FACE);
 	sceGuEnable(GU_CLIP_PLANES);
 	sceGuFinish();
-	sceGuSync(0,0);
+	sceGuSync(0, 0);
 
 	sceDisplayWaitVblankStart();
 	sceGuDisplay(GU_TRUE);
@@ -75,11 +73,6 @@ void pe_graphics_init_psp(void) {
     gu_initialized = true;
 }
 
-PE_INLINE peAllocator pe_edram_allocator(void) {
-    PE_ASSERT(gu_initialized);
-    return edram_allocator;
-}
-
 static unsigned int closest_greater_power_of_two(unsigned int value) {
 	if (value == 0 || value > (1 << 31))
 		return 0;
@@ -87,7 +80,6 @@ static unsigned int closest_greater_power_of_two(unsigned int value) {
 	while (power_of_two < value)
 		power_of_two <<= 1;
 	return power_of_two;
-
 }
 
 static void copy_texture_data(void *dest, const void *src, const int pW, const int width, const int height) {
@@ -133,17 +125,16 @@ peTexture pe_texture_create_psp(void *data, int width, int height, int format) {
 
 	peArenaTemp temp_arena_memory = pe_arena_temp_begin(pe_temp_arena());
 
-	unsigned int *data_buffer = pe_alloc_align(pe_temp_arena(), size, 16);
+	unsigned int *data_buffer = pe_arena_alloc_align(pe_temp_arena(), size, 16);
 	copy_texture_data(data_buffer, data, power_of_two_width, width, height);
 
-    unsigned int* swizzled_pixels = pe_alloc_align(allocator, size, 16);
+    unsigned int* swizzled_pixels = pe_arena_alloc_align(&edram_arena, size, 16);
     swizzle_fast((u8*)swizzled_pixels, data, power_of_two_width*bytes_per_pixel(format), power_of_two_height);
 	sceKernelDcacheWritebackRange(swizzled_pixels, size);
 
 	pe_arena_temp_end(temp_arena_memory);
 
 	peTexture texture = {
-		.allocator = allocator,
 		.data = swizzled_pixels,
 		.width = width,
 		.height = height,

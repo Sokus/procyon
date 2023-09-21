@@ -46,7 +46,6 @@ typedef struct peTexture {
 } peTexture;
 
 peTexture pe_texture_create(void *data, int width, int height, int format);
-void pe_texture_destroy(peTexture texture);
 void pe_texture_bind(peTexture texture);
 void pe_texture_unbind(void);
 

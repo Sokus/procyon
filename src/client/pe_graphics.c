@@ -67,14 +67,6 @@ peTexture pe_texture_create(void *data, int width, int height, int format) {
 #endif
 }
 
-void pe_texture_destroy(peTexture texture) {
-#if defined(__linux__)
-	glDeleteTextures(1, &texture.texture_object);
-#elif defined(PSP)
-	pe_free(texture.allocator, texture.data);
-#endif
-}
-
 void pe_texture_bind(peTexture texture) {
 #if defined(__linux__)
 	glActiveTexture(GL_TEXTURE0);

@@ -531,45 +531,10 @@ static peModel pe_model_load_psp(const char *file_path) {
 
 	size_t VERT_MEM_ALIGN = 16;
 
-	peMeasureAllocatorData measure_data = { .alignment = VERT_MEM_ALIGN };
-	peAllocator measure_allocator = pe_measure_allocator(&measure_data);
-	pe_alloc(measure_allocator, material_size);
-	pe_alloc(measure_allocator, subskeleton_size);
-	pe_alloc(measure_allocator, bone_parent_index_size);
-	pe_alloc(measure_allocator, bone_inverse_model_space_pose_matrix_size);
-	pe_alloc(measure_allocator, animation_size);
-	pe_alloc(measure_allocator, mesh_size);
-	pe_alloc(measure_allocator, mesh_material_size);
-	pe_alloc(measure_allocator, mesh_subskeleton_size);
-
-	for (int a = 0; a < pp3d_static_info->num_animations; a += 1) {
-		size_t num_animation_joint = pp3d_animation_info[a].num_frames * pp3d_static_info->num_bones;
-		size_t animation_joint_size = num_animation_joint * sizeof(peAnimationJoint);
-		pe_alloc(measure_allocator, animation_joint_size);
-	}
-
-	for (int m = 0; m < pp3d_static_info->num_meshes; m += 1) {
-		PE_ASSERT(pp3d_mesh_info[m].num_vertex > 0);
-		PE_ASSERT(pp3d_mesh_info[m].subskeleton_index >= 0);
-		PE_ASSERT(pp3d_mesh_info[m].subskeleton_index < pp3d_static_info->num_subskeletons);
-		uint8_t num_weights = pp3d_subskeleton_info[pp3d_mesh_info[m].subskeleton_index].num_bones;
-		size_t vertex_size = (
-			num_weights * sizeof(float) +
-			2 * sizeof(uint16_t) + // uv
-			3 * sizeof(uint16_t) + // normal
-			3 * sizeof(uint16_t)   // position
-		);
-		pe_alloc_align(measure_allocator, pp3d_mesh_info[m].num_vertex * vertex_size, VERT_MEM_ALIGN);
-
-
-		if (pp3d_mesh_info[m].num_index > 0) {
-			pe_alloc_align(measure_allocator, pp3d_mesh_info[m].num_index * sizeof(uint16_t), VERT_MEM_ALIGN);
-		}
-	}
-
 	peModel model = {0};
-	pe_arena_init_from_allocator_align(&model.arena, pe_heap_allocator(), measure_data.total_allocated, VERT_MEM_ALIGN);
-	peAllocator model_allocator = pe_arena_allocator(&model.arena);
+	peArena model_arena;
+	void *model_memory = pe_heap_alloc_align(PE_KILOBYTES(512), VERT_MEM_ALIGN);
+	pe_arena_init(&model_arena, model_memory, PE_KILOBYTES(512));
 
 	model.scale = pp3d_static_info->scale;
 	model.num_mesh = pp3d_static_info->num_meshes;
@@ -578,13 +543,13 @@ static peModel pe_model_load_psp(const char *file_path) {
 	model.num_animations = pp3d_static_info->num_animations;
 	model.num_bone = pp3d_static_info->num_bones;
 
-	model.material = pe_alloc(model_allocator, material_size);
+	model.material = pe_arena_alloc(&model_arena, material_size);
 	for (int m = 0; m < pp3d_static_info->num_materials; m += 1) {
 		model.material[m] = pe_default_material();
 		model.material[m].diffuse_color.rgba = pp3d_material_info[m].diffuse_color;
 	}
 
-	model.subskeleton = pe_alloc(model_allocator, subskeleton_size);
+	model.subskeleton = pe_arena_alloc(&model_arena, subskeleton_size);
 	for (int s = 0; s < pp3d_static_info->num_subskeletons; s += 1) {
 		model.subskeleton[s].num_bones = pp3d_subskeleton_info[s].num_bones;
 		for (int b = 0; b < pp3d_subskeleton_info[s].num_bones; b += 1) {
@@ -592,7 +557,7 @@ static peModel pe_model_load_psp(const char *file_path) {
 		}
 	}
 
-	model.animation = pe_alloc(model_allocator, animation_size);
+	model.animation = pe_arena_alloc(&model_arena, animation_size);
 	for (int a = 0; a < pp3d_static_info->num_animations; a += 1) {
 		PE_ASSERT(sizeof(model.animation[a].name) == sizeof(pp3d_animation_info[a].name));
 		memcpy(model.animation[a].name, pp3d_animation_info[a].name, sizeof(model.animation[a].name));
@@ -601,15 +566,15 @@ static peModel pe_model_load_psp(const char *file_path) {
 
 		size_t num_animation_joint = pp3d_animation_info[a].num_frames * pp3d_static_info->num_bones;
 		size_t animation_joint_size = num_animation_joint * sizeof(peAnimationJoint);
-		model.animation[a].frames = pe_alloc(model_allocator, animation_joint_size);
+		model.animation[a].frames = pe_arena_alloc(&model_arena, animation_joint_size);
 	}
 
-	model.bone_parent_index = pe_alloc(model_allocator, bone_parent_index_size);
-	model.bone_inverse_model_space_pose_matrix = pe_alloc(model_allocator, bone_inverse_model_space_pose_matrix_size);
+	model.bone_parent_index = pe_arena_alloc(&model_arena, bone_parent_index_size);
+	model.bone_inverse_model_space_pose_matrix = pe_arena_alloc(&model_arena, bone_inverse_model_space_pose_matrix_size);
 
-	model.mesh = pe_alloc(model_allocator, mesh_size);
-	model.mesh_material = pe_alloc(model_allocator, mesh_material_size);
-	model.mesh_subskeleton = pe_alloc(model_allocator, mesh_subskeleton_size);
+	model.mesh = pe_arena_alloc(&model_arena, mesh_size);
+	model.mesh_material = pe_arena_alloc(&model_arena, mesh_material_size);
+	model.mesh_subskeleton = pe_arena_alloc(&model_arena, mesh_subskeleton_size);
 	pe_zero_size(model.mesh, mesh_size);
 	for (int m = 0; m < pp3d_static_info->num_meshes; m += 1) {
 		model.mesh_material[m] = pp3d_mesh_info[m].material_index;
@@ -630,14 +595,14 @@ static peModel pe_model_load_psp(const char *file_path) {
 			3 * sizeof(int16_t)	 // position
 		);
 		size_t total_vertex_size = vertex_size * pp3d_mesh_info[m].num_vertex;
-		model.mesh[m].vertex = pe_alloc_align(model_allocator, total_vertex_size, VERT_MEM_ALIGN);
+		model.mesh[m].vertex = pe_arena_alloc_align(&model_arena, total_vertex_size, VERT_MEM_ALIGN);
 		memcpy(model.mesh[m].vertex, pp3d_file_pointer, total_vertex_size);
 		pp3d_file_pointer += total_vertex_size;
 
 		if (pp3d_mesh_info[m].num_index > 0) {
 			model.mesh[m].vertex_type |= GU_INDEX_16BIT;
 			size_t index_size = pp3d_mesh_info[m].num_index * sizeof(uint16_t);
-			model.mesh[m].index = pe_alloc_align(model_allocator, index_size, VERT_MEM_ALIGN);
+			model.mesh[m].index = pe_arena_alloc_align(&model_arena, index_size, VERT_MEM_ALIGN);
 			memcpy(model.mesh[m].index, pp3d_file_pointer, index_size);
 			pp3d_file_pointer += index_size;
 		}
@@ -656,7 +621,7 @@ static peModel pe_model_load_psp(const char *file_path) {
 		pp3d_file_pointer += animation_joints_size;
 	}
 
-	sceKernelDcacheWritebackInvalidateRange(model.arena.physical_start, model.arena.total_allocated);
+	sceKernelDcacheWritebackInvalidateRange(model_arena.physical_start, model_arena.total_allocated);
 
 	pe_arena_temp_end(temp_arena_memory);
 
@@ -986,7 +951,7 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 	sceGumRotateXYZ((ScePspFVector3 *)&rotation);
 	sceGumScale(&scale_vector);
 
-	peAnimationJoint *model_space_joints = pe_alloc(pe_temp_arena(), model->num_bone * sizeof(peAnimationJoint));
+	peAnimationJoint *model_space_joints = pe_arena_alloc(pe_temp_arena(), model->num_bone * sizeof(peAnimationJoint));
 	peAnimationJoint *animation_joints = &model->animation[0].frames[0 * model->num_bone];
 	for (int b = 0; b < model->num_bone; b += 1) {
 		if (model->bone_parent_index[b] < UINT16_MAX) {
