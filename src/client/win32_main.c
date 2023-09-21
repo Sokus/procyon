@@ -10,6 +10,7 @@
 #include "pe_window_glfw.h"
 #include "pe_model.h"
 #include "p3d.h"
+#include "pe_temp_allocator.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -224,6 +225,7 @@ ID3D11ShaderResourceView *pe_create_grid_texture(void) {
 }
 
 int main(int argc, char *argv[]) {
+    pe_temp_allocator_init(PE_MEGABYTES(4));
     pe_time_init();
     pe_net_init();
     pe_platform_init();
@@ -242,6 +244,8 @@ int main(int argc, char *argv[]) {
     ///////////////////
 
     peModel model = pe_model_load("./res/fox.p3d");
+
+    printf("model loaded\n");
 
     //peMesh mesh = pe_gen_mesh_cube(1.0f, 1.0f, 1.0f);
     //peMesh quad = pe_gen_mesh_quad(1.0f, 1.0f);

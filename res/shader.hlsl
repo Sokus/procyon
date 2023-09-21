@@ -49,19 +49,14 @@ vs_out vs_main(vs_in input) {
     if (has_skeleton) {
         for (int b = 0; b < 4; b += 1) {
             uint bone_index = input.bone_index[b];
-            if (bone_index >= 255) {
-                continue;
+            if (bone_index < 255) {
+                float4 single_bone_skinned_position = mul(matrix_bone[input.bone_index[b]], float4(input.position, 1.0f));
+                skinned_position += mul(single_bone_skinned_position, input.bone_weight[b]);
             }
-            float4 single_bone_skinned_position = mul(matrix_bone[input.bone_index[b]], float4(input.position, 1.0f));
-            skinned_position += mul(single_bone_skinned_position, input.bone_weight[b]);
-
-            // TODO: Normals
         }
-
     } else {
         skinned_position = float4(input.position, 1.0f);
     }
-
 
     float4x4 projection = mul(mul(matrix_projection, matrix_view), matrix_model);
     vs_out output;

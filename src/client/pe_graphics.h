@@ -28,6 +28,9 @@ uint32_t pe_color_to_8888(peColor color);
 #define PE_COLOR_BLACK (peColor){   0,   0,   0,   0 }
 
 typedef struct peTexture {
+#if defined(_WIN32)
+	uint8_t zero;
+#endif
 #if defined(__linux__)
 	GLuint texture_object;
 #endif

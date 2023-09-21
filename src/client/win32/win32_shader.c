@@ -33,9 +33,9 @@ static bool pe_shader_compile(wchar_t *wchar_file_name, char *entry_point, char 
     ID3D10Blob *error_blob = NULL;
     HRESULT hr = D3DCompileFromFile(wchar_file_name, NULL, NULL, entry_point, profile, compiler_flags, 0, blob, &error_blob);
     if (!SUCCEEDED(hr)) {
-        printf("D3D11: Failed to read shader from file (%x)\n", hr);
+        printf("D3D11: Failed to read shader from file (%x):\n", hr);
         if (error_blob != NULL) {
-            printf("\tWith message: %s\n", (char *)ID3D10Blob_GetBufferPointer(error_blob));
+            printf("%s\n", (char *)ID3D10Blob_GetBufferPointer(error_blob));
             ID3D10Blob_Release(error_blob);
         }
         return false;

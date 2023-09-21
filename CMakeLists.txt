@@ -26,7 +26,7 @@ endif()
 if(WIN32 OR LINUX)
     add_executable(procyon
         #src/client/main.c
-        src/client/linux_main.c
+        #src/client/linux_main.c
         src/client/pe_graphics.c
         src/client/pe_platform.c
         src/client/pe_model.c
@@ -35,7 +35,7 @@ if(WIN32 OR LINUX)
 
     if(WIN32)
         target_sources(procyon PRIVATE
-            #src/client/win32_main.c
+            src/client/win32_main.c
             #src/client/win32_net_sample.c
             src/client/win32/win32_d3d.c
             src/client/win32/win32_shader.c
@@ -60,7 +60,7 @@ if(WIN32 OR LINUX)
     target_link_libraries(server shared)
 
     if(MSVC)
-        add_compile_options(-WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127)
+        add_compile_options(-WX -W4 -Wall -wd4201 -wd4100 -wd4189 -wd4505 -wd4127)
     endif()
 endif()
 

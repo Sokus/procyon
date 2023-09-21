@@ -16,7 +16,7 @@ void pe_assert_handler(char *prefix, char *condition, char *file, int line, char
 		va_end(va);
 	}
     buf_off += snprintf(&buf[buf_off], PE_COUNT_OF(buf)-buf_off-1, "\n");
-    fprintf(stderr, buf);
+    fprintf(stderr, "%s", buf);
 }
 
 #if !defined(_MSC_VER)

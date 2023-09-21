@@ -21,6 +21,8 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include "GLFW/glfw3native.h"
 
+#include <stdio.h>
+
 peDirect3D pe_d3d = {0};
 
 // TODO: Wrap those in a struct or something...
@@ -165,23 +167,34 @@ void pe_d3d11_init(void) {
         D3D_FEATURE_LEVEL levels[] = { D3D_FEATURE_LEVEL_11_0 };
         hr = D3D11CreateDevice(
             NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, flags, levels, ARRAYSIZE(levels),
-            D3D11_SDK_VERSION, &pe_d3d.device, NULL, &pe_d3d.context);
+            D3D11_SDK_VERSION, &pe_d3d.device, NULL, &pe_d3d.context
+        );
         // make sure device creation succeeeds before continuing
         // for simple applciation you could retry device creation with
         // D3D_DRIVER_TYPE_WARP driver type which enables software rendering
         // (could be useful on broken drivers or remote desktop situations)
-        PE_ASSERT(SUCCEEDED(hr));
-    }
+#ifndef NDEBUG
+        if (!SUCCEEDED(hr) && hr == DXGI_ERROR_SDK_COMPONENT_MISSING) {
+            flags &= ~D3D11_CREATE_DEVICE_DEBUG;
+            hr = D3D11CreateDevice(
+                NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, flags, levels, ARRAYSIZE(levels),
+                D3D11_SDK_VERSION, &pe_d3d.device, NULL, &pe_d3d.context
+            );
+        }
+#endif
+        PE_ASSERT_MSG(SUCCEEDED(hr), "D3D11CreateDevice failed with HRESULT=%x", hr);
 
 #ifndef NDEBUG
-    {
         ID3D11InfoQueue* info;
-        hr = ID3D11Device_QueryInterface(pe_d3d.device, &IID_ID3D11InfoQueue, (void**)&info);
-        hr = ID3D11InfoQueue_SetBreakOnSeverity(info, D3D11_MESSAGE_SEVERITY_CORRUPTION, TRUE);
-        hr = ID3D11InfoQueue_SetBreakOnSeverity(info, D3D11_MESSAGE_SEVERITY_ERROR, TRUE);
-        ID3D11InfoQueue_Release(info);
-    }
+        if (SUCCEEDED(ID3D11Device_QueryInterface(pe_d3d.device, &IID_ID3D11InfoQueue, (void**)&info))) {
+            hr = ID3D11InfoQueue_SetBreakOnSeverity(info, D3D11_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+            hr = ID3D11InfoQueue_SetBreakOnSeverity(info, D3D11_MESSAGE_SEVERITY_ERROR, TRUE);
+            ID3D11InfoQueue_Release(info);
+        } else {
+            printf("Sorry no debug layer installed!\n");
+        }
 #endif
+    }
 
     // create DXGI swap chain
     {
