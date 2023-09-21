@@ -104,83 +104,41 @@ void pe_assert_handler(char *prefix, char *condition, char *file, int line, char
 #define PE_MAX(a, b) ((a)>=(b)?(a):(b))
 #define PE_MIN(a, b) ((a)<=(b)?(a):(b))
 
-typedef enum peAllocationType {
-	peAllocation_Alloc,
-	peAllocation_Free,
-	peAllocation_FreeAll,
-	peAllocation_Resize,
-} peAllocationType;
-
-typedef void *peAllocatorProc(
-    void *allocator_data, peAllocationType type,
-    size_t size, size_t alignment,
-    void *old_memory, size_t old_size
-);
-
-typedef struct peAllocator {
-	peAllocatorProc *proc;
-	void *data;
-} peAllocator;
-
-// NOTE: Temporary
-#define PE_DEFAULT_MEMORY_ALIGNMENT (sizeof(void *)) // PSP
-
 #ifndef PE_DEFAULT_MEMORY_ALIGNMENT
 #define PE_DEFAULT_MEMORY_ALIGNMENT (2 * sizeof(void *))
 #endif
 
-void *pe_alloc_align (peAllocator a, size_t size, size_t aligmnent);
-void *pe_alloc       (peAllocator a, size_t size);
-void  pe_free        (peAllocator a, void *ptr);
-void  pe_free_all    (peAllocator a);
-void *pe_resize_align(peAllocator a, void *ptr, size_t old_size, size_t new_size, size_t alignment);
-void *pe_resize      (peAllocator a, void *ptr, size_t old_size, size_t new_size);
-
-#ifndef PE_ALLOC_ITEM
-#define PE_ALLOC_ITEM(allocator, Type)         (Type *)pe_alloc(allocator, sizeof(Type))
-#define PE_ALLOC_ARRAY(allocator, Type, count) (Type *)pe_alloc(allocator, sizeof(Type) * (count))
-#endif
-
-peAllocator pe_heap_allocator(void);
-
-typedef struct peMeasureAllocatorData {
-	size_t alignment;
-	size_t total_allocated;
-} peMeasureAllocatorData;
-peAllocator pe_measure_allocator(peMeasureAllocatorData *data);
-
-#ifndef PE_MALLOC
-#define PE_MALLOC(sz) pe_alloc(pe_heap_allocator(), sz)
-#define PE_FREE(ptr) pe_free(pe_heap_allocator(), ptr)
-#endif
+void *pe_heap_alloc_align(size_t size, size_t alignment);
+void *pe_heap_alloc      (size_t size);
+void  pe_heap_free       (void *ptr);
 
 typedef struct peArena {
-    peAllocator backing;
     void * physical_start;
     size_t total_size;
     size_t total_allocated;
 	size_t temp_count;
 } peArena;
 
-void pe_arena_init_from_memory         (peArena *arena, void *start, size_t size);
-void pe_arena_init_from_allocator_align(peArena *arena, peAllocator backing, size_t size, size_t alignment);
-void pe_arena_init_from_allocator      (peArena *arena, peAllocator backing, size_t size);
-void pe_arena_init_sub                 (peArena *arena, peArena *parent_arena, size_t size);
-void pe_arena_free                     (peArena *arena);
-void pe_arena_rewind_to_pointer        (peArena *arena, void *pointer);
+void pe_arena_init          (peArena *arena, void *start, size_t size);
+void pe_arena_init_sub_align(peArena *arena, peArena *parent_arena, size_t size, size_t alignment);
+void pe_arena_init_sub      (peArena *arena, peArena *parent_arena, size_t size);
 
 size_t pe_arena_alignment_offset(peArena *arena, size_t alignment);
 size_t pe_arena_size_remaining(peArena *arena, size_t alignment);
 
-peAllocator pe_arena_allocator(peArena *arena);
+void *pe_arena_alloc_align(peArena *arena, size_t size, size_t alignment);
+void *pe_arena_alloc      (peArena *arena, size_t size);
+void  pe_arena_clear      (peArena *arena);
 
-typedef struct peTempArenaMemory {
+void pe_arena_rewind_to_pointer(peArena *arena, void *pointer);
+
+typedef struct peArenaTemp {
 	peArena *arena;
 	size_t original_count;
-} peTempArenaMemory;
+} peArenaTemp;
 
-peTempArenaMemory pe_temp_arena_memory_begin(peArena *arena);
-void              pe_temp_arena_memory_end  (peTempArenaMemory temp_arena_memory);
+peArenaTemp pe_arena_temp_begin(peArena *arena);
+void        pe_arena_temp_end  (peArenaTemp temp_arena_memory);
 
 void pe_zero_size(void *ptr, size_t size);
 bool pe_is_power_of_two(uintptr_t x);

@@ -40,7 +40,7 @@ void pe_default_texture_init(void) {
 	int texture_height = 8;
 	size_t texture_data_size = texture_width * texture_height * sizeof(uint16_t);
 
-	peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(pe_temp_arena());
+	peArenaTemp temp_arena_memory = pe_arena_temp_begin(pe_temp_arena());
 	{
 		uint16_t *texture_data = pe_alloc(pe_temp_allocator(), texture_data_size);
 		for (int y = 0; y < texture_height; y++) {
@@ -54,7 +54,7 @@ void pe_default_texture_init(void) {
 		}
 		default_texture = pe_texture_create(pe_edram_allocator(), texture_data, texture_width, texture_height, GU_PSM_5650);
 	}
-	pe_temp_arena_memory_end(temp_arena_memory);
+	pe_arena_temp_end(temp_arena_memory);
 }
 
 //

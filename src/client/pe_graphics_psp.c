@@ -131,7 +131,7 @@ peTexture pe_texture_create_psp(peAllocator allocator, void *data, int width, in
 	int power_of_two_height = closest_greater_power_of_two(height);
 	unsigned int size = power_of_two_width * power_of_two_height * bytes_per_pixel(format);
 
-	peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(pe_temp_arena());
+	peArenaTemp temp_arena_memory = pe_arena_temp_begin(pe_temp_arena());
 
 	unsigned int *data_buffer = pe_alloc_align(pe_temp_allocator(), size, 16);
 	copy_texture_data(data_buffer, data, power_of_two_width, width, height);
@@ -140,7 +140,7 @@ peTexture pe_texture_create_psp(peAllocator allocator, void *data, int width, in
     swizzle_fast((u8*)swizzled_pixels, data, power_of_two_width*bytes_per_pixel(format), power_of_two_height);
 	sceKernelDcacheWritebackRange(swizzled_pixels, size);
 
-	pe_temp_arena_memory_end(temp_arena_memory);
+	pe_arena_temp_end(temp_arena_memory);
 
 	peTexture texture = {
 		.allocator = allocator,

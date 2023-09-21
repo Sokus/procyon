@@ -497,7 +497,7 @@ static float pe_uint16_to_float(uint16_t value, float a, float b) {
 
 #if defined(PSP)
 static peModel pe_model_load_psp(const char *file_path) {
-    peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(pe_temp_arena());
+    peArenaTemp temp_arena_memory = pe_arena_temp_begin(pe_temp_arena());
 
 	peFileContents pp3d_file_contents = pe_file_read_contents(pe_temp_allocator(), file_path, false);
 	uint8_t *pp3d_file_pointer = pp3d_file_contents.data;
@@ -658,7 +658,7 @@ static peModel pe_model_load_psp(const char *file_path) {
 
 	sceKernelDcacheWritebackInvalidateRange(model.arena.physical_start, model.arena.total_allocated);
 
-	pe_temp_arena_memory_end(temp_arena_memory);
+	pe_arena_temp_end(temp_arena_memory);
 
 	return model;
 }
@@ -666,7 +666,7 @@ static peModel pe_model_load_psp(const char *file_path) {
 
 peModel pe_model_load(char *file_path) {
 #if defined(_WIN32) || defined(__linux__)
-    peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(pe_temp_arena());
+    peArenaTemp temp_arena_memory = pe_arena_temp_begin(pe_temp_arena());
 
     peFileContents p3d_file_contents = pe_file_read_contents(pe_temp_allocator(), file_path, false);
     uint8_t *p3d_file_pointer = p3d_file_contents.data;
@@ -844,7 +844,7 @@ peModel pe_model_load(char *file_path) {
 
     glBindVertexArray(0);
 #endif
-    pe_temp_arena_memory_end(temp_arena_memory);
+    pe_arena_temp_end(temp_arena_memory);
 
     return model;
 #elif defined(PSP)
@@ -857,7 +857,7 @@ void pe_model_free(peModel *model) {
 }
 
 void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
-    peTempArenaMemory temp_arena_memory = pe_temp_arena_memory_begin(pe_temp_arena());
+    peArenaTemp temp_arena_memory = pe_arena_temp_begin(pe_temp_arena());
 #if defined(_WIN32)
     HMM_Mat4 rotate_x = HMM_Rotate_RH(rotation.X, (HMM_Vec3){1.0f, 0.0f, 0.0f});
     HMM_Mat4 rotate_y = HMM_Rotate_RH(rotation.Y, (HMM_Vec3){0.0f, 1.0f, 0.0f});
@@ -1038,5 +1038,5 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 	sceGuColor(0xFFFFFFFF);
 	sceGumPopMatrix();
 #endif
-	pe_temp_arena_memory_end(temp_arena_memory);
+	pe_arena_temp_end(temp_arena_memory);
 }
