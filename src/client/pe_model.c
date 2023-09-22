@@ -854,7 +854,7 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
     ID3D11DeviceContext_IASetIndexBuffer(pe_d3d.context, model->index_buffer, DXGI_FORMAT_R32_UINT, 0);
 
     {
-        peAnimationJoint *model_space_joints = pe_alloc(pe_temp_arena(), model->num_bone * sizeof(peAnimationJoint));
+        peAnimationJoint *model_space_joints = pe_arena_alloc(pe_temp_arena(), model->num_bone * sizeof(peAnimationJoint));
         peAnimationJoint *animation_joints = &model->animation[0].frames[0 * model->num_bone];
         for (int b = 0; b < model->num_bone; b += 1) {
             if (model->bone_parent_index[b] < UINT8_MAX) {

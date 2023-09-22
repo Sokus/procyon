@@ -268,6 +268,11 @@ int main(int argc, char* argv[])
 			} break;
 			default: break;
 		}
+
+		if (outgoing_packet.message_count > 0) {
+			//pe_send_packet(socket, server_address, &outgoing_packet);
+			last_packet_send_time = pe_time_now();
+		}
 		outgoing_packet.message_count = 0;
 		pe_arena_temp_end(send_packets_arena_temp);
 

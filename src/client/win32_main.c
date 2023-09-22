@@ -63,10 +63,12 @@ extern peEntity *entities;
 void pe_receive_packets(void) {
 	peAddress address;
 	pePacket packet = {0};
-	peAllocator allocator = pe_heap_allocator();
-	while (pe_receive_packet(client_socket, allocator, &address, &packet)) {
-		if (!pe_address_compare(address, server_address)) {
-			goto message_cleanup;
+    peArenaTemp receive_packets_arena_temp = pe_arena_temp_begin(pe_temp_arena());
+	while (true) {
+        peArenaTemp loop_arena_temp = pe_arena_temp_begin(pe_temp_arena());
+        bool packet_received = pe_receive_packet(client_socket, pe_temp_arena(), &address, &packet);
+		if (!packet_received || !pe_address_compare(address, server_address)) {
+			break;
 		}
 
 		for (int m = 0; m < packet.message_count; m += 1) {
@@ -104,12 +106,10 @@ void pe_receive_packets(void) {
 			}
 		}
 
-message_cleanup:
-		for (int m = 0; m < packet.message_count; m += 1) {
-			pe_message_destroy(allocator, packet.messages[m]);
-		}
 		packet.message_count = 0;
+        pe_arena_temp_end(loop_arena_temp);
 	}
+    pe_arena_temp_end(receive_packets_arena_temp);
 }
 
 //
@@ -225,7 +225,7 @@ ID3D11ShaderResourceView *pe_create_grid_texture(void) {
 }
 
 int main(int argc, char *argv[]) {
-    pe_temp_allocator_init(PE_MEGABYTES(4));
+    pe_temp_arena_init(PE_MEGABYTES(4));
     pe_time_init();
     pe_net_init();
     pe_platform_init();
@@ -303,6 +303,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
+        peArenaTemp send_packets_arena_temp = pe_arena_temp_begin(pe_temp_arena());
         switch (network_state) {
 			case peClientNetworkState_Disconnected: {
 				fprintf(stdout, "connecting to the server\n");
@@ -321,12 +322,12 @@ int main(int argc, char *argv[]) {
 				uint64_t ticks_since_last_sent_packet = pe_time_since(last_packet_send_time);
 				float seconds_since_last_sent_packet = (float)pe_time_sec(ticks_since_last_sent_packet);
 				if (seconds_since_last_sent_packet > connection_request_send_interval) {
-					peMessage message = pe_message_create(pe_heap_allocator(), peMessageType_ConnectionRequest);
+					peMessage message = pe_message_create(pe_temp_arena(), peMessageType_ConnectionRequest);
 					pe_append_message(&outgoing_packet, message);
 				}
 			} break;
 			case peClientNetworkState_Connected: {
-				peMessage message = pe_message_create(pe_heap_allocator(), peMessageType_InputState);
+				peMessage message = pe_message_create(pe_temp_arena(), peMessageType_InputState);
 				//message.input_state->input.movement.X = pe_input_axis(peGamepadAxis_LeftX);
 				//message.input_state->input.movement.Y = pe_input_axis(peGamepadAxis_LeftY);
                 bool key_d = glfwGetKey(pe_glfw.window, GLFW_KEY_D);
@@ -344,11 +345,9 @@ int main(int argc, char *argv[]) {
 		if (outgoing_packet.message_count > 0) {
 			pe_send_packet(client_socket, server_address, &outgoing_packet);
 			last_packet_send_time = pe_time_now();
-			for (int m = 0; m < outgoing_packet.message_count; m += 1) {
-				pe_message_destroy(pe_heap_allocator(), outgoing_packet.messages[m]);
-			}
-			outgoing_packet.message_count = 0;
 		}
+		outgoing_packet.message_count = 0;
+        pe_arena_temp_end(send_packets_arena_temp);
 
         pe_graphics_frame_begin();
         pe_clear_background((peColor){ 20, 20, 20, 255 });
@@ -373,7 +372,7 @@ int main(int argc, char *argv[]) {
 
         pe_graphics_frame_end(true);
 
-        pe_free_all(pe_temp_arena());
+        pe_arena_clear(pe_temp_arena());
     }
 
     pe_glfw_shutdown();

@@ -271,6 +271,7 @@ void pe_check_for_time_out(void) {
 }
 
 int main() {
+    pe_temp_arena_init(PE_MEGABYTES(4));
     pe_net_init();
     pe_time_init();
 
