@@ -2,11 +2,10 @@
 
 #include "pe_core.h"
 #include "pe_graphics.h"
+#include "pe_graphics_win32.h"
 #include "pe_time.h"
 #include "pe_file_io.h"
 #include "pe_platform.h"
-#include "win32/win32_shader.h"
-#include "win32/win32_d3d.h"
 #include "pe_window_glfw.h"
 #include "pe_model.h"
 #include "p3d.h"

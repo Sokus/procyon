@@ -9,8 +9,7 @@
 #include "pp3d.h"
 
 #if defined(_WIN32)
-    #include "win32/win32_d3d.h"
-    #include "win32/win32_shader.h"
+	#include "pe_graphics_win32.h"
 #elif defined(__linux__)
 	#include "pe_graphics_linux.h"
 #elif defined(PSP)

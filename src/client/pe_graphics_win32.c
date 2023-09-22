@@ -1,6 +1,5 @@
-#include "win32_d3d.h"
+#include "client/pe_graphics_win32.h"
 #include "client/pe_window_glfw.h"
-#include "win32_shader.h"
 
 #include "pe_core.h"
 
@@ -10,6 +9,8 @@
 #define COBJMACROS
 #include <d3d11.h>
 #include <dxgi1_2.h>
+#include <d3dcompiler.h>
+#include <winerror.h>
 
 #pragma comment (lib, "gdi32")
 #pragma comment (lib, "user32")
@@ -33,65 +34,7 @@ ID3D11Buffer *pe_shader_constant_light_buffer;
 ID3D11Buffer *pe_shader_constant_material_buffer;
 ID3D11Buffer *pe_shader_constant_skeleton_buffer;
 
-ID3D11ShaderResourceView *pe_texture_upload(void *data, unsigned width, unsigned height, int format) {
-    DXGI_FORMAT dxgi_format = DXGI_FORMAT_UNKNOWN;
-    int bytes_per_pixel = 0;
-    switch (format) {
-        case 1:
-            dxgi_format = DXGI_FORMAT_R8_UNORM;
-            bytes_per_pixel = 1;
-            break;
-        case 4:
-            dxgi_format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-            bytes_per_pixel = 4;
-            break;
-        default: PE_PANIC_MSG("Unsupported message format: %d\n", format); break;
-    }
-    D3D11_TEXTURE2D_DESC texture_desc = {
-        .Width = width,
-        .Height = height,
-        .MipLevels = 1,
-        .ArraySize = 1,
-        .Format = dxgi_format,
-        .SampleDesc = {
-            .Count = 1,
-        },
-        .Usage = D3D11_USAGE_IMMUTABLE,
-        .BindFlags = D3D11_BIND_SHADER_RESOURCE,
-    };
-    D3D11_SUBRESOURCE_DATA subresource_data = {
-        .pSysMem = data,
-        .SysMemPitch = bytes_per_pixel * width,
-    };
-    HRESULT hr;
-    ID3D11Texture2D *texture;
-    hr = ID3D11Device_CreateTexture2D(pe_d3d.device, &texture_desc, &subresource_data, &texture);
-    ID3D11ShaderResourceView *texture_view;
-    hr = ID3D11Device_CreateShaderResourceView(pe_d3d.device, (ID3D11Resource*)texture, NULL, &texture_view);
-    ID3D11Texture2D_Release(texture);
-    return texture_view;
-}
-
-void pe_bind_texture(ID3D11ShaderResourceView *texture) {
-    ID3D11DeviceContext_PSSetShaderResources(pe_d3d.context, 0, 1, &texture);
-}
-
-ID3D11Buffer *pe_d3d11_create_buffer(void *data, UINT byte_width, D3D11_USAGE usage, UINT bind_flags) {
-    D3D11_BUFFER_DESC buffer_desc = {
-        .ByteWidth = byte_width,
-        .Usage = usage,
-        .BindFlags = bind_flags,
-    };
-    D3D11_SUBRESOURCE_DATA subresource_data = {
-        .pSysMem = data,
-        .SysMemPitch = byte_width,
-    };
-    ID3D11Buffer *buffer = NULL;
-    HRESULT hr = ID3D11Device_CreateBuffer(pe_d3d.device, &buffer_desc, &subresource_data, &buffer);
-    return buffer;
-}
-
-void pe_create_swapchain_resources(void) {
+static void pe_create_swapchain_resources(void) {
     HRESULT hr;
 
     ID3D11Texture2D *render_target;
@@ -112,7 +55,7 @@ void pe_create_swapchain_resources(void) {
     ID3D11DeviceContext_OMSetRenderTargets(pe_d3d.context, 1, &pe_d3d.render_target_view, pe_d3d.depth_stencil_view);
 }
 
-void pe_destroy_swapchain_resources(void) {
+static void pe_destroy_swapchain_resources(void) {
     ID3D11DeviceContext_OMSetRenderTargets(pe_d3d.context, 0, NULL, NULL);
 
     PE_ASSERT(pe_d3d.render_target_view != NULL);
@@ -124,7 +67,7 @@ void pe_destroy_swapchain_resources(void) {
     pe_d3d.render_target_view = NULL;
 }
 
-void d3d11_set_viewport(int width, int height) {
+static void d3d11_set_viewport(int width, int height) {
     D3D11_VIEWPORT viewport = {
         .TopLeftX = 0.0f, .TopLeftY = 0.0f,
         .Width = (float)width, .Height = (float)height,
@@ -328,3 +271,132 @@ void pe_d3d11_init(void) {
 
     d3d11_set_viewport(window_width, window_height);
 }
+
+ID3D11Buffer *pe_d3d11_create_buffer(void *data, UINT byte_width, D3D11_USAGE usage, UINT bind_flags) {
+    D3D11_BUFFER_DESC buffer_desc = {
+        .ByteWidth = byte_width,
+        .Usage = usage,
+        .BindFlags = bind_flags,
+    };
+    D3D11_SUBRESOURCE_DATA subresource_data = {
+        .pSysMem = data,
+        .SysMemPitch = byte_width,
+    };
+    ID3D11Buffer *buffer = NULL;
+    HRESULT hr = ID3D11Device_CreateBuffer(pe_d3d.device, &buffer_desc, &subresource_data, &buffer);
+    return buffer;
+}
+
+ID3D11ShaderResourceView *pe_texture_upload(void *data, unsigned width, unsigned height, int format) {
+    DXGI_FORMAT dxgi_format = DXGI_FORMAT_UNKNOWN;
+    int bytes_per_pixel = 0;
+    switch (format) {
+        case 1:
+            dxgi_format = DXGI_FORMAT_R8_UNORM;
+            bytes_per_pixel = 1;
+            break;
+        case 4:
+            dxgi_format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+            bytes_per_pixel = 4;
+            break;
+        default: PE_PANIC_MSG("Unsupported message format: %d\n", format); break;
+    }
+    D3D11_TEXTURE2D_DESC texture_desc = {
+        .Width = width,
+        .Height = height,
+        .MipLevels = 1,
+        .ArraySize = 1,
+        .Format = dxgi_format,
+        .SampleDesc = {
+            .Count = 1,
+        },
+        .Usage = D3D11_USAGE_IMMUTABLE,
+        .BindFlags = D3D11_BIND_SHADER_RESOURCE,
+    };
+    D3D11_SUBRESOURCE_DATA subresource_data = {
+        .pSysMem = data,
+        .SysMemPitch = bytes_per_pixel * width,
+    };
+    HRESULT hr;
+    ID3D11Texture2D *texture;
+    hr = ID3D11Device_CreateTexture2D(pe_d3d.device, &texture_desc, &subresource_data, &texture);
+    ID3D11ShaderResourceView *texture_view;
+    hr = ID3D11Device_CreateShaderResourceView(pe_d3d.device, (ID3D11Resource*)texture, NULL, &texture_view);
+    ID3D11Texture2D_Release(texture);
+    return texture_view;
+}
+
+void pe_bind_texture(ID3D11ShaderResourceView *texture) {
+    ID3D11DeviceContext_PSSetShaderResources(pe_d3d.context, 0, 1, &texture);
+}
+
+//
+// SHADERS
+//
+
+void pe_shader_constant_buffer_init(ID3D11Device *device, size_t size, ID3D11Buffer **buffer) {
+    D3D11_BUFFER_DESC constant_buffer_desc = {
+        .ByteWidth = (UINT)size,
+        .Usage = D3D11_USAGE_DYNAMIC,
+        .BindFlags = D3D11_BIND_CONSTANT_BUFFER,
+        .CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
+    };
+
+    HRESULT hr = ID3D11Device_CreateBuffer(device, &constant_buffer_desc, 0, buffer);
+}
+
+void *pe_shader_constant_begin_map(ID3D11DeviceContext *context, ID3D11Buffer *buffer) {
+    D3D11_MAPPED_SUBRESOURCE mapped_subresource;
+    HRESULT hr = ID3D11DeviceContext_Map(context, (ID3D11Resource*)buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_subresource);
+    return mapped_subresource.pData;
+}
+
+void pe_shader_constant_end_map(ID3D11DeviceContext *context, ID3D11Buffer *buffer) {
+    ID3D11DeviceContext_Unmap(context, (ID3D11Resource*)buffer, 0);
+}
+
+static bool pe_shader_compile(wchar_t *wchar_file_name, char *entry_point, char *profile, ID3D10Blob **blob) {
+    UINT compiler_flags = D3DCOMPILE_ENABLE_STRICTNESS;
+    ID3D10Blob *error_blob = NULL;
+    HRESULT hr = D3DCompileFromFile(wchar_file_name, NULL, NULL, entry_point, profile, compiler_flags, 0, blob, &error_blob);
+    if (!SUCCEEDED(hr)) {
+        printf("D3D11: Failed to read shader from file (%x):\n", hr);
+        if (error_blob != NULL) {
+            printf("%s\n", (char *)ID3D10Blob_GetBufferPointer(error_blob));
+            ID3D10Blob_Release(error_blob);
+        }
+        return false;
+    }
+    return true;
+}
+
+bool pe_vertex_shader_create(ID3D11Device *device, wchar_t *wchar_file_name, ID3D11VertexShader **vertex_shader, ID3D10Blob **vertex_shader_blob) {
+    if (!pe_shader_compile(wchar_file_name, "vs_main", "vs_5_0", vertex_shader_blob)) {
+        return false;
+    }
+    void *bytecode = ID3D10Blob_GetBufferPointer(*vertex_shader_blob);
+    size_t bytecode_length = ID3D10Blob_GetBufferSize(*vertex_shader_blob);
+    HRESULT hr = ID3D11Device_CreateVertexShader(device, bytecode, bytecode_length, NULL, vertex_shader);
+    if (!SUCCEEDED(hr)) {
+        printf("D3D11: Failed to compile vertex shader (%x)\n", hr);
+        ID3D10Blob_Release(*vertex_shader_blob);
+        return false;
+    }
+    return true;
+}
+
+bool pe_pixel_shader_create(ID3D11Device *device, wchar_t *wchar_file_name, ID3D11PixelShader **pixel_shader, ID3DBlob **pixel_shader_blob) {
+    if (!pe_shader_compile(wchar_file_name, "ps_main", "ps_5_0", pixel_shader_blob)) {
+        return false;
+    }
+    void *bytecode = ID3D10Blob_GetBufferPointer(*pixel_shader_blob);
+    size_t bytecode_length = ID3D10Blob_GetBufferSize(*pixel_shader_blob);
+    HRESULT hr = ID3D11Device_CreatePixelShader(device, bytecode, bytecode_length, NULL, pixel_shader);
+    if (!SUCCEEDED(hr)) {
+        printf("D3D11: Failed to compile pixel shader (%x)\n", hr);
+        ID3D10Blob_Release(*pixel_shader_blob);
+        return false;
+    }
+    return true;
+}
+

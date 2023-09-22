@@ -36,8 +36,7 @@ if(WIN32 OR LINUX)
         target_sources(procyon PRIVATE
             src/client/win32_main.c
             #src/client/win32_net_sample.c
-            src/client/win32/win32_d3d.c
-            src/client/win32/win32_shader.c
+            src/client/pe_graphics_win32.c
         )
     elseif(LINUX)
         target_sources(procyon PRIVATE

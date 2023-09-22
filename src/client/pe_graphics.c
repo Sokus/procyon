@@ -5,11 +5,11 @@
 #include "pe_temp_arena.h"
 
 #if defined(_WIN32)
-    #include "win32/win32_d3d.h"
-    #include "pe_window_glfw.h"
-
     #define WIN32_LEAN_AND_MEAN
     #include <windows.h>
+
+	#include "pe_window_glfw.h"
+	#include "pe_graphics_win32.h"
 #elif defined(PSP)
 	#include "pe_graphics_psp.h"
 
