@@ -30,4 +30,8 @@ struct peArena;
 peString pe_string_format_variadic(struct peArena *arena, char *format, va_list argument_list);
 peString pe_string_format         (struct peArena *arena, char *format, ...);
 
+// OTHER:
+
+#define PE_STRING_EXPAND(string) (int)((string).size), ((string).data)
+
 #endif // PE_STRING_H_HEADER_GUARD
