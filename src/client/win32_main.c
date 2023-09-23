@@ -215,12 +215,13 @@ static bool pe_collision_ray_plane(peRay ray, HMM_Vec3 plane_normal, float plane
 
 int frame = 0;
 
-ID3D11ShaderResourceView *pe_create_grid_texture(void) {
+peTexture pe_create_grid_texture(void) {
     uint32_t texture_data[2*2] = {
         0xFFFFFFFF, 0xFF7F7F7F,
         0xFF7F7F7F, 0xFFFFFFFF,
     };
-    return pe_texture_upload(texture_data, 2, 2, 4);
+    peTexture result = pe_texture_create(texture_data, 2, 2, 4);
+    return result;
 }
 
 int main(int argc, char *argv[]) {
@@ -244,8 +245,6 @@ int main(int argc, char *argv[]) {
 
     peModel model = pe_model_load("./res/fox.p3d");
 
-    printf("model loaded\n");
-
     //peMesh mesh = pe_gen_mesh_cube(1.0f, 1.0f, 1.0f);
     //peMesh quad = pe_gen_mesh_quad(1.0f, 1.0f);
 
@@ -254,7 +253,6 @@ int main(int argc, char *argv[]) {
     pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_light_buffer);
 
     peShaderConstant_Material *constant_material = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_material_buffer);
-    constant_material->has_diffuse = true;
     constant_material->diffuse_color = HMM_V4(0.0f, 0.0f, 255.0f, 255.0f);
     pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_material_buffer);
 

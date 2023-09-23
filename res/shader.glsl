@@ -59,6 +59,7 @@ out vec3 out_color;
 uniform sampler2D diffuse_map;
 
 void main() {
-    out_color = frag_color * vec3(texture(diffuse_map, tex_coord));
+    vec4 diffuse_map_value = texture(diffuse_map, tex_coord);
+    out_color = vec3(diffuse_map_value) * frag_color;
 }
 #endif // PE_FRAGMENT_SHADER

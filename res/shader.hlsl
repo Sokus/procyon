@@ -15,7 +15,6 @@ cbuffer constant_light : register(b3) {
 }
 
 cbuffer constant_material : register(b4) {
-    bool has_diffuse;
     float4 diffuse_color;
 }
 
@@ -62,12 +61,12 @@ vs_out vs_main(vs_in input) {
     vs_out output;
     output.position = mul(projection, skinned_position);
     output.texcoord = input.texcoord;
-    //float4 base_color = has_diffuse ? diffuse_color : float4(input.color, 1.0f);
-    float4 base_color = diffuse_color;
-    output.color    = base_color * light;
+    output.color    = diffuse_color * light;
     return output;
 }
 
 float4 ps_main(vs_out input) : SV_TARGET {
-    return mytexture.Sample(mysampler, input.texcoord) * input.color;
+    float4 diffuse_map_value = mytexture.Sample(mysampler, input.texcoord);
+    float4 result = diffuse_map_value * input.color;
+    return result;
 }

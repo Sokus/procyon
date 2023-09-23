@@ -29,6 +29,8 @@
 
 #include <stdbool.h>
 
+static peTexture default_texture;
+
 HMM_Vec4 pe_color_to_vec4(peColor color) {
     HMM_Vec4 vec4 = {
         .R = (float)color.r / 255.0f,
@@ -60,7 +62,9 @@ uint32_t pe_color_to_8888(peColor color) {
 }
 
 peTexture pe_texture_create(void *data, int width, int height, int format) {
-#if defined(__linux__)
+#if defined(_WIN32)
+	return pe_texture_create_win32(data, (UINT)width, (UINT)height, format);
+#elif defined(__linux__)
 	return pe_texture_create_linux(data, width, height, format);
 #elif defined(PSP)
 	return pe_texture_create_psp(data, width, height, format);
@@ -68,7 +72,9 @@ peTexture pe_texture_create(void *data, int width, int height, int format) {
 }
 
 void pe_texture_bind(peTexture texture) {
-#if defined(__linux__)
+#if defined(_WIN32)
+	ID3D11DeviceContext_PSSetShaderResources(pe_d3d.context, 0, 1, &texture.texture_resource);
+#elif defined(__linux__)
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture.texture_object);
 #elif defined(PSP)
@@ -84,10 +90,9 @@ void pe_texture_bind(peTexture texture) {
 #endif
 }
 
-void pe_texture_unbind(void) {
-#if defined(__linux__)
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, 0);
+void pe_texture_bind_default(void) {
+#if defined(_WIN32) || defined(__linux__)
+	pe_texture_bind(default_texture);
 #elif defined(PSP)
 	sceGuDisable(GU_TEXTURE_2D);
 #endif
@@ -102,6 +107,14 @@ void pe_graphics_init(int window_width, int window_height, const char *window_na
 #elif defined(__linux__)
 	pe_glfw_init(window_width, window_height, window_name);
 	pe_graphics_init_linux();
+#endif
+
+#if defined(_WIN32) || defined(__linux__)
+	// init default texture
+	{
+		uint32_t texture_data[] = { 0xFFFFFFFF };
+		default_texture = pe_texture_create(texture_data, 1, 1, 4);
+	}
 #endif
 }
 

@@ -34,24 +34,25 @@ add_executable(procyon
     src/client/pe_graphics.c
     src/client/pe_platform.c
     src/client/pe_model.c
-    src/client/pe_window_glfw.c
 )
 target_include_directories(procyon PRIVATE src)
-target_link_libraries(procyon shared handmade-math psp-stb)
+target_link_libraries(procyon PRIVATE shared handmade-math psp-stb)
 
 if(WIN32)
     target_sources(procyon PRIVATE
         src/client/win32_main.c
+        src/client/pe_window_glfw.c
         src/client/pe_graphics_win32.c
     )
-    target_link_libraries(procyon glfw)
+    target_link_libraries(procyon PRIVATE glfw)
 elseif(LINUX)
     target_sources(procyon PRIVATE
         src/client/linux_main.c
+        src/client/pe_window_glfw.c
         ext/glad-gl-4.2-core/src/glad.c
         src/client/pe_graphics_linux.c
     )
-    target_link_libraries(procyon glfw glad)
+    target_link_libraries(procyon PRIVATE glfw glad)
 elseif(PSP)
     target_sources(procyon PRIVATE
         src/client/psp_main.c

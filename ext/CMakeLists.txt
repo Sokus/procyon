@@ -1,4 +1,4 @@
-if(WIN32)
+if(WIN32 OR LINUX)
     add_subdirectory(glfw)
 endif()
 

@@ -200,20 +200,7 @@ int main(int argc, char* argv[])
 
 	server_address = pe_address4(192, 168, 128, 81, SERVER_PORT);
 
-    stbi_set_flip_vertically_on_load(false);
-
 	peModel model = pe_model_load("./res/fox.pp3d");
-
-	char *fox_diffuse_texture_paths[] = {
-		"./res/fox_body_diffuse.png",
-		"./res/fox_sword_diffuse.png"
-	};
-	for (int t = 0; t < 2; t += 1) {
-		int w, h, channels;
-		stbi_uc *stbi_data = stbi_load(fox_diffuse_texture_paths[t], &w, &h, &channels, STBI_rgb_alpha);
-		model.material[t].has_diffuse_map = true;
-		model.material[t].diffuse_map = pe_texture_create(stbi_data, w, h, GU_PSM_8888);
-	}
 
 	float aspect = (float)pe_screen_width()/(float)pe_screen_height();
 	pe_perspective(55.0f, aspect, 0.5f, 1000.0f);

@@ -30,8 +30,6 @@ typedef struct peDirect3D {
     ID3D11RasterizerState *rasterizer_state;
     ID3D11SamplerState *sampler_state;
     ID3D11DepthStencilState *depth_stencil_state;
-
-    ID3D11ShaderResourceView *default_texture_view;
 } peDirect3D;
 extern peDirect3D pe_d3d;
 
@@ -46,8 +44,8 @@ void pe_d3d11_init(void);
 
 ID3D11Buffer *pe_d3d11_create_buffer(void *data, UINT byte_width, D3D11_USAGE usage, UINT bind_flags);
 
-ID3D11ShaderResourceView *pe_texture_upload(void *data, unsigned width, unsigned height, int format);
-void pe_bind_texture(ID3D11ShaderResourceView *texture);
+struct peTexture;
+struct peTexture pe_texture_create_win32(void *data, UINT width, UINT height, int channels);
 
 //
 // SHADERS
@@ -70,7 +68,6 @@ typedef __declspec(align(16)) struct peShaderConstant_Light {
 } peShaderConstant_Light;
 
 typedef __declspec(align(16)) struct peShaderConstant_Material {
-    bool has_diffuse;
     HMM_Vec4 diffuse_color;
 } peShaderConstant_Material;
 

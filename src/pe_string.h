@@ -2,6 +2,7 @@
 #define PE_STRING_H_HEADER_GUARD
 
 #include <stddef.h>
+#include <stdarg.h>
 
 typedef struct peString {
     char *data;

@@ -1,3 +1,4 @@
+#include "pe_graphics.h"
 #include "client/pe_graphics_win32.h"
 #include "client/pe_window_glfw.h"
 
@@ -261,12 +262,6 @@ void pe_d3d11_init(void) {
         ID3D11DeviceContext_VSSetConstantBuffers(pe_d3d.context, 0, PE_COUNT_OF(constant_buffers), constant_buffers);
     }
 
-    // Create default texture
-    {
-        uint32_t texture_data[1] = { 0xFFFFFFFF };
-        pe_d3d.default_texture_view = pe_texture_upload(texture_data, 1, 1, 4);
-    }
-
     ID3D11DeviceContext_OMSetBlendState(pe_d3d.context, NULL, NULL, ~(uint32_t)(0));
 
     d3d11_set_viewport(window_width, window_height);
@@ -287,10 +282,10 @@ ID3D11Buffer *pe_d3d11_create_buffer(void *data, UINT byte_width, D3D11_USAGE us
     return buffer;
 }
 
-ID3D11ShaderResourceView *pe_texture_upload(void *data, unsigned width, unsigned height, int format) {
+peTexture pe_texture_create_win32(void *data, UINT width, UINT height, int channels) {
     DXGI_FORMAT dxgi_format = DXGI_FORMAT_UNKNOWN;
     int bytes_per_pixel = 0;
-    switch (format) {
+    switch (channels) {
         case 1:
             dxgi_format = DXGI_FORMAT_R8_UNORM;
             bytes_per_pixel = 1;
@@ -299,7 +294,7 @@ ID3D11ShaderResourceView *pe_texture_upload(void *data, unsigned width, unsigned
             dxgi_format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
             bytes_per_pixel = 4;
             break;
-        default: PE_PANIC_MSG("Unsupported message format: %d\n", format); break;
+        default: PE_PANIC_MSG("Unsupported channel count: %d\n", channels); break;
     }
     D3D11_TEXTURE2D_DESC texture_desc = {
         .Width = width,
@@ -323,11 +318,9 @@ ID3D11ShaderResourceView *pe_texture_upload(void *data, unsigned width, unsigned
     ID3D11ShaderResourceView *texture_view;
     hr = ID3D11Device_CreateShaderResourceView(pe_d3d.device, (ID3D11Resource*)texture, NULL, &texture_view);
     ID3D11Texture2D_Release(texture);
-    return texture_view;
-}
 
-void pe_bind_texture(ID3D11ShaderResourceView *texture) {
-    ID3D11DeviceContext_PSSetShaderResources(pe_d3d.context, 0, 1, &texture);
+    peTexture result = { .texture_resource = texture_view };
+    return result;
 }
 
 //

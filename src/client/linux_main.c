@@ -138,19 +138,6 @@ int main(int, char*[]) {
 
     peModel model = pe_model_load("./res/fox.p3d");
 
-    stbi_set_flip_vertically_on_load(false);
-
-	char *fox_diffuse_texture_paths[] = {
-		"./res/fox_body_diffuse.png",
-		"./res/fox_sword_diffuse.png"
-	};
-	for (int t = 0; t < 2; t += 1) {
-		int w, h, channels;
-		stbi_uc *stbi_data = stbi_load(fox_diffuse_texture_paths[t], &w, &h, &channels, STBI_rgb_alpha);
-		model.material[t].has_diffuse_map = true;
-		model.material[t].diffuse_map = pe_texture_create(stbi_data, w, h, channels);
-	}
-
     HMM_Vec3 camera_offset = { 0.0f, 1.0f, 1.3f };
     peCamera camera = {
         .target = {0.0f, 0.5f, 0.0f},

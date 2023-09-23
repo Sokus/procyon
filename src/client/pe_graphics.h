@@ -27,9 +27,13 @@ uint32_t pe_color_to_8888(peColor color);
 #define PE_COLOR_BLUE  (peColor){   0,   0, 255, 255 }
 #define PE_COLOR_BLACK (peColor){   0,   0,   0,   0 }
 
+#if defined(_WIN32)
+	struct ID3D11ShaderResourceView;
+#endif
+
 typedef struct peTexture {
 #if defined(_WIN32)
-	uint8_t zero;
+	struct ID3D11ShaderResourceView *texture_resource;
 #endif
 #if defined(__linux__)
 	GLuint texture_object;
@@ -47,7 +51,7 @@ typedef struct peTexture {
 
 peTexture pe_texture_create(void *data, int width, int height, int format);
 void pe_texture_bind(peTexture texture);
-void pe_texture_unbind(void);
+void pe_texture_bind_default(void);
 
 void pe_graphics_init(int window_width, int window_height, const char *window_name);
 void pe_graphics_shutdown(void);

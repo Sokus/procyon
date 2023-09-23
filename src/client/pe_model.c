@@ -18,22 +18,16 @@
     #include <pspgum.h>
 #endif
 
+#include "stb_image.h"
+
 #include <string.h>
 
 peMaterial pe_default_material(void) {
-    peMaterial material;
-#if defined(_WIN32)
-    material = (peMaterial){
-        .diffuse_color = PE_COLOR_WHITE,
-        .diffuse_map = pe_d3d.default_texture_view,
-    };
-#elif defined(PSP)
-    material = (peMaterial){
-        .diffuse_color = PE_COLOR_WHITE,
-        .has_diffuse_map = false,
-    };
-#endif
-    return material;
+    peMaterial result = {
+		.diffuse_color = PE_COLOR_WHITE,
+		.has_diffuse_map = false
+	};
+	return result;
 }
 
 // FIXME: This needs a rework probably, it wasn't really modified since I
@@ -547,6 +541,17 @@ static peModel pe_model_load_psp(const char *file_path) {
 		model.material[m] = pe_default_material();
 		model.material[m].diffuse_color.rgba = pp3d_material_info[m].diffuse_color;
 	}
+    stbi_set_flip_vertically_on_load(false);
+	char *fox_diffuse_texture_paths[] = {
+		"./res/fox_body_diffuse.png",
+		"./res/fox_sword_diffuse.png"
+	};
+	for (int t = 0; t < 2; t += 1) {
+		int w, h, channels;
+		stbi_uc *stbi_data = stbi_load(fox_diffuse_texture_paths[t], &w, &h, &channels, STBI_rgb_alpha);
+		model.material[t].has_diffuse_map = true;
+		model.material[t].diffuse_map = pe_texture_create(stbi_data, w, h, GU_PSM_8888);
+	}
 
 	model.subskeleton = pe_arena_alloc(&model_arena, subskeleton_size);
 	for (int s = 0; s < pp3d_static_info->num_subskeletons; s += 1) {
@@ -701,6 +706,19 @@ peModel pe_model_load(char *file_path) {
         model.material[m] = pe_default_material();
         model.material[m].diffuse_color.rgba = p3d_mesh[m].diffuse_color;
     }
+
+    stbi_set_flip_vertically_on_load(false);
+	char *fox_diffuse_texture_paths[] = {
+		"./res/fox_body_diffuse.png",
+		"./res/fox_sword_diffuse.png"
+	};
+	for (int t = 0; t < 2; t += 1) {
+		int w, h, channels;
+		stbi_uc *stbi_data = stbi_load(fox_diffuse_texture_paths[t], &w, &h, &channels, STBI_rgb_alpha);
+		model.material[t].has_diffuse_map = true;
+		model.material[t].diffuse_map = pe_texture_create(stbi_data, w, h, channels);
+		stbi_image_free(stbi_data);
+	}
 
     for (int a = 0; a < p3d_static_info->num_animations; a += 1) {
         PE_ASSERT(sizeof(model.animation[a].name) == sizeof(p3d_animation[a].name));
@@ -881,10 +899,14 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 
     for (int m = 0; m < model->num_mesh; m += 1) {
         peShaderConstant_Material *constant_material = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_material_buffer);
-        //constant_material->has_diffuse = model->material[m].has_diffuse;
         constant_material->diffuse_color = pe_color_to_vec4(model->material[m].diffuse_color);
-        pe_bind_texture(model->material[m].diffuse_map);
         pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_material_buffer);
+
+		if (model->material[m].has_diffuse_map) {
+			pe_texture_bind(model->material[m].diffuse_map);
+		} else {
+            pe_texture_bind_default();
+		}
 
         ID3D11DeviceContext_DrawIndexed(pe_d3d.context, model->num_index[m], model->index_offset[m], model->vertex_offset[m]);
     }
@@ -926,12 +948,10 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 
 	glBindVertexArray(model->vertex_array_object);
 	for (int m = 0; m < model->num_mesh; m += 1) {
-		peMaterial *mesh_material = &model->material[m];
-
-		if (mesh_material->has_diffuse_map) {
-            pe_texture_bind(mesh_material->diffuse_map);
+		if (model->material[m].has_diffuse_map) {
+			pe_texture_bind(model->material[m].diffuse_map);
 		} else {
-            pe_texture_unbind();
+            pe_texture_bind_default();
 		}
 
 		glDrawElementsBaseVertex(
@@ -990,7 +1010,7 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 		if (mesh_material->has_diffuse_map) {
             pe_texture_bind(mesh_material->diffuse_map);
 		} else {
-            pe_texture_unbind();
+            pe_texture_bind_default();
 		}
 
 		int count = (model->mesh[m].index != NULL) ? model->mesh[m].num_index : model->mesh[m].num_vertex;
