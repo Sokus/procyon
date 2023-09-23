@@ -130,6 +130,7 @@ void *pe_arena_alloc_align(peArena *arena, size_t size, size_t alignment);
 void *pe_arena_alloc      (peArena *arena, size_t size);
 void  pe_arena_clear      (peArena *arena);
 
+void pe_arena_rewind           (peArena *arena, size_t size);
 void pe_arena_rewind_to_pointer(peArena *arena, void *pointer);
 
 typedef struct peArenaTemp {

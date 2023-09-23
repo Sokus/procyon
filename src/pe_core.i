@@ -86,6 +86,11 @@ PE_INLINE void pe_arena_clear(peArena *arena) {
     arena->total_allocated = 0;
 }
 
+PE_INLINE void pe_arena_rewind(peArena *arena, size_t size) {
+    PE_ASSERT(size <= arena->total_allocated);
+    arena->total_allocated -= size;
+}
+
 PE_INLINE void pe_arena_rewind_to_pointer(peArena *arena, void *pointer) {
     PE_ASSERT((uintptr_t)pointer >= (uintptr_t)arena->physical_start);
     PE_ASSERT((uintptr_t)pointer < (uintptr_t)arena->physical_start + arena->total_allocated);

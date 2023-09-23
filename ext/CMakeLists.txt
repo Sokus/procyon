@@ -11,4 +11,6 @@ endif()
 add_library(psp-stb INTERFACE)
 target_include_directories(psp-stb INTERFACE ${CMAKE_CURRENT_LIST_DIR}/psp-stb)
 
-add_subdirectory(glad-gl-4.2-core)
+if(UNIX AND NOT APPLE AND NOT PSP)
+    add_subdirectory(glad-gl-4.2-core)
+endif()
