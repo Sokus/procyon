@@ -147,8 +147,61 @@ static HMM_Vec3 pe_vec3_unproject(
     return result.XYZ;
 }
 
+static void pe_scalar_sin_cos(float *out_sin, float *out_cos, float value) {
+    // See https://github.com/microsoft/DirectXMath/blob/22e6d747994600e00834faff5fc2a95ab60f1790/Inc/DirectXMathMisc.inl#L2305
+
+    // Map Value to y in [-pi,pi], x = 2*pi*quotient + remainder.
+    float quotient = 1.0f/(2.0f * HMM_PI32) * value;
+    if (value >= 0.0f) {
+        quotient = (float)((int)(quotient + 0.5f));
+    } else {
+        quotient = (float)((int)(quotient - 0.5f));
+    }
+    float y = value - 2.0f*HMM_PI32 * quotient;
+
+    // Map y to [-pi/2,pi/2] with sin(y) = sin(Value).
+    float sign;
+    if (y > HMM_PI32/2.0f) {
+        y = HMM_PI32 - y;
+        sign = -1.0f;
+    } else if (y < -HMM_PI32/2.0f) {
+        y = -HMM_PI32 - y;
+        sign = -1.0f;
+    } else {
+        sign = +1.0f;
+    }
+
+    float y2 = y * y;
+
+    // 11-degree minimax approximation
+    *out_sin = (((((-2.3889859e-08f * y2 + 2.7525562e-06f) * y2 - 0.00019840874f) * y2 + 0.0083333310f) * y2 - 0.16666667f) * y2 + 1.0f) * y;
+
+    // 10-degree minimax approximation
+    float p = ((((-2.6051615e-07f * y2 + 2.4760495e-05f) * y2 - 0.0013888378f) * y2 + 0.041666638f) * y2 - 0.5f) * y2 + 1.0f;
+    *out_cos = sign * p;
+}
+
+HMM_Mat4 pe_mat4_perspective_fov(float fovy, float aspect_ratio, float near_z, float far_z) {
+    // See https://github.com/microsoft/DirectXMath/blob/bec07458c994bd7553638e4d499e17cfedd07831/Inc/DirectXMathMatrix.inl#L2540
+
+    float sin_fov, cos_fov;
+    pe_scalar_sin_cos(&sin_fov, &cos_fov, 0.5f*fovy*HMM_DegToRad);
+
+    float height = cos_fov / sin_fov;
+    float width = height / aspect_ratio;
+    float f_range = far_z / (near_z - far_z);
+
+    HMM_Mat4 result = {
+        width, 0.0f,   0.0f,    0.0f,
+        0.0f,  height, 0.0f,    0.0f,
+        0.0f,  0.0f,   f_range, f_range * near_z,
+        0.0f,  0.0f,   -1.0f,   0.0f,
+    };
+    return result;
+}
+
 HMM_Mat4 pe_mat4_perspective(float w, float h, float n, float f) {
-    // https://github.com/microsoft/DirectXMath/blob/bec07458c994bd7553638e4d499e17cfedd07831/Inc/DirectXMathMatrix.inl#L2350
+    // See https://github.com/microsoft/DirectXMath/blob/bec07458c994bd7553638e4d499e17cfedd07831/Inc/DirectXMathMatrix.inl#L2350
     HMM_Mat4 result = {
 		2 * n / w,  0,         0,           0,
 		0,          2 * n / h, 0,           0,
@@ -167,7 +220,7 @@ typedef struct peCamera {
 
 static void pe_camera_update(peCamera camera) {
     peShaderConstant_Projection *projection = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_projection_buffer);
-    projection->matrix = pe_mat4_perspective((float)pe_screen_width()/(float)pe_screen_height(), 1.0f, 1.0f, 9.0f);
+    projection->matrix = pe_mat4_perspective_fov(55.0f, (float)pe_screen_width()/(float)pe_screen_height(), 1.0f, 9.0f);
     pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_projection_buffer);
 
     peShaderConstant_View *constant_view = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_view_buffer);
@@ -183,7 +236,7 @@ typedef struct peRay {
 static peRay pe_get_mouse_ray(HMM_Vec2 mouse, peCamera camera) {
     float window_width_float = (float)pe_screen_width();
     float window_height_float = (float)pe_screen_height();
-    HMM_Mat4 projection = pe_mat4_perspective(window_width_float/window_height_float, 1.0f, 1.0f, 9.0f);
+    HMM_Mat4 projection = pe_mat4_perspective_fov(55.0f, window_width_float/window_height_float, 1.0f, 9.0f);
     HMM_Mat4 view = HMM_LookAt_RH(camera.position, camera.target, camera.up);
 
     HMM_Vec3 near_point = pe_vec3_unproject(HMM_V3(mouse.X, mouse.Y, 0.0f), 0.0f, 0.0f, window_width_float, window_height_float, 0.0f, 1.0f, projection, view);
