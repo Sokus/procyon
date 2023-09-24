@@ -138,9 +138,9 @@ int main(int, char*[]) {
 
     peModel model = pe_model_load("./res/fox.p3d");
 
-    HMM_Vec3 camera_offset = { 0.0f, 1.0f, 1.3f };
+    HMM_Vec3 camera_offset = { 0.0f, 1.4f, 2.0f };
     peCamera camera = {
-        .target = {0.0f, 0.5f, 0.0f},
+        .target = {0.0f, 0.7f, 0.0f},
         .up = {0.0f, 1.0f, 0.0f},
         .fovy = 55.0f
     };
@@ -152,7 +152,7 @@ int main(int, char*[]) {
         pe_platform_poll_events();
 
         pe_graphics_frame_begin();
-        pe_clear_background(PE_COLOR_BLACK);
+        pe_clear_background((peColor){ 20, 20, 20, 255 });
 
         pe_shader_set_vec3(pe_opengl.shader_program, "light_vector", HMM_V3(0.5f, -1.0f, 0.5f));
 
@@ -160,8 +160,8 @@ int main(int, char*[]) {
 
         HMM_Mat4 matrix_perspective;
         {
-            HMM_Mat4 perspective = HMM_Perspective_RH_NO(camera.fovy, aspect, 0.5f, 1000.0f);
-            HMM_Mat4 rotation = HMM_Rotate_RH(180.0f * HMM_DegToRad, HMM_V3(0.0f, 0.0f, 1.0f));
+            HMM_Mat4 perspective = HMM_Perspective_RH_NO(camera.fovy*HMM_DegToRad, aspect, 0.5f, 1000.0f);
+            HMM_Mat4 rotation = HMM_Rotate_RH(0.0f * HMM_DegToRad, HMM_V3(0.0f, 0.0f, 1.0f));
             matrix_perspective = HMM_MulM4(rotation, perspective);
         }
         pe_shader_set_mat4(pe_opengl.shader_program, "matrix_projection", &matrix_perspective);

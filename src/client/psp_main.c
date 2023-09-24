@@ -205,8 +205,8 @@ int main(int argc, char* argv[])
 	float aspect = (float)pe_screen_width()/(float)pe_screen_height();
 	pe_perspective(55.0f, aspect, 0.5f, 1000.0f);
 
-	HMM_Vec3 eye_offset = { 0.0f, 1.7f, 3.0f };
-	HMM_Vec3 target = { 0.0f, 0.0f, -1.0f };
+	HMM_Vec3 eye_offset = { 0.0f, 1.4f, 2.0f };
+	HMM_Vec3 target = { 0.0f, 0.7f, 0.0f };
 	HMM_Vec3 eye = HMM_AddV3(target, eye_offset);
 	HMM_Vec3 up = { 0.0f, 1.0f, 0.0f };
 	pe_view_lookat(eye, target, up);
@@ -276,8 +276,8 @@ int main(int argc, char* argv[])
 
 		current_frame_time += dt;
 
-		static float rotate_y = 3.14f;
-		rotate_y += 3.14 * dt * 0.256f;
+		static float rotate_y = HMM_PI32;
+		rotate_y += HMM_PI32 * dt * 0.256f;
 
 		pe_model_draw(&model, HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, rotate_y, 0.0f));
 
