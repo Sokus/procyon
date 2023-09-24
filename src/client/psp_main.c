@@ -63,7 +63,7 @@ void pe_default_texture_init(void) {
 
 int frame = 0;
 
-void pe_perspective(float fovy, float aspect, float near, float far) {
+void pe_update_perspective(float fovy, float aspect, float near, float far) {
 	sceGumMatrixMode(GU_PROJECTION);
 	sceGumLoadIdentity();
 	sceGumPerspective(fovy, aspect, near, far);
@@ -203,7 +203,7 @@ int main(int argc, char* argv[])
 	peModel model = pe_model_load("./res/fox.pp3d");
 
 	float aspect = (float)pe_screen_width()/(float)pe_screen_height();
-	pe_perspective(55.0f, aspect, 0.5f, 1000.0f);
+	pe_update_perspective(55.0f, aspect, 0.5f, 1000.0f);
 
 	HMM_Vec3 eye_offset = { 0.0f, 1.4f, 2.0f };
 	HMM_Vec3 target = { 0.0f, 0.7f, 0.0f };

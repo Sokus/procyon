@@ -188,3 +188,11 @@ void pe_clear_background(peColor color) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 #endif
 }
+
+HMM_Mat4 pe_perspective(float fovy, float aspect_ratio, float near_z, float far_z) {
+#if defined(_WIN32)
+	return pe_perspective_win32(fovy, aspect_ratio, near_z, far_z);
+#else
+	return HMM_Perspective_RH_NO(fovy * HMM_DegToRad, aspect_ratio, near_z, far_z);
+#endif
+}

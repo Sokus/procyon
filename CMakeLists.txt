@@ -34,6 +34,7 @@ add_executable(procyon
     src/client/pe_graphics.c
     src/client/pe_platform.c
     src/client/pe_model.c
+    src/client/pe_math.c
 )
 target_include_directories(procyon PRIVATE src)
 target_link_libraries(procyon PRIVATE shared handmade-math psp-stb)

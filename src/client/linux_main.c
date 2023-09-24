@@ -158,12 +158,7 @@ int main(int, char*[]) {
 
         float aspect = (float)pe_screen_width() / (float)pe_screen_height();
 
-        HMM_Mat4 matrix_perspective;
-        {
-            HMM_Mat4 perspective = HMM_Perspective_RH_NO(camera.fovy*HMM_DegToRad, aspect, 0.5f, 1000.0f);
-            HMM_Mat4 rotation = HMM_Rotate_RH(0.0f * HMM_DegToRad, HMM_V3(0.0f, 0.0f, 1.0f));
-            matrix_perspective = HMM_MulM4(rotation, perspective);
-        }
+        HMM_Mat4 matrix_perspective = pe_perspective(camera.fovy, aspect, 0.5f, 1000.0f);
         pe_shader_set_mat4(pe_opengl.shader_program, "matrix_projection", &matrix_perspective);
 
         time += 1/60.0f;

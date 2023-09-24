@@ -82,4 +82,6 @@ void pe_shader_constant_end_map(ID3D11DeviceContext *context, ID3D11Buffer *buff
 bool pe_vertex_shader_create(ID3D11Device *device, wchar_t *wchar_file_name, ID3D11VertexShader **vertex_shader, ID3D10Blob **vertex_shader_blob);
 bool pe_pixel_shader_create(ID3D11Device *device, wchar_t *wchar_file_name, ID3D11PixelShader **pixel_shader, ID3D10Blob **pixel_shader_blob);
 
+HMM_Mat4 pe_perspective_win32(float fovy, float aspect_ratio, float near_z, float far_z);
+
 #endif // PE_GRAPHICS_WIN32_H_HEADER_GUARD

@@ -63,4 +63,6 @@ int pe_screen_height(void);
 
 void pe_clear_background(peColor color);
 
+union HMM_Mat4 pe_perspective(float fovy, float aspect_ratio, float near_z, float far_z);
+
 #endif // PE_GRAPHICS_H
