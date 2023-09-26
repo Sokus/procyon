@@ -140,17 +140,6 @@ int main(int argc, char *argv[]) {
 
     peModel model = pe_model_load("./res/fox.p3d");
 
-    //peMesh mesh = pe_gen_mesh_cube(1.0f, 1.0f, 1.0f);
-    //peMesh quad = pe_gen_mesh_quad(1.0f, 1.0f);
-
-    peShaderConstant_Light *constant_light = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_light_buffer);
-    constant_light->vector = (HMM_Vec3){ 1.0f, -1.0f, 1.0f };
-    pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_light_buffer);
-
-    peShaderConstant_Material *constant_material = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_material_buffer);
-    constant_material->diffuse_color = HMM_V4(0.0f, 0.0f, 255.0f, 255.0f);
-    pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_material_buffer);
-
     HMM_Vec3 camera_offset = { 0.0f, 1.4f, 2.0f };
     peCamera camera = {
         .target = {0.0f, 0.7f, 0.0f},
@@ -267,7 +256,8 @@ int main(int argc, char *argv[]) {
         pe_arena_clear(pe_temp_arena());
     }
 
-    pe_glfw_shutdown();
+    pe_graphics_shutdown();
+	pe_platform_shutdown();
 
     return 0;
 }

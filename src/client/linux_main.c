@@ -120,7 +120,6 @@ glCube pe_gen_mesh_cube(float width, float height, float length) {
     return cube;
 }
 
-
 int main(int, char*[]) {
     pe_temp_arena_init(PE_MEGABYTES(4));
     pe_platform_init();
@@ -146,15 +145,10 @@ int main(int, char*[]) {
 
         pe_camera_update(camera);
 
-        pe_shader_set_vec3(pe_opengl.shader_program, "light_vector", HMM_V3(0.5f, -1.0f, 0.5f));
-
         HMM_Mat4 matrix_model = HMM_M4D(1.0f);
         pe_shader_set_mat4(pe_opengl.shader_program, "matrix_model", &matrix_model);
 
         pe_model_draw(&model, (HMM_Vec3){0.0f}, HMM_V3(0.0f, 180.0f*HMM_DegToRad, 0.0f));
-
-        //glBindVertexArray(cube.vertex_array_object);
-        //glDrawElements(GL_TRIANGLES, cube.elements, GL_UNSIGNED_INT, 0);
 
         pe_graphics_frame_end(true);
     }

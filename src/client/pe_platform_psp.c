@@ -29,7 +29,10 @@ bool pe_platform_init_psp(void) {
     return (thid >= 0);
 }
 
-// TODO: Inline
+bool pe_platform_shutdown_psp(void) {
+	sceKernelExitGame();
+}
+
 bool pe_platform_should_quit_psp(void) {
     return should_quit;
 }

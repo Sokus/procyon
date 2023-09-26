@@ -279,8 +279,7 @@ int main(int argc, char* argv[])
 		pe_arena_clear(pe_temp_arena());
 	}
 
-	sceGuTerm();
-
-	sceKernelExitGame();
+	pe_graphics_shutdown();
+	pe_platform_shutdown();
 	return 0;
 }

@@ -164,6 +164,12 @@ void pe_graphics_init_linux(void) {
         glUniform1i(diffuse_map_uniform_location, 0);
     }
 
+    {
+        // I don't expect the light vector to be relevant
+        // anytime soon so lets just set it here
+        pe_shader_set_vec3(pe_opengl.shader_program, "light_vector", HMM_V3(0.5f, -1.0f, 0.5f));
+    }
+
     glViewport(0, 0, window_width, window_height);
 
     glEnable(GL_DEPTH_TEST);

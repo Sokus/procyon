@@ -30,7 +30,7 @@ endif()
 # COMPILE MAIN TARGET:
 
 add_executable(procyon
-    #src/client/main.c
+    src/client/main.c
     src/client/pe_graphics.c
     src/client/pe_platform.c
     src/client/pe_model.c
@@ -41,14 +41,14 @@ target_link_libraries(procyon PRIVATE shared handmade-math psp-stb)
 
 if(WIN32)
     target_sources(procyon PRIVATE
-        src/client/win32_main.c
+        #src/client/win32_main.c
         src/client/pe_window_glfw.c
         src/client/pe_graphics_win32.c
     )
     target_link_libraries(procyon PRIVATE glfw)
 elseif(LINUX)
     target_sources(procyon PRIVATE
-        src/client/linux_main.c
+        #src/client/linux_main.c
         src/client/pe_window_glfw.c
         ext/glad-gl-4.2-core/src/glad.c
         src/client/pe_graphics_linux.c
@@ -56,7 +56,7 @@ elseif(LINUX)
     target_link_libraries(procyon PRIVATE glfw glad)
 elseif(PSP)
     target_sources(procyon PRIVATE
-        src/client/psp_main.c
+        #src/client/psp_main.c
         src/client/pe_graphics_psp.c
         src/client/pe_platform_psp.c
         src/client/pe_input.c

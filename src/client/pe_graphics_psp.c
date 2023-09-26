@@ -73,6 +73,10 @@ void pe_graphics_init_psp(void) {
     gu_initialized = true;
 }
 
+void pe_graphics_shutdown_psp(void) {
+	sceGuTerm();
+}
+
 static unsigned int closest_greater_power_of_two(unsigned int value) {
 	if (value == 0 || value > (1 << 31))
 		return 0;

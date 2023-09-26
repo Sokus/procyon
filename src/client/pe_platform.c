@@ -18,6 +18,13 @@ void pe_platform_init(void) {
     platform_initialized = success;
 }
 
+void pe_platform_shutdown(void) {
+#if defined(PSP)
+    pe_platform_shutdown_psp();
+#endif
+    platform_initialized = false;
+}
+
 bool pe_platform_should_quit(void) {
 #if defined(_WIN32) || defined(__linux__)
     return pe_window_should_quit_glfw();

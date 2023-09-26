@@ -56,6 +56,8 @@ void pe_graphics_init(int window_width, int window_height, const char *window_na
 void pe_graphics_shutdown(void) {
 #if defined(_WIN32) || defined(__linux__)
 	pe_glfw_shutdown();
+#elif defined(PSP)
+	pe_graphics_shutdown_psp();
 #endif
 }
 

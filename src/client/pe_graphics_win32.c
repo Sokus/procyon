@@ -262,6 +262,14 @@ void pe_d3d11_init(void) {
         ID3D11DeviceContext_VSSetConstantBuffers(pe_d3d.context, 0, PE_COUNT_OF(constant_buffers), constant_buffers);
     }
 
+    {
+        // I don't expect the light vector to be relevant
+        // anytime soon so lets just set it here
+        peShaderConstant_Light *constant_light = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_light_buffer);
+        constant_light->vector = (HMM_Vec3){ 1.0f, -1.0f, 1.0f };
+        pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_light_buffer);
+    }
+
     ID3D11DeviceContext_OMSetBlendState(pe_d3d.context, NULL, NULL, ~(uint32_t)(0));
 
     d3d11_set_viewport(window_width, window_height);
