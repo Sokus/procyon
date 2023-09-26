@@ -127,7 +127,7 @@ double pe_time_ms(uint64_t ticks) {
     return (double)ticks / 1000000.0;
 }
 
-double pe_time_time_us(uint64_t ticks) {
+double pe_time_us(uint64_t ticks) {
     return (double)ticks / 1000.0;
 }
 

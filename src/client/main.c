@@ -3,6 +3,7 @@
 #include "pe_graphics.h"
 #include "pe_temp_arena.h"
 #include "pe_model.h"
+#include "pe_time.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -17,8 +18,7 @@ int main(int argc, char* argv[]) {
 	pe_temp_arena_init(PE_MEGABYTES(4));
 	pe_platform_init();
     pe_graphics_init(960, 540, "Procyon");
-
-    peModel model = pe_model_load("./res/fox." PE_MODEL_EXTENSION);
+	pe_time_init();
 
 	peCamera camera = {
 		.position = { 0.0f, 2.1f, 2.0f },
@@ -26,6 +26,8 @@ int main(int argc, char* argv[]) {
 		.up = { 0.0f, 1.0f, 0.0f },
 		.fovy = 55.0f,
 	};
+
+    peModel model = pe_model_load("./res/fox." PE_MODEL_EXTENSION);
 
 	while (!pe_platform_should_quit()) {
 		pe_platform_poll_events();

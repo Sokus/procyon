@@ -835,8 +835,26 @@ peModel pe_model_load(char *file_path) {
 #endif
 }
 
+#include "pe_time.h"
+
+float frame_time = 1.0f/30.0f;
+float current_frame_time = 0.0f;
+int frame_index = 0;
+uint64_t last_frame_time;
+bool last_frame_time_initialized = false;
+
 void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
     peArenaTemp temp_arena_memory = pe_arena_temp_begin(pe_temp_arena());
+	if (!last_frame_time_initialized) {
+		last_frame_time = pe_time_now();
+		last_frame_time_initialized = true;
+	}
+	current_frame_time += pe_time_sec(pe_time_laptime(&last_frame_time));
+	if (current_frame_time >= frame_time) {
+		frame_index = (frame_index + 1) % model->animation[0].num_frames;
+		current_frame_time -= frame_time;
+	}
+
 #if defined(_WIN32)
     HMM_Mat4 rotate_x = HMM_Rotate_RH(rotation.X, (HMM_Vec3){1.0f, 0.0f, 0.0f});
     HMM_Mat4 rotate_y = HMM_Rotate_RH(rotation.Y, (HMM_Vec3){0.0f, 1.0f, 0.0f});
@@ -872,7 +890,7 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 
     {
         peAnimationJoint *model_space_joints = pe_arena_alloc(pe_temp_arena(), model->num_bone * sizeof(peAnimationJoint));
-        peAnimationJoint *animation_joints = &model->animation[0].frames[0 * model->num_bone];
+        peAnimationJoint *animation_joints = &model->animation[0].frames[frame_index * model->num_bone];
         for (int b = 0; b < model->num_bone; b += 1) {
             if (model->bone_parent_index[b] < UINT8_MAX) {
                 peAnimationJoint parent_transform = model_space_joints[model->bone_parent_index[b]];
@@ -921,7 +939,7 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 
     {
         peAnimationJoint *model_space_joints = pe_arena_alloc(pe_temp_arena(), model->num_bone * sizeof(peAnimationJoint));
-        peAnimationJoint *animation_joints = &model->animation[0].frames[0 * model->num_bone];
+        peAnimationJoint *animation_joints = &model->animation[0].frames[frame_index * model->num_bone];
         for (int b = 0; b < model->num_bone; b += 1) {
             if (model->bone_parent_index[b] < UINT8_MAX) {
                 peAnimationJoint parent_transform = model_space_joints[model->bone_parent_index[b]];
@@ -971,7 +989,7 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 	sceGumScale(&scale_vector);
 
 	peAnimationJoint *model_space_joints = pe_arena_alloc(pe_temp_arena(), model->num_bone * sizeof(peAnimationJoint));
-	peAnimationJoint *animation_joints = &model->animation[0].frames[0 * model->num_bone];
+	peAnimationJoint *animation_joints = &model->animation[0].frames[frame_index * model->num_bone];
 	for (int b = 0; b < model->num_bone; b += 1) {
 		if (model->bone_parent_index[b] < UINT16_MAX) {
 			peAnimationJoint parent_transform = model_space_joints[model->bone_parent_index[b]];
