@@ -14,14 +14,6 @@
 
 #include <stdio.h>
 
-
-typedef struct peCamera {
-    HMM_Vec3 position;
-    HMM_Vec3 target;
-    HMM_Vec3 up;
-    float fovy;
-} peCamera;
-
 typedef struct glCube {
     GLuint vertex_array_object;
     GLuint vertex_buffer_object;
@@ -146,25 +138,15 @@ int main(int, char*[]) {
     };
     camera.position = HMM_AddV3(camera.target, camera_offset);
 
-    float time = 0.0f;
-
     while (!pe_platform_should_quit()) {
         pe_platform_poll_events();
 
         pe_graphics_frame_begin();
         pe_clear_background((peColor){ 20, 20, 20, 255 });
 
+        pe_camera_update(camera);
+
         pe_shader_set_vec3(pe_opengl.shader_program, "light_vector", HMM_V3(0.5f, -1.0f, 0.5f));
-
-        float aspect = (float)pe_screen_width() / (float)pe_screen_height();
-
-        HMM_Mat4 matrix_perspective = pe_perspective(camera.fovy, aspect, 0.5f, 1000.0f);
-        pe_shader_set_mat4(pe_opengl.shader_program, "matrix_projection", &matrix_perspective);
-
-        time += 1/60.0f;
-
-        HMM_Mat4 matrix_view = HMM_LookAt_RH(camera.position, camera.target, camera.up);
-        pe_shader_set_mat4(pe_opengl.shader_program, "matrix_view", &matrix_view);
 
         HMM_Mat4 matrix_model = HMM_M4D(1.0f);
         pe_shader_set_mat4(pe_opengl.shader_program, "matrix_model", &matrix_model);
@@ -174,12 +156,10 @@ int main(int, char*[]) {
         //glBindVertexArray(cube.vertex_array_object);
         //glDrawElements(GL_TRIANGLES, cube.elements, GL_UNSIGNED_INT, 0);
 
-
         pe_graphics_frame_end(true);
     }
 
     pe_graphics_shutdown();
-
 
     return 0;
 }

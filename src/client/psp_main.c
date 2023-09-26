@@ -57,23 +57,7 @@ void pe_default_texture_init(void) {
 	pe_arena_temp_end(temp_arena_memory);
 }
 
-//
-// MODELS
-//
-
 int frame = 0;
-
-void pe_update_perspective(float fovy, float aspect, float near, float far) {
-	sceGumMatrixMode(GU_PROJECTION);
-	sceGumLoadIdentity();
-	sceGumPerspective(fovy, aspect, near, far);
-}
-
-void pe_view_lookat(HMM_Vec3 eye, HMM_Vec3 target, HMM_Vec3 up) {
-	sceGumMatrixMode(GU_VIEW);
-	sceGumLoadIdentity();
-	sceGumLookAt((ScePspFVector3*)&eye, (ScePspFVector3*)&target, (ScePspFVector3*)&up);
-}
 
 //
 // NET CLIENT STUFF
@@ -202,14 +186,14 @@ int main(int argc, char* argv[])
 
 	peModel model = pe_model_load("./res/fox.pp3d");
 
-	float aspect = (float)pe_screen_width()/(float)pe_screen_height();
-	pe_update_perspective(55.0f, aspect, 0.5f, 1000.0f);
-
-	HMM_Vec3 eye_offset = { 0.0f, 1.4f, 2.0f };
-	HMM_Vec3 target = { 0.0f, 0.7f, 0.0f };
-	HMM_Vec3 eye = HMM_AddV3(target, eye_offset);
-	HMM_Vec3 up = { 0.0f, 1.0f, 0.0f };
-	pe_view_lookat(eye, target, up);
+    HMM_Vec3 camera_offset = { 0.0f, 1.4f, 2.0f };
+    peCamera camera = {
+        .target = {0.0f, 0.7f, 0.0f},
+        .up = {0.0f, 1.0f, 0.0f},
+        .fovy = 55.0f,
+    };
+    camera.position = HMM_AddV3(camera.target, camera_offset);
+	pe_camera_update(camera);
 
 	float frame_time = 1.0f/30.0f;
 	float current_frame_time = 0.0f;
@@ -264,10 +248,9 @@ int main(int argc, char* argv[])
 		pe_arena_temp_end(send_packets_arena_temp);
 
 		pe_graphics_frame_begin();
-
 		pe_clear_background((peColor){20, 20, 20, 255});
 
-		pe_texture_bind(default_texture);
+		pe_camera_update(camera);
 
 		HMM_Vec3 zero = {0.0f};
 		pe_draw_line(zero, (HMM_Vec3){1.0f, 0.0f, 0.0f}, PE_COLOR_RED);

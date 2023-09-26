@@ -108,43 +108,6 @@ void pe_receive_packets(void) {
     pe_arena_temp_end(receive_packets_arena_temp);
 }
 
-//
-// MATH
-//
-
-typedef struct peCamera {
-    HMM_Vec3 position;
-    HMM_Vec3 target;
-    HMM_Vec3 up;
-    float fovy;
-} peCamera;
-
-static void pe_camera_update(peCamera camera) {
-    peShaderConstant_Projection *projection = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_projection_buffer);
-    projection->matrix = pe_perspective(55.0f, (float)pe_screen_width()/(float)pe_screen_height(), 1.0f, 1000.0f);
-    pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_projection_buffer);
-
-    peShaderConstant_View *constant_view = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_view_buffer);
-    constant_view->matrix = HMM_LookAt_RH(camera.position, camera.target, camera.up);
-    pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_view_buffer);
-}
-
-static peRay pe_get_mouse_ray(HMM_Vec2 mouse, peCamera camera) {
-    float window_width_float = (float)pe_screen_width();
-    float window_height_float = (float)pe_screen_height();
-    HMM_Mat4 projection = pe_perspective(55.0f, window_width_float/window_height_float, 1.0f, 1000.0f);
-    HMM_Mat4 view = HMM_LookAt_RH(camera.position, camera.target, camera.up);
-
-    HMM_Vec3 near_point = pe_unproject_vec3(HMM_V3(mouse.X, mouse.Y, 0.0f), 0.0f, 0.0f, window_width_float, window_height_float, 0.0f, 1.0f, projection, view);
-    HMM_Vec3 far_point = pe_unproject_vec3(HMM_V3(mouse.X, mouse.Y, 1.0f), 0.0f, 0.0f, window_width_float, window_height_float, 0.0f, 1.0f, projection, view);
-    HMM_Vec3 direction = HMM_NormV3(HMM_SubV3(far_point, near_point));
-    peRay ray = {
-        .position = camera.position,
-        .direction = direction,
-    };
-    return ray;
-}
-
 int frame = 0;
 
 peTexture pe_create_grid_texture(void) {
@@ -190,7 +153,7 @@ int main(int argc, char *argv[]) {
 
     HMM_Vec3 camera_offset = { 0.0f, 1.4f, 2.0f };
     peCamera camera = {
-        .target = {0.0f, 0.0f, 0.0f},
+        .target = {0.0f, 0.7f, 0.0f},
         .up = {0.0f, 1.0f, 0.0f},
         .fovy = 55.0f,
     };

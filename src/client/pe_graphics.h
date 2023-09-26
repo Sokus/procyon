@@ -3,12 +3,29 @@
 
 #include "pe_core.h"
 
-#if defined(__linux__)
-	#include "glad/glad.h"
-#endif
+#include "HandmadeMath.h"
 
 #include <stdint.h>
 #include <stdbool.h>
+
+// GENERAL
+
+void pe_graphics_init(int window_width, int window_height, const char *window_name);
+void pe_graphics_shutdown(void);
+void pe_graphics_frame_begin(void);
+void pe_graphics_frame_end(bool vsync);
+void pe_graphics_projection_perspective(float fovy, float aspect_ratio, float near_z, float far_z);
+void pe_graphics_view_lookat(HMM_Vec3 eye, HMM_Vec3 target, HMM_Vec3 up);
+
+int pe_screen_width(void);
+int pe_screen_height(void);
+
+union peColor;
+void pe_clear_background(union peColor color);
+
+HMM_Mat4 pe_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z);
+
+// COLOR
 
 typedef union peColor {
     struct { uint8_t r, g, b, a; };
@@ -27,16 +44,14 @@ uint32_t pe_color_to_8888(peColor color);
 #define PE_COLOR_BLUE  (peColor){   0,   0, 255, 255 }
 #define PE_COLOR_BLACK (peColor){   0,   0,   0,   0 }
 
-#if defined(_WIN32)
-	struct ID3D11ShaderResourceView;
-#endif
+// TEXTURES
 
 typedef struct peTexture {
 #if defined(_WIN32)
-	struct ID3D11ShaderResourceView *texture_resource;
+	void *texture_resource; // ID3D11ShaderResourceView
 #endif
 #if defined(__linux__)
-	GLuint texture_object;
+	unsigned int texture_object; // GLuint
 #endif
 #if defined(PSP)
 	void *data;
@@ -53,16 +68,18 @@ peTexture pe_texture_create(void *data, int width, int height, int format);
 void pe_texture_bind(peTexture texture);
 void pe_texture_bind_default(void);
 
-void pe_graphics_init(int window_width, int window_height, const char *window_name);
-void pe_graphics_shutdown(void);
-void pe_graphics_frame_begin(void);
-void pe_graphics_frame_end(bool vsync);
+// CAMERA
 
-int pe_screen_width(void);
-int pe_screen_height(void);
+typedef struct peCamera {
+    HMM_Vec3 position;
+    HMM_Vec3 target;
+    HMM_Vec3 up;
+    float fovy;
+} peCamera;
 
-void pe_clear_background(peColor color);
+void pe_camera_update(peCamera camera);
+struct peRay;
+struct peRay pe_get_mouse_ray(HMM_Vec2 mouse, peCamera camera);
 
-union HMM_Mat4 pe_perspective(float fovy, float aspect_ratio, float near_z, float far_z);
 
 #endif // PE_GRAPHICS_H
