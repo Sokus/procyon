@@ -4,6 +4,7 @@
 #include "pe_temp_arena.h"
 #include "pe_model.h"
 #include "pe_time.h"
+#include "pe_net.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -19,6 +20,7 @@ int main(int argc, char* argv[]) {
 	pe_platform_init();
     pe_graphics_init(960, 540, "Procyon");
 	pe_time_init();
+	pe_net_init();
 
 	peCamera camera = {
 		.position = { 0.0f, 2.1f, 2.0f },
@@ -29,7 +31,12 @@ int main(int argc, char* argv[]) {
 
     peModel model = pe_model_load("./res/fox." PE_MODEL_EXTENSION);
 
+	float rotation = 0.0f;
+
+	uint64_t last_time = pe_time_now();
 	while (!pe_platform_should_quit()) {
+		float dt = (float)pe_time_sec(pe_time_laptime(&last_time));
+
 		pe_platform_poll_events();
 
 		pe_graphics_frame_begin();
@@ -37,12 +44,18 @@ int main(int argc, char* argv[]) {
 
 		pe_camera_update(camera);
 
-		pe_model_draw(&model, (HMM_Vec3){0.0f}, HMM_V3(0.0f, HMM_PI32, 0.0f));
+		rotation += dt * HMM_PI32/2.0f;
+		if (rotation >= 2.0f*HMM_PI32) {
+			rotation -= 2.0f*HMM_PI32;
+		}
+
+		pe_model_draw(&model, (HMM_Vec3){0.0f}, HMM_V3(0.0f, rotation, 0.0f));
 
 		pe_graphics_frame_end(true);
 		pe_arena_clear(pe_temp_arena());
 	}
 
+	pe_net_shutdown();
 	pe_graphics_shutdown();
 	pe_platform_shutdown();
 

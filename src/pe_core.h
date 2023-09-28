@@ -144,6 +144,14 @@ void        pe_arena_temp_end  (peArenaTemp temp_arena_memory);
 void pe_zero_size(void *ptr, size_t size);
 bool pe_is_power_of_two(uintptr_t x);
 
+typedef struct peRandom {
+	uint32_t state;
+} peRandom;
+
+peRandom pe_random_from_seed(uint32_t seed);
+peRandom pe_random_from_time(void);
+uint32_t pe_random_uint32(peRandom *random);
+
 #if defined(_MSC_VER)
 #include "pe_core.i"
 #endif

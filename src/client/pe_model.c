@@ -837,7 +837,7 @@ peModel pe_model_load(char *file_path) {
 
 #include "pe_time.h"
 
-float frame_time = 1.0f/30.0f;
+float frame_time = 1.0f/25.0f;
 float current_frame_time = 0.0f;
 int frame_index = 0;
 uint64_t last_frame_time;
