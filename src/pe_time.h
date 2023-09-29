@@ -15,4 +15,17 @@ double pe_time_us(uint64_t ticks);
 double pe_time_ns(uint64_t ticks);
 void pe_time_sleep(unsigned long ms);
 
+typedef struct peTime {
+    uint16_t year;
+    uint16_t month;
+    uint16_t day;
+    uint16_t hour;
+    uint16_t minutes;
+    uint16_t seconds;
+    uint16_t milliseconds;
+} peTime;
+
+peTime pe_time_local(void);
+
+
 #endif // PE_TIME_H

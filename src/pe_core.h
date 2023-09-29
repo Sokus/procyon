@@ -6,11 +6,6 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-// #define PE_INLINE
-// TODO: Functions that are force inlined are not present
-// in the .dlls causing link errors. (tested on windows at least)
-// Maybe compile shared code into objs and link those instead of a dll.
-
 #if !defined(PE_INLINE)
 	#if defined(_MSC_VER)
 		#if _MSC_VER < 1300
@@ -37,10 +32,7 @@
   #define PE_ARCH_BIG_ENDIAN 1
 #endif
 
-
 void pe_assert_handler(char *prefix, char *condition, char *file, int line, char *msg, ...);
-
-#define PE_COUNT_OF(x) (sizeof(x)/sizeof(x[0]))
 
 #ifndef PE_DEBUG_TRAP
 	#if defined(PSP)
@@ -97,6 +89,10 @@ void pe_assert_handler(char *prefix, char *condition, char *file, int line, char
 } while(0)
 #endif
 
+////////////////////////////////////////////////////////////////////////////////
+
+#define PE_COUNT_OF(x) (sizeof(x)/sizeof(x[0]))
+
 #define PE_KILOBYTES(x) (1024*(x))
 #define PE_MEGABYTES(x) (1024 * PE_KILOBYTES(x))
 #define PE_GIGABYTES(x) (1024 * PE_MEGABYTES(x))
@@ -108,9 +104,16 @@ void pe_assert_handler(char *prefix, char *condition, char *file, int line, char
 #define PE_DEFAULT_MEMORY_ALIGNMENT (2 * sizeof(void *))
 #endif
 
+////////////////////////////////////////////////////////////////////////////////
+
 void *pe_heap_alloc_align(size_t size, size_t alignment);
 void *pe_heap_alloc      (size_t size);
 void  pe_heap_free       (void *ptr);
+
+void pe_zero_size(void *ptr, size_t size);
+bool pe_is_power_of_two(uintptr_t x);
+
+////////////////////////////////////////////////////////////////////////////////
 
 typedef struct peArena {
     void * physical_start;
@@ -119,38 +122,52 @@ typedef struct peArena {
 	size_t temp_count;
 } peArena;
 
-void pe_arena_init          (peArena *arena, void *start, size_t size);
-void pe_arena_init_sub_align(peArena *arena, peArena *parent_arena, size_t size, size_t alignment);
-void pe_arena_init_sub      (peArena *arena, peArena *parent_arena, size_t size);
-
-size_t pe_arena_alignment_offset(peArena *arena, size_t alignment);
-size_t pe_arena_size_remaining(peArena *arena, size_t alignment);
-
-void *pe_arena_alloc_align(peArena *arena, size_t size, size_t alignment);
-void *pe_arena_alloc      (peArena *arena, size_t size);
-void  pe_arena_clear      (peArena *arena);
-
-void pe_arena_rewind           (peArena *arena, size_t size);
-void pe_arena_rewind_to_pointer(peArena *arena, void *pointer);
-
 typedef struct peArenaTemp {
 	peArena *arena;
 	size_t original_count;
 } peArenaTemp;
 
+void pe_arena_init(peArena *arena, void *start, size_t size);
+void pe_arena_init_sub_align(peArena *arena, peArena *parent_arena, size_t size, size_t alignment);
+void pe_arena_init_sub(peArena *arena, peArena *parent_arena, size_t size);
+
+size_t pe_arena_alignment_offset(peArena *arena, size_t alignment);
+size_t pe_arena_size_remaining(peArena *arena, size_t alignment);
+
+void *pe_arena_alloc_align(peArena *arena, size_t size, size_t alignment);
+void *pe_arena_alloc(peArena *arena, size_t size);
+void  pe_arena_clear(peArena *arena);
+
+void pe_arena_rewind(peArena *arena, size_t size);
+void pe_arena_rewind_to_pointer(peArena *arena, void *pointer);
+
 peArenaTemp pe_arena_temp_begin(peArena *arena);
-void        pe_arena_temp_end  (peArenaTemp temp_arena_memory);
+void pe_arena_temp_end(peArenaTemp temp_arena_memory);
 
-void pe_zero_size(void *ptr, size_t size);
-bool pe_is_power_of_two(uintptr_t x);
+////////////////////////////////////////////////////////////////////////////////
 
-typedef struct peRandom {
-	uint32_t state;
-} peRandom;
+typedef struct peString {
+    char *data;
+    size_t size;
+} peString;
 
-peRandom pe_random_from_seed(uint32_t seed);
-peRandom pe_random_from_time(void);
-uint32_t pe_random_uint32(peRandom *random);
+#define PE_STRING_LITERAL(string_literal) (peString){ .data = (string_literal), .size = sizeof((string_literal))-1 }
+#define PE_STRING_EXPAND(string) (int)((string).size), ((string).data)
+
+peString pe_string(char *data, size_t size);
+peString pe_string_from_range(char *first, char *one_past_last);
+peString pe_string_from_cstring(char *cstring);
+
+peString pe_string_prefix(peString string, size_t size);
+peString pe_string_chop  (peString string, size_t size);
+peString pe_string_suffix(peString string, size_t size);
+peString pe_string_skip  (peString string, size_t size);
+peString pe_string_range (peString string, size_t first, size_t one_past_last);
+
+peString pe_string_format_variadic(peArena *arena, char *format, va_list argument_list);
+peString pe_string_format         (peArena *arena, char *format, ...);
+
+////////////////////////////////////////////////////////////////////////////////
 
 #if defined(_MSC_VER)
 #include "pe_core.i"

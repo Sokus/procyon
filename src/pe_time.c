@@ -6,14 +6,12 @@
 #include <string.h>
 
 #if defined(_WIN32)
-    #include <windows.h>
-    #if !defined(WIN32_LEAN_AND_MEAN)
     #define WIN32_LEAN_AND_MEAN
-    #endif
+    #include <windows.h>
+    #include <mmsystem.h>
 	#pragma comment( lib, "Winmm.lib" )
 #elif defined(PSP)
     #include <psptypes.h>
-    #include <time.h>
     #include <psprtc.h>
     #include <pspkernel.h> // sceKernelDelayThread();
 #else
@@ -88,11 +86,6 @@ uint64_t pe_time_now(void) {
     return now;
 }
 
-/*
-uint64_t time_diff(uint64_t new_ticks, uint64_t old_ticks) {
-    return (new_ticks > old_ticks ? new_ticks - old_ticks : 1);
-}
-*/
 uint64_t pe_time_diff(uint64_t new_ticks, uint64_t old_ticks) {
     uint64_t result = 0;
     if (new_ticks >= old_ticks)
@@ -149,4 +142,54 @@ void pe_time_sleep(unsigned long ms)
     req.tv_nsec = (ms % 1000) * 1000000;
     nanosleep(&req , &rem);
 #endif
+}
+
+peTime pe_time_local(void) {
+    peTime time;
+#if defined(_WIN32)
+    SYSTEMTIME systemtime;
+    GetLocalTime(&systemtime);
+    time = (peTime){
+        .year = systemtime.wYear,
+        .month = systemtime.wMonth,
+        .day = systemtime.wDay,
+        .hour = systemtime.wHour,
+        .minutes = systemtime.wMinute,
+        .seconds = systemtime.wSecond,
+        .milliseconds = systemtime.wMilliseconds,
+    };
+#elif defined(__linux__)
+    #warning untested
+    struct timespec ts;
+    int clock_gettime_result = clock_gettime(CLOCK_REALTIME, &ts);
+    PE_ASSERT(clock_gettime_result == 0);
+    time_t tv_sec = ts.tv_sec;
+    struct tm *tm = localtime(&tv_sec);
+    PE_ASSERT(tm != NULL);
+    peTime time = {
+        .year = tm.tm_year,
+        .month = tm.tm_mon,
+        .day = tm.tm_mday,
+        .hour = tm.tm_hour,
+        .minutes = tm.tm_min,
+        .seconds = tm.tm_sec,
+        .milliseconds = ts.tv_nsec/1000000,
+    };
+#elif defined(PSP)
+    pspTime psp_time;
+    int rtc_get_local_time_result = sceRtcGetCurrentClockLocalTime(&psp_time);
+    PE_ASSERT(rtc_get_local_time_result == 0);
+    time = (peTime){
+        .year = psp_time.year,
+        .month = psp_time.month,
+        .day = psp_time.day,
+        .hour = psp_time.hour,
+        .minutes = psp_time.minutes,
+        .seconds = psp_time.seconds,
+        .milliseconds = psp_time.microseconds / 1000,
+    };
+#else
+    #warning unimplemented
+#endif
+    return time;
 }

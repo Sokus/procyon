@@ -10,8 +10,8 @@ add_subdirectory(ext)
 
 add_library(shared STATIC
     src/pe_core.c
-    src/pe_string.c
     src/pe_time.c
+    src/pe_random.c
     src/pe_net.c
     src/pe_bit_stream.c
     src/pe_protocol.c
