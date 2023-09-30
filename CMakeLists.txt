@@ -27,61 +27,70 @@ elseif(MSVC)
     target_compile_options(shared PUBLIC -W3 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127)
 endif()
 
-# COMPILE MAIN TARGET:
+# COMPILE CLIENT LIBRARY:
 
-add_executable(procyon
-    src/client/main.c
-    src/client/pe_graphics.c
-    src/client/pe_platform.c
-    src/client/pe_model.c
-    src/client/pe_math.c
-)
-target_include_directories(procyon PRIVATE src)
-target_link_libraries(procyon PRIVATE shared handmade-math psp-stb)
+if(NOT SERVER_STANDALONE)
+    add_library(client STATIC
+        src/client/main.c
+        src/client/pe_graphics.c
+        src/client/pe_platform.c
+        src/client/pe_model.c
+        src/client/pe_math.c
+    )
+    target_include_directories(client PRIVATE src)
+    target_link_libraries(client PRIVATE shared handmade-math psp-stb)
 
-if(WIN32)
-    target_sources(procyon PRIVATE
-        #src/client/win32_main.c
-        src/client/pe_window_glfw.c
-        src/client/pe_graphics_win32.c
-    )
-    target_link_libraries(procyon PRIVATE glfw)
-elseif(LINUX)
-    target_sources(procyon PRIVATE
-        #src/client/linux_main.c
-        src/client/pe_window_glfw.c
-        ext/glad-gl-4.2-core/src/glad.c
-        src/client/pe_graphics_linux.c
-    )
-    target_link_libraries(procyon PRIVATE glfw glad)
-elseif(PSP)
-    target_sources(procyon PRIVATE
-        #src/client/psp_main.c
-        src/client/pe_graphics_psp.c
-        src/client/pe_platform_psp.c
-        src/client/pe_input.c
-    )
-    target_link_libraries(procyon PUBLIC
-        pspdebug pspdisplay pspge pspgu pspgum pspctrl
-        pspnet pspnet_apctl pspnet_resolver
-    )
-    create_pbp_file(
-        TARGET procyon
-        ICON_PATH NULL
-        PREVIEW_PATH NULL
-        TITLE "Procyon"
-        BUILD_PRX
-    )
+    if(WIN32)
+        target_sources(client PRIVATE
+            src/client/pe_window_glfw.c
+            src/client/pe_graphics_win32.c
+        )
+        target_link_libraries(client PRIVATE glfw)
+    elseif(LINUX)
+        target_sources(client PRIVATE
+            src/client/pe_window_glfw.c
+            ext/glad-gl-4.2-core/src/glad.c
+            src/client/pe_graphics_linux.c
+        )
+        target_link_libraries(client PRIVATE glfw glad)
+    elseif(PSP)
+        target_sources(client PRIVATE
+            src/client/pe_graphics_psp.c
+            src/client/pe_platform_psp.c
+            src/client/pe_input.c
+        )
+        target_link_libraries(client PUBLIC
+            pspdebug pspdisplay pspge pspgu pspgum pspctrl
+            pspnet pspnet_apctl pspnet_resolver
+        )
+    endif()
 endif()
 
-# COMPILE SERVER TARGET:
+# COMPILE MAIN TARGET:
 
-if(WIN32 OR LINUX)
-    add_executable(server
-        src/server/win32_main.c
-    )
-    target_include_directories(server PRIVATE src)
-    target_link_libraries(server shared)
+if(NOT SERVER_STANDALONE)
+    set(main_target procyon)
+else()
+    set(main_target server)
+endif()
+add_executable(${main_target}
+    src/server/server_main.c
+)
+target_include_directories(${main_target} PRIVATE src)
+target_link_libraries(${main_target} PRIVATE shared)
+if(NOT SERVER_STANDALONE)
+    target_link_libraries(${main_target} PRIVATE client)
+    if(PSP)
+        create_pbp_file(
+            TARGET ${main_target}
+            ICON_PATH NULL
+            PREVIEW_PATH NULL
+            TITLE "Procyon"
+            BUILD_PRX
+        )
+    endif()
+else()
+    target_compile_definitions(${main_target} PRIVATE PE_SERVER_STANDALONE)
 endif()
 
 # COMPILE OTHER TARGETS:
