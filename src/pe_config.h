@@ -1,12 +1,12 @@
 #ifndef PE_CONFIG_H
 #define PE_CONFIG_H
 
-#ifndef MAX_CLIENT_COUNT
 #define MAX_CLIENT_COUNT 128
-#endif
 
-#ifndef SERVER_PORT
-#define SERVER_PORT 54727 // 49152 to 65535
-#endif
+ // 49152 to 65535
+#define SERVER_PORT_MIN 54727
+#define SERVER_PORT_MAX (SERVER_PORT_MIN)+4
+
+
 
 #endif // PE_CONFIG_H

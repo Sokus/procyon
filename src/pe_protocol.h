@@ -78,9 +78,9 @@ peMessage pe_message_create(struct peArena *arena, peMessageType type);
 enum peSerializationError pe_serialize_message(struct peBitStream *bs, peMessage *msg);
 void pe_append_message(pePacket *packet, peMessage msg);
 
-typedef struct peSocket peSocket;
-typedef struct peAddress peAddress;
-bool pe_send_packet(peSocket socket, peAddress address, pePacket *packet);
-bool pe_receive_packet(peSocket socket, struct peArena *arena, peAddress *address, pePacket *packet);
+struct peSocket;
+struct peAddress;
+bool pe_send_packet(struct peSocket socket, struct peAddress address, pePacket *packet);
+bool pe_receive_packet(struct peSocket socket, struct peArena *arena, struct peAddress *address, pePacket *packet);
 
 #endif // PE_PROTOCOL_H

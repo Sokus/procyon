@@ -9,16 +9,13 @@ bool pe_net_init(void);
 void pe_net_update(void);
 void pe_net_shutdown(void);
 
-typedef enum peAddressType
-{
-    peAddress_Undefined,
-    peAddress_IPv4,
-    peAddress_IPv6,
-} peAddressType;
+typedef enum peAddressFamily {
+    peAddressFamily_IPv4,
+    peAddressFamily_IPv6,
+} peAddressFamily;
 
-typedef struct peAddress
-{
-    peAddressType type;
+typedef struct peAddress {
+    peAddressFamily family;
 
     union {
         uint32_t ipv4;
@@ -37,20 +34,7 @@ peAddress pe_address6_from_array(uint16_t address[], uint16_t port);
 peAddress pe_address_parse(char *address_in);
 peAddress pe_address_parse_ex(char *address_in, uint16_t port);
 char *pe_address_to_string(peAddress address, char buffer[], int buffer_size);
-bool pe_address_is_valid(peAddress address);
 bool pe_address_compare(peAddress a, peAddress b);
-
-#if _WIN32
-typedef uint64_t peSocketHandle;
-#else
-typedef int peSocketHandle;
-#endif
-
-typedef enum peSocketType {
-    peSocket_Undefined,
-    peSocket_IPv4,
-    peSocket_IPv6
-} peSocketType;
 
 typedef enum peSocketCreateError {
     peSocketCreateError_None,
@@ -63,6 +47,12 @@ typedef enum peSocketCreateError {
     peSocketCreateError_GetSocknameIPv4Failed,
     peSocketCreateError_GetSocknameIPv6Failed
 } peSocketCreateError;
+
+typedef enum peSocketBindError {
+    peSocketBindError_None,
+    peSocketBindError_InvalidParameter,
+    peSocketBindError_BindFailed,
+} peSocketBindError;
 
 typedef enum peSocketSendError {
     peSocketSendError_None,
@@ -79,12 +69,19 @@ typedef enum peSocketReceiveError {
 } peSocketReceiveError;
 
 typedef struct peSocket {
-    peSocketHandle handle;
-    uint16_t port;
+#if defined(_WIN32)
+    uint64_t handle;
+#else
+    int handle;
+#endif
 } peSocket;
 
-peSocketCreateError pe_socket_create(peSocketType type, uint16_t port, peSocket *socket);
-void pe_socket_destroy(peSocket *socket);
+
+peSocketCreateError pe_socket_create(peAddressFamily address_family, peSocket *socket);
+peSocketBindError pe_socket_bind(peSocket socket, peAddressFamily address_family, uint16_t port);
+bool pe_socket_set_nonblocking(peSocket socket);
+
+void pe_socket_destroy(peSocket socket);
 peSocketSendError pe_socket_send(peSocket socket, peAddress address, void *packet_data, size_t packet_bytes);
 peSocketReceiveError pe_socket_receive(peSocket socket, void *packet_data, int max_packet_size, int *bytes_received, peAddress *from);
 

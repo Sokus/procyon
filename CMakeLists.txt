@@ -31,7 +31,7 @@ endif()
 
 if(NOT SERVER_STANDALONE)
     add_library(client STATIC
-        src/client/main.c
+        src/client/pe_client.c
         src/client/pe_graphics.c
         src/client/pe_platform.c
         src/client/pe_model.c
