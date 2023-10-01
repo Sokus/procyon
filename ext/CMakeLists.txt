@@ -13,6 +13,5 @@ if(NOT SERVER_STANDALONE)
         add_subdirectory(glad-gl-4.2-core)
     endif()
 
-    add_library(psp-stb INTERFACE)
-    target_include_directories(psp-stb INTERFACE ${CMAKE_CURRENT_LIST_DIR}/psp-stb)
+    add_subdirectory(psp-stb)
 endif()

@@ -8,7 +8,7 @@
 
 #include <stdint.h>
 
-peEntity *entities = NULL;
+static peEntity *entities = NULL;
 uint16_t *free_indices = NULL;
 int free_indices_count = 0;
 
@@ -64,6 +64,10 @@ void pe_allocate_entities(void) {
         free_indices[free_indices_count] = (uint16_t)reverse_index;
         free_indices_count += 1;
     }
+}
+
+peEntity *pe_get_entities(void) {
+    return entities;
 }
 
 peEntity *pe_make_entity(void) {

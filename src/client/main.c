@@ -6,7 +6,6 @@
 #include "pe_time.h"
 #include "pe_net.h"
 
-#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 #if defined(_WIN32) || defined(__linux__)

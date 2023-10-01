@@ -40,12 +40,7 @@ typedef enum peSocketCreateError {
     peSocketCreateError_None,
     peSocketCreateError_InvalidParameter,
     peSocketCreateError_CreateFailed,
-    peSocketCreateError_SetNonBlockingFailed,
     peSocketCreateError_SockoptIPv6OnlyFailed,
-    peSocketCreateError_BindIPv4Failed,
-    peSocketCreateError_BindIPv6Failed,
-    peSocketCreateError_GetSocknameIPv4Failed,
-    peSocketCreateError_GetSocknameIPv6Failed
 } peSocketCreateError;
 
 typedef enum peSocketBindError {

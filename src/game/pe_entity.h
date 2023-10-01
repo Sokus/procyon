@@ -47,6 +47,7 @@ enum peSerializationError pe_serialize_vec3(struct peBitStream *bs, HMM_Vec3 *va
 enum peSerializationError pe_serialize_input(struct peBitStream *bs, peInput *input);
 enum peSerializationError pe_serialize_entity(struct peBitStream *bs, peEntity *entity);
 void pe_allocate_entities(void);
+peEntity *pe_get_entities(void);
 peEntity *pe_make_entity(void);
 peEntity *pe_get_entity_by_index(uint32_t index);
 void pe_destroy_entity(peEntity *entity);

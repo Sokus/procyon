@@ -10,7 +10,6 @@
 #include "p3d.h"
 #include "pe_temp_arena.h"
 
-#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 #define WIN32_LEAN_AND_MEAN

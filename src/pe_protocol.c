@@ -56,6 +56,7 @@ peMessage pe_message_create(peArena *arena, peMessageType type) {
     }
     message.type = type;
     message.any = pe_arena_alloc(arena, message_size);
+    pe_zero_size(message.any, message_size);
     return message;
 }
 
