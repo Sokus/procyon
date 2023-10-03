@@ -197,11 +197,6 @@ void pe_client_process_message(peMessage message, peAddress sender) {
 				client.network_state = peClientNetworkState_Error;
 			}
 		} break;
-		case peMessageType_WorldState: {
-			if (client.network_state == peClientNetworkState_Connected) {
-				memcpy(pe_get_entities(), message.world_state->entities, MAX_ENTITY_COUNT*sizeof(peEntity));
-			}
-		} break;
 		default: break;
     }
 }

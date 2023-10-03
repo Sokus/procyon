@@ -24,6 +24,8 @@ typedef struct peClientData {
 } peClientData;
 
 struct peServerState {
+    bool is_hosting;
+
     peSocket socket;
     int client_count;
     bool client_connected[MAX_CLIENT_COUNT];
@@ -205,6 +207,12 @@ void pe_process_input_state_message(peInputStateMessage *msg, peAddress address,
     }
 }
 
+void pe_process_world_state_message(peWorldStateMessage *msg, peAddress address, bool client_exists, int client_index) {
+	//if (client.network_state == peClientNetworkState_Connected) {
+		memcpy(pe_get_entities(), msg->entities, MAX_ENTITY_COUNT*sizeof(peEntity));
+	//}
+}
+
 void pe_receive_packets(void) {
     peAddress address;
     pePacket packet = {0};
@@ -231,6 +239,11 @@ void pe_receive_packets(void) {
                 case peMessageType_InputState:
                     pe_process_input_state_message(message->input_state, address, client_exists, client_index);
                     break;
+#if !defined(PE_SERVER_STANDALONE)
+                case peMessageType_WorldState:
+                    pe_process_world_state_message(message->world_state, address, client_exists, client_index);
+                    break;
+#endif
                 default:
 #if !defined(PE_SERVER_STANDALONE)
                     pe_client_process_message(*message, address);
@@ -238,7 +251,6 @@ void pe_receive_packets(void) {
                     break;
             }
         }
-
         pe_arena_temp_end(loop_arena_temp);
         packet.message_count = 0;
     }
@@ -284,15 +296,22 @@ int main(int argc, char *argv[]) {
 
     pe_socket_create(peAddressFamily_IPv4, &server.socket);
     pe_socket_set_nonblocking(server.socket);
-    bool IS_MAIN_SERVER = true;
+    server.is_hosting = true;
+#if defined(PE_SERVER_STANDALONE)
+    {
+        peSocketBindError socket_bind_error = pe_socket_bind(server.socket, peAddressFamily_IPv4, SERVER_PORT_MIN);
+        PE_ASSERT_MSG(socket_bind_error == peSocketBindError_None, "Could not bind to %u on standalone server!\n", SERVER_PORT_MIN);
+    }
+#else
     for (uint16_t port = SERVER_PORT_MIN; port < SERVER_PORT_MAX; port += 1) {
         peSocketBindError socket_bind_error = pe_socket_bind(server.socket, peAddressFamily_IPv4, port);
         if (socket_bind_error == peSocketBindError_None) {
             break;
         } else {
-            IS_MAIN_SERVER = false;
+            server.is_hosting = false;
         }
     }
+#endif
 
     pe_allocate_entities();
 
@@ -306,45 +325,41 @@ int main(int argc, char *argv[]) {
         float seconds_since_last_sent_packet = (float)pe_time_sec(ticks_since_last_sent_packet);
         if (seconds_since_last_sent_packet > connection_request_repsonse_interval) {
     */
-    float target_server_update_interval = 1.0f / 20.0f;
-    uint64_t last_server_update_time = 0;
 
+    float dt = 1.0f/60.0f;
     while(true) {
         uint64_t work_start_tick = pe_time_now();
-        uint64_t ticks_since_last_server_update = pe_time_since(last_server_update_time);
-        float seconds_since_last_server_update = (float)pe_time_sec(ticks_since_last_server_update);
-        if (seconds_since_last_server_update > target_server_update_interval) {
-            pe_receive_packets();
+
+        pe_receive_packets();
+
+        if (server.is_hosting) {
             pe_check_for_time_out();
 
-            if (IS_MAIN_SERVER) {
-                peEntity *entities = pe_get_entities();
-                for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
-                    peEntity *entity = &entities[e];
-                    if (!entity->active) continue;
+            peEntity *entities = pe_get_entities();
+            for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
+                peEntity *entity = &entities[e];
+                if (!entity->active)
+                    continue;
 
-                    if (pe_entity_property_get(entity, peEntityProperty_ControlledByPlayer)) {
-                        PE_ASSERT(entity->client_index >= 0 && entity->client_index < MAX_CLIENT_COUNT);
-                        PE_ASSERT(server.client_connected[entity->client_index] || entity->marked_for_destruction);
+                if (pe_entity_property_get(entity, peEntityProperty_ControlledByPlayer)) {
+                    PE_ASSERT(entity->client_index >= 0 && entity->client_index < MAX_CLIENT_COUNT);
+                    PE_ASSERT(server.client_connected[entity->client_index] || entity->marked_for_destruction);
 
-                        peInput *input = &server.client_data[entity->client_index].input;
-                        entity->velocity.X = input->movement.X * 2.0f;
-                        entity->velocity.Z = input->movement.Y * 2.0f;
-                        entity->angle = input->angle;
-                    }
-
-                    // PHYSICS
-                    if (entity->velocity.X != 0.0f || entity->velocity.Z != 0.0f) {
-                        HMM_Vec3 position_delta = HMM_MulV3F(entity->velocity, target_server_update_interval);
-                        entity->position = HMM_AddV3(entity->position, position_delta);
-                    }
+                    peInput *input = &server.client_data[entity->client_index].input;
+                    entity->velocity.X = input->movement.X * 2.0f;
+                    entity->velocity.Z = input->movement.Y * 2.0f;
+                    entity->angle = input->angle;
                 }
-                pe_cleanup_entities();
 
-                pe_send_packets();
+                // PHYSICS
+                if (entity->velocity.X != 0.0f || entity->velocity.Z != 0.0f) {
+                    HMM_Vec3 position_delta = HMM_MulV3F(entity->velocity, dt);
+                    entity->position = HMM_AddV3(entity->position, position_delta);
+                }
             }
+            pe_cleanup_entities();
 
-            last_server_update_time = pe_time_now();
+            pe_send_packets();
         }
 
 #if !defined(PE_SERVER_STANDALONE)
@@ -355,7 +370,7 @@ int main(int argc, char *argv[]) {
 
         uint64_t ticks_spent_working = pe_time_since(work_start_tick);
         double seconds_spent_working = pe_time_sec(ticks_spent_working);
-        double seconds_left_for_cycle = (double)target_server_update_interval - seconds_spent_working;
+        double seconds_left_for_cycle = (double)dt - seconds_spent_working;
         if (seconds_left_for_cycle > 0.0) {
             unsigned int ms_sleep_duration = (unsigned int)(1000.0 * seconds_left_for_cycle);
             pe_time_sleep(ms_sleep_duration);
