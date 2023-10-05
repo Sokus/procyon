@@ -36,6 +36,7 @@ if(NOT SERVER_STANDALONE)
         src/client/pe_platform.c
         src/client/pe_model.c
         src/client/pe_math.c
+        src/client/pe_input.c
     )
     target_include_directories(client PRIVATE src)
     target_link_libraries(client PRIVATE shared handmade-math psp-stb)
@@ -57,7 +58,6 @@ if(NOT SERVER_STANDALONE)
         target_sources(client PRIVATE
             src/client/pe_graphics_psp.c
             src/client/pe_platform_psp.c
-            src/client/pe_input.c
         )
         target_link_libraries(client PUBLIC
             pspdebug pspdisplay pspge pspgu pspgum pspctrl
