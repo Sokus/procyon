@@ -1,4 +1,5 @@
 .vscode
-build
+*build
 
 *.p3d
+*.pp3d

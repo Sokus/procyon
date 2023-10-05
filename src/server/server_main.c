@@ -12,6 +12,8 @@
 #include "client/pe_client.h"
 #include "game/pe_entity.h"
 
+#include <string.h>
+
 #define SECONDS_TO_TIME_OUT 10 // seconds
 #define CONNECTION_REQUEST_RESPONSE_SEND_RATE 1 // per second
 

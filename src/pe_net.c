@@ -344,8 +344,8 @@ peSocketCreateError pe_socket_create(peAddressFamily address_family, peSocket *o
         return peSocketCreateError_CreateFailed;
     }
 #else
-    result = socket((address_family == peAddressFamily_IPv6) ? AF_INET6 : AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (result <= 0) {
+    result.handle = socket((address_family == peAddressFamily_IPv6) ? AF_INET6 : AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (result.handle <= 0) {
         return peSocketCreateError_CreateFailed;
     }
 #endif

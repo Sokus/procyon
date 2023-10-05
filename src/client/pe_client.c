@@ -11,6 +11,7 @@
 #include "pe_protocol.h"
 #include "game/pe_entity.h"
 
+#include <stdio.h>
 #include <stdbool.h>
 
 #define CONNECTION_REQUEST_TIME_OUT 20.0f // seconds
@@ -62,9 +63,9 @@ void pe_client_init(peSocket *socket) {
     client.camera.position = HMM_AddV3(client.camera.target, client.camera_offset);
 }
 
+static float look_angle = 0.0f;
 #if defined(_WIN32) || defined(__linux__)
     #include "pe_window_glfw.h"
-    static float look_angle = 0.0f;
     #include "pe_math.h"
 #endif
 
