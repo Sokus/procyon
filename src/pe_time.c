@@ -159,20 +159,19 @@ peTime pe_time_local(void) {
         .milliseconds = systemtime.wMilliseconds,
     };
 #elif defined(__linux__)
-    #warning untested
     struct timespec ts;
     int clock_gettime_result = clock_gettime(CLOCK_REALTIME, &ts);
     PE_ASSERT(clock_gettime_result == 0);
     time_t tv_sec = ts.tv_sec;
     struct tm *tm = localtime(&tv_sec);
     PE_ASSERT(tm != NULL);
-    peTime time = {
-        .year = tm.tm_year,
-        .month = tm.tm_mon,
-        .day = tm.tm_mday,
-        .hour = tm.tm_hour,
-        .minutes = tm.tm_min,
-        .seconds = tm.tm_sec,
+    time = (peTime){
+        .year = 1900+tm->tm_year,
+        .month = 1+tm->tm_mon,
+        .day = tm->tm_mday,
+        .hour = tm->tm_hour,
+        .minutes = tm->tm_min,
+        .seconds = tm->tm_sec,
         .milliseconds = ts.tv_nsec/1000000,
     };
 #elif defined(PSP)

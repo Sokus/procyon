@@ -6,11 +6,15 @@
 #include <stdbool.h>
 
 typedef struct peOpenGL {
+    int framebuffer_width;
+    int framebuffer_height;
+
     GLuint shader_program;
 } peOpenGL;
 extern peOpenGL pe_opengl;
 
-void pe_graphics_init_linux(void);
+void pe_framebuffer_size_callback_linux(int width, int height);
+void pe_graphics_init_linux(int window_width, int window_height);
 
 union HMM_Vec3;
 union HMM_Mat4;

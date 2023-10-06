@@ -41,7 +41,7 @@ void pe_graphics_init(int window_width, int window_height, const char *window_na
     pe_graphics_init_psp();
 #elif defined(__linux__)
 	pe_glfw_init(window_width, window_height, window_name);
-	pe_graphics_init_linux();
+	//pe_graphics_init_linux();
 #endif
 
 #if defined(_WIN32) || defined(__linux__)
@@ -119,16 +119,20 @@ void pe_graphics_view_lookat(HMM_Vec3 eye, HMM_Vec3 target, HMM_Vec3 up) {
 }
 
 int pe_screen_width(void) {
-#if defined(_WIN32) || defined(__linux__)
+#if defined(_WIN32)
     return pe_d3d.framebuffer_width;
+#elif defined(__linux__)
+	return pe_opengl.framebuffer_width;
 #elif defined(PSP)
     return PSP_SCREEN_W;
 #endif
 }
 
 int pe_screen_height(void) {
-#if defined(_WIN32) || defined(__linux__)
+#if defined(_WIN32)
     return pe_d3d.framebuffer_height;
+#elif defined(__linux__)
+	return pe_opengl.framebuffer_height;
 #elif defined(PSP)
     return PSP_SCREEN_H;
 #endif

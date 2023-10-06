@@ -3,25 +3,15 @@
 
 #include "pe_core.h"
 #include "pe_temp_arena.h"
-#include "pe_window_glfw.h"
 #include "pe_file_io.h"
 
 #include "glad/glad.h"
-
-#define GLFW_INCLUDE_NONE
-#include "GLFW/glfw3.h"
 
 #include "HandmadeMath.h"
 
 #include <stdio.h>
 
 peOpenGL pe_opengl = {0};
-
-static void glfw_framebuffer_size_proc(GLFWwindow *window, int width, int height) {
-    glViewport(0, 0, width, height);
-    pe_glfw.window_width = width;
-    pe_glfw.window_height = height;
-}
 
 static const char *gl_debug_message_source_to_string(GLenum source) {
     switch (source) {
@@ -136,15 +126,15 @@ static GLuint pe_shader_create_from_file(const char *source_file_path) {
     return shader_program;
 }
 
-void pe_graphics_init_linux(void) {
-    int window_width, window_height;
+void pe_framebuffer_size_callback_linux(int width, int height) {
+    glViewport(0, 0, width, height);
+    pe_opengl.framebuffer_width = width;
+    pe_opengl.framebuffer_height = height;
+}
 
-    // init GLFW
-    {
-        PE_ASSERT(pe_glfw.initialized);
-        gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-        glfwGetWindowSize(pe_glfw.window, &window_width, &window_height);
-    }
+void pe_graphics_init_linux(int window_width, int window_height) {
+    pe_opengl.framebuffer_width = window_width;
+    pe_opengl.framebuffer_height = window_height;
 
     // TODO: Confirm that glDebugMessageCallbackARB actually works
 #if !defined(NDEBUG) && defined(GL_ARB_debug_output)
