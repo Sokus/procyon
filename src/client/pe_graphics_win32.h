@@ -8,6 +8,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#define GLFW_INCLUDE_NONE
 #include "GLFW/glfw3.h"
 #include "HandmadeMath.h"
 
@@ -16,6 +17,9 @@
 #include <stdbool.h>
 
 typedef struct peDirect3D {
+    int framebuffer_width;
+    int framebuffer_height;
+
     ID3D11Device *device;
     ID3D11DeviceContext *context;
     IDXGISwapChain1 *swapchain;
@@ -40,7 +44,8 @@ extern ID3D11Buffer *pe_shader_constant_light_buffer;
 extern ID3D11Buffer *pe_shader_constant_material_buffer;
 extern ID3D11Buffer *pe_shader_constant_skeleton_buffer;
 
-void pe_d3d11_init(void);
+void pe_framebuffer_size_callback_win32(int width, int height);
+void pe_graphics_init_win32(HWND hwnd, int window_width, int window_height);
 
 ID3D11Buffer *pe_d3d11_create_buffer(void *data, UINT byte_width, D3D11_USAGE usage, UINT bind_flags);
 

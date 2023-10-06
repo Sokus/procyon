@@ -9,8 +9,8 @@
     #define WIN32_LEAN_AND_MEAN
     #include <windows.h>
 
-	#include "pe_window_glfw.h"
 	#include "pe_graphics_win32.h"
+	#include "pe_window_glfw.h"
 #elif defined(PSP)
 	#include "pe_graphics_psp.h"
 
@@ -36,7 +36,7 @@ static peTexture default_texture;
 void pe_graphics_init(int window_width, int window_height, const char *window_name) {
 #if defined(_WIN32)
     pe_glfw_init(window_width, window_height, window_name);
-    pe_d3d11_init();
+    //pe_d3d11_init();
 #elif defined(PSP)
     pe_graphics_init_psp();
 #elif defined(__linux__)
@@ -120,7 +120,7 @@ void pe_graphics_view_lookat(HMM_Vec3 eye, HMM_Vec3 target, HMM_Vec3 up) {
 
 int pe_screen_width(void) {
 #if defined(_WIN32) || defined(__linux__)
-    return pe_glfw.window_width;
+    return pe_d3d.framebuffer_width;
 #elif defined(PSP)
     return PSP_SCREEN_W;
 #endif
@@ -128,7 +128,7 @@ int pe_screen_width(void) {
 
 int pe_screen_height(void) {
 #if defined(_WIN32) || defined(__linux__)
-    return pe_glfw.window_height;
+    return pe_d3d.framebuffer_height;
 #elif defined(PSP)
     return PSP_SCREEN_H;
 #endif

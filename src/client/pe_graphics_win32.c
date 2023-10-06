@@ -1,6 +1,5 @@
 #include "pe_graphics.h"
 #include "client/pe_graphics_win32.h"
-#include "client/pe_window_glfw.h"
 
 #include "pe_core.h"
 
@@ -18,10 +17,6 @@
 #pragma comment (lib, "dxguid")
 #pragma comment (lib, "d3d11")
 #pragma comment (lib, "d3dcompiler")
-
-#include "GLFW/glfw3.h"
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include "GLFW/glfw3native.h"
 
 #include <stdio.h>
 
@@ -77,7 +72,7 @@ static void d3d11_set_viewport(int width, int height) {
     ID3D11DeviceContext_RSSetViewports(pe_d3d.context, 1, &viewport);
 }
 
-static void glfw_framebuffer_size_proc(GLFWwindow *window, int width, int height) {
+void pe_framebuffer_size_callback_win32(int width, int height) {
     ID3D11DeviceContext_Flush(pe_d3d.context);
     pe_destroy_swapchain_resources();
     HRESULT hr = IDXGISwapChain1_ResizeBuffers(pe_d3d.swapchain, 0, (UINT)width, (UINT)height, DXGI_FORMAT_UNKNOWN, 0);
@@ -85,22 +80,15 @@ static void glfw_framebuffer_size_proc(GLFWwindow *window, int width, int height
 
     d3d11_set_viewport(width, height);
 
-    pe_glfw.window_width = width;
-    pe_glfw.window_height = height;
+    pe_d3d.framebuffer_width = width;
+    pe_d3d.framebuffer_height = height;
 }
 
-void pe_d3d11_init(void) {
+void pe_graphics_init_win32(HWND hwnd, int window_width, int window_height) {
     HRESULT hr;
-    HWND hwnd;
-    int window_width, window_height;
 
-    // init GLFW
-    {
-        PE_ASSERT(pe_glfw.initialized);
-        glfwSetFramebufferSizeCallback(pe_glfw.window, glfw_framebuffer_size_proc);
-        hwnd = glfwGetWin32Window(pe_glfw.window);
-        glfwGetWindowSize(pe_glfw.window, &window_width, &window_height);
-    }
+    pe_d3d.framebuffer_width = window_width;
+    pe_d3d.framebuffer_height = window_height;
 
     // create D3D11 device & context
     {

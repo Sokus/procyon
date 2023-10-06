@@ -5,34 +5,57 @@
 #define GLFW_INCLUDE_NONE
 #include "GLFW/glfw3.h"
 
+#if defined(_WIN32)
+    #define GLFW_EXPOSE_NATIVE_WIN32
+    #include "GLFW/glfw3native.h"
+
+    #include "pe_graphics_win32.h"
+#endif
+
 #include <stdbool.h>
 
 peGLFW pe_glfw = {0};
+
+static pe_framebuffer_size_callback_glfw(GLFWwindow *window, int width, int height) {
+#if defined(_WIN32)
+    pe_framebuffer_size_callback_win32(width, height);
+#endif
+}
 
 void pe_glfw_init(int window_width, int window_height, const char *window_name) {
     if (pe_glfw.initialized == false) {
         glfwInit();
 
-        glfwWindowHint(GLFW_SCALE_TO_MONITOR, 0);
+        // set window hints
+        {
+            glfwWindowHint(GLFW_SCALE_TO_MONITOR, 0);
 #if defined(_WIN32)
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+            glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 #elif defined(__linux__)
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+            glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 #endif
-
 #if defined(__linux__) && !defined(NDEBUG)
-        glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
+            glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 #endif
+        }
 
         pe_glfw.window = glfwCreateWindow(window_width, window_height, window_name, NULL, NULL);
-        pe_glfw.window_width = window_width;
-        pe_glfw.window_height = window_height;
+
+        // init graphics
+        {
+#if defined(_WIN32)
+            HWND hwnd = glfwGetWin32Window(pe_glfw.window);
+            pe_graphics_init_win32(hwnd, window_width, window_height);
+#endif
+        }
 
 #if defined(__linux__)
         glfwMakeContextCurrent(pe_glfw.window);
 #endif
+
+        glfwSetFramebufferSizeCallback(pe_glfw.window, pe_framebuffer_size_callback_glfw);
 
         pe_glfw.initialized = true;
     }

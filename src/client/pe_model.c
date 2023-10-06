@@ -849,7 +849,7 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 		last_frame_time = pe_time_now();
 		last_frame_time_initialized = true;
 	}
-	current_frame_time += pe_time_sec(pe_time_laptime(&last_frame_time));
+	current_frame_time += (float)pe_time_sec(pe_time_laptime(&last_frame_time));
 	if (current_frame_time >= frame_time) {
 		frame_index = (frame_index + 1) % model->animation[0].num_frames;
 		current_frame_time -= frame_time;
