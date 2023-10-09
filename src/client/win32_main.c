@@ -208,8 +208,8 @@ int main(int argc, char *argv[]) {
 			} break;
 			case peClientNetworkState_Connected: {
 				peMessage message = pe_message_create(pe_temp_arena(), peMessageType_InputState);
-				//message.input_state->input.movement.X = pe_input_axis(peGamepadAxis_LeftX);
-				//message.input_state->input.movement.Y = pe_input_axis(peGamepadAxis_LeftY);
+				//message.input_state->input.movement.X = pe_input_gamepad_axis(peGamepadAxis_LeftX);
+				//message.input_state->input.movement.Y = pe_input_gamepad_axis(peGamepadAxis_LeftY);
                 bool key_d = glfwGetKey(pe_glfw.window, GLFW_KEY_D);
                 bool key_a = glfwGetKey(pe_glfw.window, GLFW_KEY_A);
                 bool key_w = glfwGetKey(pe_glfw.window, GLFW_KEY_W);

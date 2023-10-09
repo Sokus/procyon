@@ -232,8 +232,8 @@ int main(int argc, char* argv[])
 			} break;
 			case peClientNetworkState_Connected: {
 				peMessage message = pe_message_create(temp_arena, peMessageType_InputState);
-				message.input_state->input.movement.X = pe_input_axis(peGamepadAxis_LeftX);
-				message.input_state->input.movement.Y = pe_input_axis(peGamepadAxis_LeftY);
+				message.input_state->input.movement.X = pe_input_gamepad_axis(peGamepadAxis_LeftX);
+				message.input_state->input.movement.Y = pe_input_gamepad_axis(peGamepadAxis_LeftY);
 				pe_append_message(&outgoing_packet, message);
 			} break;
 			default: break;

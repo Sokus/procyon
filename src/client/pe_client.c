@@ -5,6 +5,7 @@
 #include "pe_graphics.h"
 #include "pe_model.h"
 #include "pe_time.h"
+#include "pe_input.h"
 
 #include "pe_temp_arena.h"
 #include "pe_config.h"
@@ -46,6 +47,7 @@ void pe_client_init(peSocket *socket) {
 
     pe_platform_init();
     pe_graphics_init(960, 540, "Procyon");
+    pe_input_init();
 
 #if !defined(PSP)
     #define PE_MODEL_EXTENSION ".p3d"
@@ -65,12 +67,12 @@ void pe_client_init(peSocket *socket) {
 
 static float look_angle = 0.0f;
 #if defined(_WIN32) || defined(__linux__)
-    #include "pe_window_glfw.h"
     #include "pe_math.h"
 #endif
 
 void pe_client_update(void) {
     pe_platform_poll_events();
+    pe_input_update();
 
     peEntity *entities = pe_get_entities();
     for (int i = 0; i < MAX_ENTITY_COUNT; i += 1) {
@@ -87,9 +89,9 @@ void pe_client_update(void) {
 
 #if defined(_WIN32) || defined(__linux__)
     {
-        double xpos, ypos;
-        glfwGetCursorPos(pe_glfw.window, &xpos, &ypos);
-        peRay ray = pe_get_mouse_ray((HMM_Vec2){(float)xpos, (float)ypos}, client.camera);
+        float pos_x, pos_y;
+        pe_input_mouse_positon(&pos_x, &pos_y);
+        peRay ray = pe_get_mouse_ray(HMM_V2(pos_x, pos_y), client.camera);
 
         HMM_Vec3 collision_point;
         if (pe_collision_ray_plane(ray, (HMM_Vec3){.Y = 1.0f}, 0.0f, &collision_point)) {
@@ -125,16 +127,22 @@ void pe_client_update(void) {
 		} break;
 		case peClientNetworkState_Connected: {
 			peMessage message = pe_message_create(pe_temp_arena(), peMessageType_InputState);
-			//message.input_state->input.movement.X = pe_input_axis(peGamepadAxis_LeftX);
-			//message.input_state->input.movement.Y = pe_input_axis(peGamepadAxis_LeftY);
-#if defined(_WIN32) || defined(__linux__)
-            bool key_d = glfwGetKey(pe_glfw.window, GLFW_KEY_D);
-            bool key_a = glfwGetKey(pe_glfw.window, GLFW_KEY_A);
-            bool key_w = glfwGetKey(pe_glfw.window, GLFW_KEY_W);
-            bool key_s = glfwGetKey(pe_glfw.window, GLFW_KEY_S);
-            message.input_state->input.movement.X = (float)key_d - (float)key_a;
-            message.input_state->input.movement.Y = (float)key_s - (float)key_w;
-#endif
+            HMM_Vec2 gamepad_input = {
+                .X = pe_input_gamepad_axis(peGamepadAxis_LeftX),
+                .Y = pe_input_gamepad_axis(peGamepadAxis_LeftY)
+            };
+            bool right_is_down = pe_input_key_is_down(peKeyboardKey_Right);
+            bool left_is_down = pe_input_key_is_down(peKeyboardKey_Left);
+            bool down_is_down = pe_input_key_is_down(peKeyboardKey_Down);
+            bool up_is_down = pe_input_key_is_down(peKeyboardKey_Up);
+            HMM_Vec2 keyboard_input = {
+                .X = (float)right_is_down - (float)left_is_down,
+                .Y = (float)down_is_down - (float)up_is_down
+            };
+            message.input_state->input.movement = HMM_V2(
+                PE_CLAMP(gamepad_input.X + keyboard_input.X, -1.0f, 1.0f),
+                PE_CLAMP(gamepad_input.Y + keyboard_input.Y, -1.0f, 1.0f)
+            );
             message.input_state->input.angle = look_angle;
 			pe_append_message(&outgoing_packet, message);
 		} break;

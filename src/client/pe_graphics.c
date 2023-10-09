@@ -36,12 +36,10 @@ static peTexture default_texture;
 void pe_graphics_init(int window_width, int window_height, const char *window_name) {
 #if defined(_WIN32)
     pe_glfw_init(window_width, window_height, window_name);
-    //pe_d3d11_init();
 #elif defined(PSP)
     pe_graphics_init_psp();
 #elif defined(__linux__)
 	pe_glfw_init(window_width, window_height, window_name);
-	//pe_graphics_init_linux();
 #endif
 
 #if defined(_WIN32) || defined(__linux__)

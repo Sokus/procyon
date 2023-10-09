@@ -45,19 +45,22 @@ if(NOT SERVER_STANDALONE)
         target_sources(client PRIVATE
             src/client/pe_window_glfw.c
             src/client/pe_graphics_win32.c
+            src/client/pe_input_glfw.c
         )
         target_link_libraries(client PRIVATE glfw)
     elseif(LINUX)
         target_sources(client PRIVATE
             src/client/pe_window_glfw.c
-            ext/glad-gl-4.2-core/src/glad.c
+            ext/glad-gl-4.2-core/src/glad.c # TODO: get rid of this...
             src/client/pe_graphics_linux.c
+            src/client/pe_input_glfw.c
         )
         target_link_libraries(client PRIVATE glfw glad)
     elseif(PSP)
         target_sources(client PRIVATE
             src/client/pe_graphics_psp.c
             src/client/pe_platform_psp.c
+            src/client/pe_input_psp.c
         )
         target_link_libraries(client PUBLIC
             pspdebug pspdisplay pspge pspgu pspgum pspctrl

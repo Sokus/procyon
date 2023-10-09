@@ -316,6 +316,11 @@ int main(int argc, char *argv[]) {
 #endif
 
     pe_allocate_entities();
+    {
+        peEntity *entity = pe_make_entity();
+        entity->active = true;
+        pe_entity_property_set(entity, peEntityProperty_CanCollide);
+    }
 
 #if !defined(PE_SERVER_STANDALONE)
     pe_client_init(&server.socket);

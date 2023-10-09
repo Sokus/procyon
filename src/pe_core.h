@@ -99,6 +99,7 @@ void pe_assert_handler(char *prefix, char *condition, char *file, int line, char
 
 #define PE_MAX(a, b) ((a)>=(b)?(a):(b))
 #define PE_MIN(a, b) ((a)<=(b)?(a):(b))
+#define PE_CLAMP(x, a, b) ((x)<(a)?(a) : (x)>(b)?(b) : (x))
 
 #ifndef PE_DEFAULT_MEMORY_ALIGNMENT
 #define PE_DEFAULT_MEMORY_ALIGNMENT (2 * sizeof(void *))

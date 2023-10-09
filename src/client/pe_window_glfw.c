@@ -1,5 +1,6 @@
 #include "pe_window_glfw.h"
 
+#include "pe_input_glfw.h"
 #include "pe_core.h"
 
 #define GLFW_INCLUDE_NONE
@@ -26,6 +27,14 @@ static void pe_framebuffer_size_callback_glfw(GLFWwindow *window, int width, int
 #elif defined(__linux__)
     pe_framebuffer_size_callback_linux(width, height);
 #endif
+}
+
+static void pe_window_key_callback_glfw(GLFWwindow *window, int key, int scancode, int action, int mods) {
+    pe_input_key_callback_glfw(key, action);
+}
+
+static void pe_cursor_position_callback_glfw(GLFWwindow *window, double pos_x, double pos_y) {
+    pe_input_cursor_position_callback_glfw(pos_x, pos_y);
 }
 
 void pe_glfw_init(int window_width, int window_height, const char *window_name) {
@@ -61,10 +70,9 @@ void pe_glfw_init(int window_width, int window_height, const char *window_name) 
 #endif
         }
 
-#if defined(__linux__)
-#endif
-
         glfwSetFramebufferSizeCallback(pe_glfw.window, pe_framebuffer_size_callback_glfw);
+        glfwSetKeyCallback(pe_glfw.window, pe_window_key_callback_glfw);
+        glfwSetCursorPosCallback(pe_glfw.window, pe_cursor_position_callback_glfw);
 
         pe_glfw.initialized = true;
     }
