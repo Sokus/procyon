@@ -41,6 +41,7 @@ class Vertex:
 class Material:
     def __init__(self):
         self.diffuse_color = []
+        self.diffuse_image = None
 
 class Mesh:
     def __init__(self):
@@ -225,17 +226,24 @@ def write_proc(operator, context, file_type):
 
                     material_index = 0
                     if materials.get(material) == None:
-                        materials[material] = Material()
                         material_bsdf = PrincipledBSDFWrapper(material)
-                        if material_bsdf:
-                            if material_bsdf.base_color and len(material_bsdf.base_color) > 3:
-                                alpha = material_bsdf.base_color[3]
-                            else:
-                                alpha = material_bsdf.alpha
-                            materials[material].diffuse_color = [material_bsdf.base_color[0], material_bsdf.base_color[1], material_bsdf.base_color[2], alpha]
-                        else:
+                        if material_bsdf == None:
                             operator.report({"ERROR"}, "Material '", material.name, "' does not use PrincipledBSDF surface, not parsing.")
                             return False
+
+                        materials[material] = Material()
+
+                        if material_bsdf.base_color and len(material_bsdf.base_color) > 3:
+                            alpha = material_bsdf.base_color[3]
+                        else:
+                            alpha = material_bsdf.alpha
+                        materials[material].diffuse_color = [material_bsdf.base_color[0], material_bsdf.base_color[1], material_bsdf.base_color[2], alpha]
+
+                        base_color_socket = material_bsdf.node_principled_bsdf.inputs['Base Color']
+                        if base_color_socket.links:
+                            materials[material].diffuse_image = base_color_socket.links[0].from_node.image
+                            if len(base_color_socket.links) > 1:
+                                print(f"WARNING: base color socket has {len(base_color_socket.links)} links, only the first one is processed!")
                     material_index = list(materials.keys()).index(material)
 
                     mesh_index = -1
