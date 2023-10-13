@@ -23,6 +23,7 @@ typedef struct p3dMesh {
     uint32_t index_offset;
     uint32_t vertex_offset;
     uint32_t diffuse_color;
+    char diffuse_texture_name[64];
 } p3dMesh;
 // p3dMesh meshes[static_info.num_meshes];
 

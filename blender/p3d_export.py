@@ -13,6 +13,7 @@ import struct
 import mathutils
 import sys
 from copy import (copy)
+from pathlib import Path
 from bpy.utils import (register_class, unregister_class)
 from bpy.types import (Panel, PropertyGroup)
 from bpy.props import (StringProperty, BoolProperty, IntProperty, FloatProperty, FloatVectorProperty, EnumProperty, PointerProperty)
@@ -483,7 +484,8 @@ def write_proc(operator, context, file_type):
         file_write_mode = "wb"
 
     if file_type == "P3D":
-        file = open(bpy.path.abspath(context.scene.export_properties.standard_path), file_write_mode)
+        file_path = Path(bpy.path.abspath(context.scene.export_properties.standard_path))
+        file = open(str(file_path), file_write_mode)
         write_static_info_header(file, file_type, procyon_data)
         write_mesh_info(file, file_type, procyon_data)
         write_animation_info(file, file_type, procyon_data)
@@ -492,7 +494,8 @@ def write_proc(operator, context, file_type):
         write_inverse_model_space_matrix(file, file_type, procyon_data)
         write_animation_data(file, file_type, procyon_data)
     elif file_type == "PP3D":
-        file = open(bpy.path.abspath(context.scene.export_properties.portable_path), file_write_mode)
+        file_path = Path(bpy.path.abspath(context.scene.export_properties.portable_path))
+        file = open(str(file_path), file_write_mode)
         write_static_info_header(file, "PP3D", procyon_data)
         write_mesh_info(file, "PP3D", procyon_data)
         write_material_info(file, "PP3D", procyon_data)
@@ -511,6 +514,8 @@ def write_proc(operator, context, file_type):
         write_inverse_model_space_matrix(file, "PP3D", procyon_data)
         write_animation_data(file, "PP3D", procyon_data)
     file.close()
+
+    write_diffuse_textures(file_path, procyon_data)
 
     return True
 
@@ -546,6 +551,12 @@ def write_mesh_info(file, file_type, procyon_data):
             assert(mesh.material_index >= 0)
             diffuse_color = procyon_data.materials[mesh.material_index].diffuse_color
             write_uint32(file, color_to_uint32(diffuse_color))
+            diffuse_image = procyon_data.materials[mesh.material_index].diffuse_image
+            if diffuse_image:
+                write_string(file, diffuse_image.name)
+            diffuse_image_name_length = len(diffuse_image.name) if diffuse_image else 0
+            for i in range(64 - diffuse_image_name_length):
+                write_uint8(file, 0)
     elif file_type == "PP3D":
         for mesh in procyon_data.meshes:
             material_index = mesh.material_index if mesh.material_index >= 0 else UINT16_MAX
@@ -663,6 +674,17 @@ def write_animation_data(file, file_type, procyon_data):
                 write_float(file, joint.scale.x)
                 write_float(file, joint.scale.y)
                 write_float(file, joint.scale.z)
+
+def write_diffuse_textures(file_path, procyon_data):
+    # new_file_path = file_path.with_name(file_path.stem + "_suffix").with_suffix(".new_extension")
+    for material_index, material in enumerate(procyon_data.materials):
+        if not material.diffuse_image: continue
+        diffuse_texture_file_name = file_path.stem + f"_diffuse_{material_index}"
+        diffuse_texture_file_path = file_path.with_name(diffuse_texture_file_name).with_suffix(".png")
+        print(f"Writing diffuse texture: {diffuse_texture_file_path}")
+        material.diffuse_image.save_render(str(diffuse_texture_file_path))
+
+
 
 axes_enum = [("X","X","",1),("-X","-X","",2),("Y","Y","",3),("-Y","-Y","",4),("Z","Z","",5),("-Z","-Z","",6)]
 
