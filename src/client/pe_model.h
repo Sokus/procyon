@@ -66,6 +66,8 @@ typedef struct peSubskeleton {
 #endif
 
 typedef struct peModel {
+    peString model_path; // ./res/characters/fox (without extension!)
+
     int num_mesh;
     int num_material;
     int num_bone;

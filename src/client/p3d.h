@@ -2,6 +2,7 @@
 #define PROCYON_3D_FORMAT_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 // 1. static info header
 typedef struct p3dStaticInfo {
@@ -23,7 +24,7 @@ typedef struct p3dMesh {
     uint32_t index_offset;
     uint32_t vertex_offset;
     uint32_t diffuse_color;
-    char diffuse_texture_name[64];
+    char diffuse_map_file_name[48];
 } p3dMesh;
 // p3dMesh meshes[static_info.num_meshes];
 

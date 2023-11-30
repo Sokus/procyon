@@ -552,10 +552,11 @@ def write_mesh_info(file, file_type, procyon_data):
             diffuse_color = procyon_data.materials[mesh.material_index].diffuse_color
             write_uint32(file, color_to_uint32(diffuse_color))
             diffuse_image = procyon_data.materials[mesh.material_index].diffuse_image
+            diffuse_image_name_length = len(diffuse_image.name) if diffuse_image else 0
+            assert(diffuse_image_name_length < 48)
             if diffuse_image:
                 write_string(file, diffuse_image.name)
-            diffuse_image_name_length = len(diffuse_image.name) if diffuse_image else 0
-            for i in range(64 - diffuse_image_name_length):
+            for i in range(48 - diffuse_image_name_length):
                 write_uint8(file, 0)
     elif file_type == "PP3D":
         for mesh in procyon_data.meshes:
@@ -643,6 +644,13 @@ def write_material_info(file, file_type, procyon_data):
     elif file_type == "PP3D":
         for material in procyon_data.materials:
             write_uint32(file, color_to_uint32(material.diffuse_color))
+            diffuse_image = material.diffuse_image
+            diffuse_image_name_length = len(diffuse_image.name) if diffuse_image else 0
+            assert(diffuse_image_name_length < 48)
+            if diffuse_image:
+                write_string(file, diffuse_image.name)
+            for i in range(48 - diffuse_image_name_length):
+                write_uint8(file, 0)
 
 def write_bone_parent_indices(file, file_type, procyon_data):
     if file_type == "P3D":
@@ -676,7 +684,6 @@ def write_animation_data(file, file_type, procyon_data):
                 write_float(file, joint.scale.z)
 
 def write_diffuse_textures(file_path, procyon_data):
-    # new_file_path = file_path.with_name(file_path.stem + "_suffix").with_suffix(".new_extension")
     for material_index, material in enumerate(procyon_data.materials):
         if not material.diffuse_image: continue
         diffuse_texture_file_name = file_path.stem + f"_diffuse_{material_index}"

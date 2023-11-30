@@ -77,7 +77,7 @@ else()
     set(main_target server)
 endif()
 add_executable(${main_target}
-    src/server/server_main.c
+    src/pe_tests.c
 )
 target_include_directories(${main_target} PRIVATE src)
 target_link_libraries(${main_target} PRIVATE shared)
@@ -100,4 +100,4 @@ endif()
 
 add_executable(tests src/pe_tests.c)
 target_include_directories(tests PRIVATE src)
-target_link_libraries(tests shared)
+target_link_libraries(tests shared client)

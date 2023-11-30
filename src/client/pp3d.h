@@ -30,6 +30,7 @@ typedef struct pp3dMesh {
 // 3. material infos
 typedef struct pp3dMaterial {
     uint32_t diffuse_color;
+    char diffuse_image_file_name[48];
 } pp3dMaterial;
 // pp3dMaterial materials[static_info.num_materials];
 
