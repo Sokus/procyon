@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// P3D FILE CONTENTS:
+
 // 1. static info header
 typedef struct p3dStaticInfo {
     char extension_magic[4];
@@ -61,5 +63,25 @@ typedef struct p3dAnimationJoint {
     struct { float x, y, z; } scale;
 } p3dAnimationJoint;
 // p3dAnimationJoint animation_joints[static_info.num_frames_total * static_info.num_bones];
+
+// END OF P3D FILE
+
+typedef struct p3dFile {
+    p3dStaticInfo *static_info;
+    p3dMesh *mesh;
+    p3dAnimation *animation;
+
+    int16_t *position;
+    int16_t *normal;
+    int16_t *texcoord;
+    uint8_t *bone_index;
+    uint16_t *bone_weight;
+
+    uint32_t *index;
+
+    uint8_t *bone_parent_index;
+    p3dMatrix *inverse_model_space_pose_matrix;
+    p3dAnimationJoint *animation_joint;
+} p3dFile;
 
 #endif // PROCYON_3D_FORMAT_H
