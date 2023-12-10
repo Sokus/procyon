@@ -487,7 +487,7 @@ def write_proc(operator, context, file_type):
         file_path = Path(bpy.path.abspath(context.scene.export_properties.standard_path))
         file = open(str(file_path), file_write_mode)
         write_static_info_header(file, file_type, procyon_data)
-        write_mesh_info(file, file_type, procyon_data)
+        write_mesh_info(file, file_type, file_path, procyon_data)
         write_animation_info(file, file_type, procyon_data)
         write_mesh_data(file, file_type, procyon_data)
         write_bone_parent_indices(file, file_type, procyon_data)
@@ -496,9 +496,9 @@ def write_proc(operator, context, file_type):
     elif file_type == "PP3D":
         file_path = Path(bpy.path.abspath(context.scene.export_properties.portable_path))
         file = open(str(file_path), file_write_mode)
-        write_static_info_header(file, "PP3D", procyon_data)
-        write_mesh_info(file, "PP3D", procyon_data)
-        write_material_info(file, "PP3D", procyon_data)
+        write_static_info_header(file, file_type, procyon_data)
+        write_mesh_info(file, file_type, file_path, procyon_data)
+        write_material_info(file, file_type, file_path, procyon_data)
 
         # subskeleton infos
         for bone_group in procyon_data.bone_groups:
@@ -508,11 +508,11 @@ def write_proc(operator, context, file_type):
                 write_uint8(file, bone_index)
             for a in range(3): write_uint8(file, 0) # alignment
 
-        write_animation_info(file, "PP3D", procyon_data)
-        write_mesh_data(file, "PP3D", procyon_data)
-        write_bone_parent_indices(file, "PP3D", procyon_data)
-        write_inverse_model_space_matrix(file, "PP3D", procyon_data)
-        write_animation_data(file, "PP3D", procyon_data)
+        write_animation_info(file, file_type, procyon_data)
+        write_mesh_data(file, file_type, procyon_data)
+        write_bone_parent_indices(file, file_type, procyon_data)
+        write_inverse_model_space_matrix(file, file_type, procyon_data)
+        write_animation_data(file, file_type, procyon_data)
     file.close()
 
     write_diffuse_textures(file_path, procyon_data)
@@ -542,7 +542,7 @@ def write_static_info_header(file, file_type, procyon_data):
         num_frames_total = sum([len(animation.frames) for animation in procyon_data.animations])
         write_uint16(file, num_frames_total) # 2 bytes (20)
 
-def write_mesh_info(file, file_type, procyon_data):
+def write_mesh_info(file, file_type, file_path, procyon_data):
     if file_type == "P3D":
         for mesh in procyon_data.meshes:
             write_uint32(file, len(mesh.indices))
@@ -552,10 +552,11 @@ def write_mesh_info(file, file_type, procyon_data):
             diffuse_color = procyon_data.materials[mesh.material_index].diffuse_color
             write_uint32(file, color_to_uint32(diffuse_color))
             diffuse_image = procyon_data.materials[mesh.material_index].diffuse_image
-            diffuse_image_name_length = len(diffuse_image.name) if diffuse_image else 0
+            diffuse_image_name = f"{file_path.stem}_diffuse_{mesh.material_index}.png"
+            diffuse_image_name_length = len(diffuse_image_name) if diffuse_image else 0
             assert(diffuse_image_name_length < 48)
             if diffuse_image:
-                write_string(file, diffuse_image.name)
+                write_string(file, diffuse_image_name)
             for i in range(48 - diffuse_image_name_length):
                 write_uint8(file, 0)
     elif file_type == "PP3D":
@@ -638,17 +639,18 @@ def write_mesh_data(file, file_type, procyon_data):
             for i, index in enumerate(mesh.indices):
                 write_uint16(file, index)
 
-def write_material_info(file, file_type, procyon_data):
+def write_material_info(file, file_type, file_path, procyon_data):
     if file_type == "P3D":
         pass
     elif file_type == "PP3D":
-        for material in procyon_data.materials:
+        for m, material in enumerate(procyon_data.materials):
             write_uint32(file, color_to_uint32(material.diffuse_color))
             diffuse_image = material.diffuse_image
-            diffuse_image_name_length = len(diffuse_image.name) if diffuse_image else 0
+            diffuse_image_name = f"{file_path.stem}_diffuse_{m}.png"
+            diffuse_image_name_length = len(diffuse_image_name) if diffuse_image else 0
             assert(diffuse_image_name_length < 48)
             if diffuse_image:
-                write_string(file, diffuse_image.name)
+                write_string(file, diffuse_image_name)
             for i in range(48 - diffuse_image_name_length):
                 write_uint8(file, 0)
 

@@ -55,7 +55,8 @@ if(NOT SERVER_STANDALONE)
             src/client/pe_graphics_linux.c
             src/client/pe_input_glfw.c
         )
-        target_link_libraries(client PRIVATE glfw glad)
+        target_link_libraries(client PRIVATE glfw)
+        target_link_libraries(client PUBLIC glad)
     elseif(PSP)
         target_sources(client PRIVATE
             src/client/pe_graphics_psp.c

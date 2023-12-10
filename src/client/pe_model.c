@@ -608,20 +608,32 @@ static peModel pe_model_load_psp(const char *file_path) {
 	model.num_animations = pp3d_static_info->num_animations;
 	model.num_bone = pp3d_static_info->num_bones;
 
+    stbi_set_flip_vertically_on_load(false);
 	for (int m = 0; m < pp3d_static_info->num_materials; m += 1) {
 		model.material[m] = pe_default_material();
 		model.material[m].diffuse_color.rgba = pp3d_material_info[m].diffuse_color;
-	}
-    stbi_set_flip_vertically_on_load(false);
-	char *fox_diffuse_texture_paths[] = {
-		"./res/fox_diffuse_0.png",
-		"./res/fox_diffuse_1.png"
-	};
-	for (int t = 0; t < 2; t += 1) {
-		int w, h, channels;
-		stbi_uc *stbi_data = stbi_load(fox_diffuse_texture_paths[t], &w, &h, &channels, STBI_rgb_alpha);
-		model.material[t].has_diffuse_map = true;
-		model.material[t].diffuse_map = pe_texture_create(stbi_data, w, h, GU_PSM_8888);
+		if (pp3d_material_info[m].diffuse_image_file_name[0] != '\0') {
+			model.material[m].has_diffuse_map = true;
+
+			int last_slash_index = 0;
+			for (int c = 0; c < 256; c += 1) {
+				if (file_path[c] == '\0') {
+					break;
+				}
+				if (file_path[c] == '/') {
+					last_slash_index = c;
+				}
+			}
+			char diffuse_texture_path[512] = {0};
+			memcpy(diffuse_texture_path, file_path, (last_slash_index+1) * sizeof(char));
+			size_t diffuse_map_file_length = strnlen(pp3d_material_info[m].diffuse_image_file_name, sizeof(pp3d_material_info[m].diffuse_image_file_name));
+			memcpy(diffuse_texture_path + last_slash_index + 1, pp3d_material_info[m].diffuse_image_file_name, diffuse_map_file_length*sizeof(char));
+
+			int w, h, channels;
+			stbi_uc *stbi_data = stbi_load(diffuse_texture_path, &w, &h, &channels, STBI_rgb_alpha);
+			model.material[m].diffuse_map = pe_texture_create(stbi_data, w, h, GU_PSM_8888);
+			stbi_image_free(stbi_data);
+		}
 	}
 
 	for (int s = 0; s < pp3d_static_info->num_subskeletons; s += 1) {
@@ -742,6 +754,7 @@ peModel pe_model_load(char *file_path) {
     model.num_animations = (int)p3d_static_info->num_animations;
     model.num_vertex = p3d_static_info->num_vertex;
 
+    stbi_set_flip_vertically_on_load(false);
     for (int m = 0; m < p3d_static_info->num_meshes; m += 1) {
         model.num_index[m] = p3d_mesh[m].num_index;
         model.index_offset[m] = p3d_mesh[m].index_offset;
@@ -750,20 +763,29 @@ peModel pe_model_load(char *file_path) {
 
         model.material[m] = pe_default_material();
         model.material[m].diffuse_color.rgba = p3d_mesh[m].diffuse_color;
-    }
+		if (p3d_mesh[m].diffuse_map_file_name[0] != '\0') {
+			model.material[m].has_diffuse_map = true;
 
-    stbi_set_flip_vertically_on_load(false);
-	char *fox_diffuse_texture_paths[] = {
-		"./res/fox_diffuse_0.png",
-		"./res/fox_diffuse_1.png"
-	};
-	for (int t = 0; t < 2; t += 1) {
-		int w, h, channels;
-		stbi_uc *stbi_data = stbi_load(fox_diffuse_texture_paths[t], &w, &h, &channels, STBI_rgb_alpha);
-		model.material[t].has_diffuse_map = true;
-		model.material[t].diffuse_map = pe_texture_create(stbi_data, w, h, channels);
-		stbi_image_free(stbi_data);
-	}
+			int last_slash_index = 0;
+			for (int c = 0; c < 256; c += 1) {
+				if (file_path[c] == '\0') {
+					break;
+				}
+				if (file_path[c] == '/') {
+					last_slash_index = c;
+				}
+			}
+			char diffuse_texture_path[512] = {0};
+			memcpy(diffuse_texture_path, file_path, (last_slash_index+1) * sizeof(char));
+			size_t diffuse_map_file_length = strnlen(p3d_mesh[m].diffuse_map_file_name, sizeof(p3d_mesh[m].diffuse_map_file_name));
+			memcpy(diffuse_texture_path + last_slash_index + 1, p3d_mesh[m].diffuse_map_file_name, diffuse_map_file_length*sizeof(char));
+
+			int w, h, channels;
+			stbi_uc *stbi_data = stbi_load(diffuse_texture_path, &w, &h, &channels, STBI_rgb_alpha);
+			model.material[m].diffuse_map = pe_texture_create(stbi_data, w, h, channels);
+			stbi_image_free(stbi_data);
+		}
+    }
 
     for (int a = 0; a < p3d_static_info->num_animations; a += 1) {
         PE_ASSERT(sizeof(model.animation[a].name) == sizeof(p3d_animation[a].name));
