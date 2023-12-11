@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+// PP3D FILE CONTENTS:
 
 // 1. static info header
 typedef struct pp3dStaticInfo {
@@ -80,6 +81,23 @@ typedef struct pp3dAnimationJoint {
 } pp3dAnimationJoint;
 // pp3dAnimationJoint animation_joints[static_info.num_frames_total * static_info.num_bones];
 
+// END OF PP3D FILE
 
+typedef struct pp3dFile {
+    pp3dStaticInfo *static_info;
+    pp3dMesh *mesh;
+    pp3dMaterial *material;
+    pp3dSubskeleton *subskeleton;
+    pp3dAnimation *animation;
+
+    void **vertex;
+    size_t *vertex_size;
+    void **index;
+    size_t *index_size;
+
+    uint16_t *bone_parent_index;
+    pp3dMatrix *inverse_model_space_pose_matrix;
+    pp3dAnimationJoint *animation_joint;
+} pp3dFile;
 
 #endif // PROCYON_PORTABLE_3D_FORMAT_H
