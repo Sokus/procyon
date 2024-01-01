@@ -1,12 +1,4 @@
-bl_info = {
-    "name": "Procyon Asset Exporter",
-    "author": "Sokus",
-    "version": (0, 0, 1),
-    "blender": (3, 2, 0),
-    "location": "Properties > Object > Export",
-    "description": "One-click export game asset files.",
-    "category": "Export"}
-
+import argparse
 import sys
 import struct
 import mathutils
@@ -21,91 +13,10 @@ import bmesh
 from bpy_extras.node_shader_utils import (PrincipledBSDFWrapper)
 
 #--------------------------------------------------------------------------------
-# Registering the addon
-#--------------------------------------------------------------------------------
-
-axes_enum = [("X","X","",1),("-X","-X","",2),("Y","Y","",3),("-Y","-Y","",4),("Z","Z","",5),("-Z","-Z","",6)]
-
-class ExportProperties(bpy.types.PropertyGroup):
-    # use_colors: bpy.props.BoolProperty(name="Use Colors", description="Include Vertex Colors", default=False)
-    use_materials: bpy.props.BoolProperty(name="Use Materials", description="Include Mesh Materials", default=True)
-    use_indices: bpy.props.BoolProperty(name="Use Indices (P3D)", description="Include Indices in P3D file", default=True)
-    use_ascii: bpy.props.BoolProperty(name="Use ASCII (Debug)", description="Export data as plain text for debugging purposes", default=False)
-
-    forward_axis: bpy.props.EnumProperty(name="", items=axes_enum, default="-Y")
-    up_axis: bpy.props.EnumProperty(name="", items=axes_enum, default="Z")
-
-    standard_path: bpy.props.StringProperty(name="P3D", description="Path for standard (P3D) file", subtype='FILE_PATH')
-    portable_path: bpy.props.StringProperty(name="PP3D", description="Path for portable (PP3D) file", subtype='FILE_PATH')
-
-class ExportStandardOperator(bpy.types.Operator):
-    bl_idname = "object.export_standard"
-    bl_label = "Export"
-
-    def execute(self, context):
-        p_main(self, context, portable=False)
-        return {'FINISHED'}
-
-class ExportPortableOperator(bpy.types.Operator):
-    bl_idname = "object.export_portable"
-    bl_label = "Export"
-
-    def execute(self, context):
-        p_main(self, context, portable=True)
-        return {'FINISHED'}
-
-class ExportPanel(bpy.types.Panel):
-    bl_label = "Export"
-    bl_idname = "OBJECT_PT_layout"
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = 'WINDOW'
-    bl_context = "object"
-
-    def split_columns(self, factor):
-        new_split = self.layout.row().split(factor=factor)
-        return new_split.column(), new_split.split().column()
-
-    def draw(self, context):
-        split_factor = 0.33
-
-        properties_left_column, properties_right_column = self.split_columns(factor=split_factor)
-        properties_left_column.label(text="Properties")
-        # properties_right_column.prop(context.scene.export_properties, "use_colors")
-        properties_right_column.prop(context.scene.export_properties, "use_materials")
-        properties_right_column.prop(context.scene.export_properties, "use_indices")
-        properties_right_column.prop(context.scene.export_properties, "use_ascii")
-
-        axes_left_column, axes_right_column = self.split_columns(factor=split_factor)
-        axes_left_column.label(text="Forward / Up")
-        axes_right_column_row = axes_right_column.row()
-        axes_right_column_row.prop(context.scene.export_properties, "forward_axis")
-        axes_right_column_row.prop(context.scene.export_properties, "up_axis")
-
-        standard_row = self.layout.row(align=False)
-        standard_row.prop(context.scene.export_properties, "standard_path")
-        standard_row.operator('object.export_standard')
-
-        portable_row = self.layout.row(align=False)
-        portable_row.prop(context.scene.export_properties, "portable_path")
-        portable_row.operator('object.export_portable')
-
-def register():
-    bpy.utils.register_class(ExportProperties)
-    bpy.utils.register_class(ExportStandardOperator)
-    bpy.utils.register_class(ExportPortableOperator)
-    bpy.utils.register_class(ExportPanel)
-    bpy.types.Scene.export_properties = bpy.props.PointerProperty(type=ExportProperties)
-
-def unregister():
-    bpy.utils.unregister_class(ExportProperties)
-    bpy.utils.unregister_class(ExportStandardOperator)
-    bpy.utils.unregister_class(ExportPortableOperator)
-    bpy.utils.unregister_class(ExportPanel)
-    del bpy.types.Scene.export_properties
-
-#--------------------------------------------------------------------------------
 # Defines and classes
 #--------------------------------------------------------------------------------
+
+p_parsed_arguments = None # set by `p_argument_parser`
 
 UINT8_MAX = 255
 INT16_MAX = 32767
@@ -210,8 +121,8 @@ def p_list_join_unique(list_a, list_b):
 #--------------------------------------------------------------------------------
 
 def p_get_axis_mapping_matrix():
-    forward_axis = bpy.context.scene.export_properties.forward_axis
-    up_axis = bpy.context.scene.export_properties.up_axis
+    forward_axis = p_parsed_arguments.forward
+    up_axis = p_parsed_arguments.up
     return bpy_extras.io_utils.axis_conversion("-Y", "Z", forward_axis, up_axis).to_4x4()
 
 def p_get_visible_mesh_objects():
@@ -259,6 +170,7 @@ def p_bmesh_triangulated(mesh):
     bm.to_mesh(mesh)
 
 def p_procyon_data_process_mesh_objects(procyon_data, mesh_objects, armature):
+    print("Procyon: Processing mesh objects...")
     if len(mesh_objects) > 0:
         transform_matrix = p_get_axis_mapping_matrix()
         scene_with_applied_modifiers = bpy.context.evaluated_depsgraph_get()
@@ -278,7 +190,7 @@ def p_procyon_data_process_mesh_objects(procyon_data, mesh_objects, armature):
             for polygon in mesh.polygons:
                 assert(len(polygon.loop_indices) == 3) # mesh should've already been triangulated
 
-                use_materials = bpy.context.scene.export_properties.use_materials
+                use_materials = not p_parsed_arguments.no_materials
                 if use_materials and len(mesh.materials) > 0:
                     material = mesh.materials[polygon.material_index]
                 else:
@@ -288,7 +200,7 @@ def p_procyon_data_process_mesh_objects(procyon_data, mesh_objects, armature):
                 if p_materials.get(material) == None:
                     material_bsdf = PrincipledBSDFWrapper(material)
                     if material_bsdf == None:
-                        operator.report({"ERROR"}, "Material '", material.name, "' does not use PrincipledBSDF surface, not parsing.")
+                        print(f"Procyon: Material '{material.name}, does not use PrincipledBSDF surface, aborting.")
                         return False
 
                     p_materials[material] = ProcyonMaterial()
@@ -372,6 +284,7 @@ def p_procyon_data_process_mesh_objects(procyon_data, mesh_objects, armature):
         procyon_data.meshes = p_meshes
 
 def p_procyon_data_make_subskeletons(procyon_data):
+    print("Procyon: Making subskeletons...")
     bone_connections = []
     for mesh in procyon_data.meshes:
         for f in range(int(len(mesh.indices)/3)):
@@ -437,7 +350,7 @@ def p_procyon_data_make_subskeletons(procyon_data):
                     best_candidate_index = g
 
         if not best_candidate_found:
-            operator.report({"ERROR"}, "Could not find a bone group with size equal or less than 8, aborting.")
+            print("Procyon: Could not find a bone group with size equal or less than 8, aborting.", file=sys.stderr)
             return False
 
         procyon_data.bone_groups[best_candidate_bin_index] = sorted(p_list_join_unique(procyon_data.bone_groups[best_candidate_bin_index], bone_connections[best_candidate_index]))
@@ -499,8 +412,9 @@ def p_procyon_data_make_subskeletons(procyon_data):
     new_meshes = sorted(new_meshes, key=lambda m: (m.subskeleton_index, m.material_index))
     procyon_data.meshes = new_meshes
 
-def p_procyon_data_process_armature_objects(procyon_data, armature):
+def p_procyon_data_process_armature_object(procyon_data, armature):
     if armature:
+        print("Procyon: Processing armature object...")
         transform_matrix = p_get_axis_mapping_matrix()
         p_armature_object_set_state(armature, pose_position="POSE")
 
@@ -535,7 +449,8 @@ def p_procyon_data_process_armature_objects(procyon_data, armature):
                 p_animation.frames.append(p_frame)
             procyon_data.animations.append(p_animation)
 
-def p_procyon_data_collect(portable):
+def p_procyon_data_collect():
+    print("Procyon: Collecting data...")
     procyon_data = ProcyonData()
 
     selected_armature_objects = p_get_visible_armature_objects()
@@ -543,17 +458,18 @@ def p_procyon_data_collect(portable):
     if len(selected_armature_objects) == 1:
         armature = selected_armature_objects[0]
     elif len(selected_armature_objects) > 1:
-        operator.report({"ERROR"}, "Multiple armature objects selected.")
+        print("Procyon: Multiple armature objects selected, aborting.", file=sys.stderr)
         return None
 
     if armature:
         armature_object_state = p_armature_object_get_state(armature)
         p_armature_object_set_state(armature, pose_position="REST")
 
+
     mesh_objects = p_get_visible_mesh_objects()
     p_procyon_data_process_mesh_objects(procyon_data, mesh_objects, armature)
 
-    p_procyon_data_process_armature_objects(procyon_data, armature)
+    p_procyon_data_process_armature_object(procyon_data, armature)
 
     if armature:
         p_armature_object_set_state(
@@ -563,7 +479,7 @@ def p_procyon_data_collect(portable):
             frame = armature_object_state.frame
         )
 
-        if portable:
+        if p_parsed_arguments.portable:
             p_procyon_data_make_subskeletons(procyon_data)
 
     return procyon_data
@@ -573,42 +489,42 @@ def p_procyon_data_collect(portable):
 #--------------------------------------------------------------------------------
 
 def p_write_int32(file, value):
-    use_ascii = bpy.context.scene.export_properties.use_ascii
+    use_ascii = p_parsed_arguments.ascii
     if use_ascii: file.write(str(value) + ' ')
     else: file.write(struct.pack("i", value))
 
 def p_write_uint32(file, value):
-    use_ascii = bpy.context.scene.export_properties.use_ascii
+    use_ascii = p_parsed_arguments.ascii
     if use_ascii: file.write(str(value) + ' ')
     else: file.write(struct.pack("I", value))
 
 def p_write_int16(file, value):
-    use_ascii = bpy.context.scene.export_properties.use_ascii
+    use_ascii = p_parsed_arguments.ascii
     if use_ascii: file.write(str(value) + ' ')
     else: file.write(struct.pack("h", value))
 
 def p_write_uint16(file, value):
-    use_ascii = bpy.context.scene.export_properties.use_ascii
+    use_ascii = p_parsed_arguments.ascii
     if use_ascii: file.write(str(value) + ' ')
     else: file.write(struct.pack("H", value))
 
 def p_write_uint8(file, value):
-    use_ascii = bpy.context.scene.export_properties.use_ascii
+    use_ascii = p_parsed_arguments.ascii
     if use_ascii: file.write(str(value) + ' ')
     else: file.write(struct.pack("B", value))
 
 def p_write_float(file, value):
-    use_ascii = bpy.context.scene.export_properties.use_ascii
+    use_ascii = p_parsed_arguments.ascii
     if use_ascii: file.write(str(value) + ' ')
     else: file.write(struct.pack("f", value))
 
 def p_write_bool(file, value):
-    use_ascii = bpy.context.scene.export_properties.use_ascii
+    use_ascii = p_parsed_arguments.ascii
     if use_ascii: file.write(str(value) + ' ')
     else: file.write(struct.pack("?", value))
 
 def p_write_string(file, text):
-    use_ascii = bpy.context.scene.export_properties.use_ascii
+    use_ascii = p_parsed_arguments.ascii
     if use_ascii: file.write(text)
     else: file.write(text.encode('ascii'))
 
@@ -622,6 +538,7 @@ def p3d_write(file, file_path, procyon_data):
     p_write_animation_data(file, procyon_data)
 
 def p3d_write_static_info_header(file, procyon_data):
+    print("Procyon: Writing static info header...")
     p_write_string(file, " P3D") # 4 bytes (4)
     p_write_float(file, procyon_data.scale) # 4 bytes (8)
     p_write_uint32(file, procyon_data.num_vertex) # 4 bytes (12)
@@ -634,6 +551,7 @@ def p3d_write_static_info_header(file, procyon_data):
     p_write_uint8(file, 0) # alignment (24)
 
 def p3d_write_mesh_info(file, file_path, procyon_data):
+    if len(procyon_data.meshes): print("Procyon: Writing mesh info...")
     for mesh in procyon_data.meshes:
         p_write_uint32(file, len(mesh.indices))
         p_write_uint32(file, mesh.index_offset)
@@ -651,6 +569,7 @@ def p3d_write_mesh_info(file, file_path, procyon_data):
             p_write_uint8(file, 0)
 
 def p3d_write_animation_info(file, procyon_data):
+    if len(procyon_data.animations): print("Procyon: Writing animation info...")
     for animation in procyon_data.animations:
         assert(len(animation.name) < 64)
         p_write_string(file, animation.name)
@@ -659,7 +578,7 @@ def p3d_write_animation_info(file, procyon_data):
         p_write_uint16(file, len(animation.frames))
 
 def p3d_write_mesh_data(file, procyon_data):
-    print("P3D: Writing mesh data")
+    if len(procyon_data.meshes): print("Procyon: Writing mesh data...")
     # vertices
     for mesh in procyon_data.meshes:
         for vertex in mesh.vertices.keys():
@@ -696,6 +615,7 @@ def p3d_write_mesh_data(file, procyon_data):
             p_write_uint32(file, index)
 
 def p3d_write_bone_parent_indices(file, procyon_data):
+    if len(procyon_data.joints): print("Procyon: Writing bone parent indices...")
     for joint in procyon_data.joints:
         bone_parent_index_uint8 = joint.parent_index if joint.parent_index >= 0 else UINT8_MAX
         p_write_uint8(file, bone_parent_index_uint8)
@@ -712,6 +632,7 @@ def pp3d_write(file, file_path, procyon_data):
     p_write_animation_data(file, procyon_data)
 
 def pp3d_write_static_info_header(file, procyon_data):
+    print("Procyon: Writing static info header...")
     p_write_string(file, "PP3D") # 4 bytes (4)
     p_write_float(file, procyon_data.scale) # 4 bytes (8)
     p_write_uint16(file, len(procyon_data.meshes)) # 2 bytes (10)
@@ -723,6 +644,7 @@ def pp3d_write_static_info_header(file, procyon_data):
     p_write_uint16(file, num_frames_total) # 2 bytes (20)
 
 def pp3d_write_mesh_info(file, file_path, procyon_data):
+    if len(procyon_data.meshes): print("Procyon: Writing mesh info...")
     for mesh in procyon_data.meshes:
         material_index = mesh.material_index if mesh.material_index >= 0 else UINT16_MAX
         p_write_uint16(file, material_index)
@@ -732,6 +654,7 @@ def pp3d_write_mesh_info(file, file_path, procyon_data):
         p_write_uint16(file, len(mesh.indices))
 
 def pp3d_write_material_info(file, file_path, procyon_data):
+    if len(procyon_data.materials): print("Procyon: Writing material info...")
     for m, material in enumerate(procyon_data.materials):
         p_write_uint32(file, p_color_to_uint32(material.diffuse_color))
         diffuse_image = material.diffuse_image
@@ -744,6 +667,7 @@ def pp3d_write_material_info(file, file_path, procyon_data):
             p_write_uint8(file, 0)
 
 def pp3d_write_subskeleton_info(file, procyon_data):
+    if len(procyon_data.bone_groups): print("Procyon: Writing subskeleton info...")
     for bone_group in procyon_data.bone_groups:
         p_write_uint8(file, len(bone_group))
         for b in range(8):
@@ -752,6 +676,7 @@ def pp3d_write_subskeleton_info(file, procyon_data):
         for a in range(3): p_write_uint8(file, 0) # alignment
 
 def pp3d_write_animation_info(file, procyon_data):
+    if len(procyon_data.animations): print("Procyon: Writing animation info...")
     for animation in procyon_data.animations:
         assert(len(animation.name) < 64)
         p_write_string(file, animation.name)
@@ -761,7 +686,7 @@ def pp3d_write_animation_info(file, procyon_data):
         p_write_uint16(file, 0) # alignment
 
 def pp3d_write_mesh_data(file, procyon_data):
-    print("PP3D: Writing mesh data")
+    if len(procyon_data.meshes): print("Procyon: Writing mesh data...")
     for mesh in procyon_data.meshes:
         for v, vertex in enumerate(mesh.vertices.keys()):
             for weight in vertex.joint_weights:
@@ -780,17 +705,20 @@ def pp3d_write_mesh_data(file, procyon_data):
 
 # TODO: Convert 16-bit index to 8-bit and merge with `p3d_write_bone_parent_indices`
 def pp3d_write_bone_parent_indices(file, procyon_data):
+    if len(procyon_data.joints): print("Procyon: Writing bone parent indices...")
     for joint in procyon_data.joints:
         bone_parent_index_uint16 = joint.parent_index if joint.parent_index >= 0 else UINT16_MAX
         p_write_uint16(file, bone_parent_index_uint16)
 
 def p_write_inverse_model_space_matrix(file, procyon_data):
+    if len(procyon_data.joints): print("Procyon: Writing inverse model space matrices...")
     for joint in procyon_data.joints:
         for vector in joint.inverse_model_space_pose.transposed():
             for element in vector:
                 p_write_float(file, element)
 
 def p_write_animation_data(file, procyon_data):
+    if len(procyon_data.animations): print("Procyon: Writing animation data...")
     for animation in procyon_data.animations:
         for frame in animation.frames:
             for joint in frame.joints:
@@ -810,29 +738,24 @@ def p_write_diffuse_textures(file_path, procyon_data):
         if not material.diffuse_image: continue
         diffuse_texture_file_name = file_path.stem + f"_diffuse_{material_index}"
         diffuse_texture_file_path = file_path.with_name(diffuse_texture_file_name).with_suffix(".png")
-        print(f"Writing diffuse texture: {diffuse_texture_file_path}")
+        print(f"Procyon: Writing diffuse texture '{diffuse_texture_file_path}'")
         material.diffuse_image.save_render(str(diffuse_texture_file_path))
 
-def p_main(operator, context, portable):
-    print(f"Export started. (portable={portable})")
+def p_main():
+    print(f"Procyon: Started with parameters: {p_parsed_arguments}")
 
-    procyon_data = p_procyon_data_collect(portable)
+    procyon_data = p_procyon_data_collect()
 
-    if bpy.context.scene.export_properties.use_ascii:
-        file_write_mode = "w"
-    else:
-        file_write_mode = "wb"
+    if not p_parsed_arguments.output:
+        print("Procyon: No output path provided, aborting.", file=sys.stderr)
+        return False
 
-    file_path = None
-    file = None
-    if not portable:
-        file_path = pathlib.Path(bpy.path.abspath(context.scene.export_properties.standard_path))
-        file = open(str(file_path), file_write_mode)
-    else:
-        file_path = pathlib.Path(bpy.path.abspath(context.scene.export_properties.portable_path))
-        file = open(str(file_path), file_write_mode)
+    file_write_mode = "w" if p_parsed_arguments.ascii else "wb"
+    file_path = pathlib.Path(bpy.path.abspath(p_parsed_arguments.output))
+    file = open(str(file_path), file_write_mode)
 
-    if not portable:
+    print(f"Procyon: Writing to: '{file_path}'")
+    if not p_parsed_arguments.portable:
         p3d_write(file, file_path, procyon_data)
     else:
         pp3d_write(file, file_path, procyon_data)
@@ -844,4 +767,20 @@ def p_main(operator, context, portable):
     return True
 
 if __name__ == "__main__":
-    register()
+    if '--' in sys.argv:
+        index_of_double_dash = sys.argv.index('--')
+        input_arguments = sys.argv[(index_of_double_dash+1):]
+    else:
+        input_arguments = []
+
+    p_argument_parser = argparse.ArgumentParser()
+    p_argument_parser.add_argument("--output", metavar="<file>", help="place output into <file>")
+    p_argument_parser.add_argument("--portable", action='store_true', help="export in portable format")
+    p_argument_parser.add_argument("--no-materials", action='store_true', help="don't export mesh materials")
+    axis_choices = ["X", "-X", "Y", "-Y", "Z", "-Z"]
+    p_argument_parser.add_argument("--forward", default="-Z", choices=axis_choices, metavar="<axis>")
+    p_argument_parser.add_argument("--up", default="Y", choices=axis_choices, metavar="<axis>",)
+    p_argument_parser.add_argument("--ascii", action='store_true', help="write output in plain text")
+    p_parsed_arguments = p_argument_parser.parse_args(input_arguments)
+
+    p_main()
