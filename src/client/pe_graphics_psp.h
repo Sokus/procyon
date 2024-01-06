@@ -13,6 +13,7 @@ void pe_graphics_init_psp(void);
 void pe_graphics_shutdown_psp(void);
 
 struct peTexture;
-struct peTexture pe_texture_create_psp(void *data, int width, int height, int format);
+struct peArena;
+struct peTexture pe_texture_create_psp(struct peArena *temp_arena, void *data, int width, int height, int format);
 
 #endif // PE_GRAPHICS_PSP_H_HEADER_GUARD

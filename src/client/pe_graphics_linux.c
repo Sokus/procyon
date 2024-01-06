@@ -2,7 +2,6 @@
 #include "pe_graphics_linux.h"
 
 #include "pe_core.h"
-#include "pe_temp_arena.h"
 #include "pe_file_io.h"
 
 #include "glad/glad.h"
@@ -95,10 +94,9 @@ static GLuint pe_shader_compile(GLenum type, const GLchar *shader_source) {
     return shader;
 }
 
-static GLuint pe_shader_create_from_file(const char *source_file_path) {
+static GLuint pe_shader_create_from_file(peArena *temp_arena, const char *source_file_path) {
     GLuint vertex_shader, fragment_shader;
     {
-        peArena *temp_arena = pe_temp_arena();
         peArenaTemp arena_temp = pe_arena_temp_begin(temp_arena);
         peFileContents shader_source_file_contents = pe_file_read_contents(temp_arena, source_file_path, true);
         vertex_shader = pe_shader_compile(GL_VERTEX_SHADER, shader_source_file_contents.data);
@@ -132,7 +130,7 @@ void pe_framebuffer_size_callback_linux(int width, int height) {
     pe_opengl.framebuffer_height = height;
 }
 
-void pe_graphics_init_linux(int window_width, int window_height) {
+void pe_graphics_init_linux(peArena *temp_arena, int window_width, int window_height) {
     pe_opengl.framebuffer_width = window_width;
     pe_opengl.framebuffer_height = window_height;
 
@@ -145,7 +143,7 @@ void pe_graphics_init_linux(int window_width, int window_height) {
 
     // init shader_program
     {
-        pe_opengl.shader_program = pe_shader_create_from_file("res/shader.glsl");
+        pe_opengl.shader_program = pe_shader_create_from_file(temp_arena, "res/shader.glsl");
         glUseProgram(pe_opengl.shader_program);
 
         GLint diffuse_map_uniform_location = glGetUniformLocation(

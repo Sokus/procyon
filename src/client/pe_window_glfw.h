@@ -23,7 +23,8 @@ typedef struct peGLFW {
 } peGLFW;
 extern peGLFW pe_glfw;
 
-void pe_glfw_init(int window_width, int window_height, const char *window_name);
+struct peArena;
+void pe_glfw_init(struct peArena *temp_arena, int window_width, int window_height, const char *window_name);
 void pe_glfw_shutdown(void);
 
 bool pe_window_should_quit_glfw(void);

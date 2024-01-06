@@ -1,16 +1,16 @@
 #ifndef PE_GRAPHICS_H
 #define PE_GRAPHICS_H
 
-#include "pe_core.h"
-
 #include "HandmadeMath.h"
 
 #include <stdint.h>
 #include <stdbool.h>
 
+struct peArena;
+
 // GENERAL
 
-void pe_graphics_init(int window_width, int window_height, const char *window_name);
+void pe_graphics_init(struct peArena *temp_arena, int window_width, int window_height, const char *window_name);
 void pe_graphics_shutdown(void);
 void pe_graphics_frame_begin(void);
 void pe_graphics_frame_end(bool vsync);
@@ -64,7 +64,7 @@ typedef struct peTexture {
 #endif
 } peTexture;
 
-peTexture pe_texture_create(void *data, int width, int height, int format);
+peTexture pe_texture_create(struct peArena *temp_arena, void *data, int width, int height, int format);
 void pe_texture_bind(peTexture texture);
 void pe_texture_bind_default(void);
 

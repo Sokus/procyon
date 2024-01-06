@@ -37,7 +37,7 @@ static void pe_cursor_position_callback_glfw(GLFWwindow *window, double pos_x, d
     pe_input_cursor_position_callback_glfw(pos_x, pos_y);
 }
 
-void pe_glfw_init(int window_width, int window_height, const char *window_name) {
+void pe_glfw_init(peArena *temp_arena, int window_width, int window_height, const char *window_name) {
     if (pe_glfw.initialized == false) {
         glfwInit();
 
@@ -66,7 +66,7 @@ void pe_glfw_init(int window_width, int window_height, const char *window_name) 
 #elif defined(__linux__)
             glfwMakeContextCurrent(pe_glfw.window);
             gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-            pe_graphics_init_linux(window_width, window_height);
+            pe_graphics_init_linux(temp_arena, window_width, window_height);
 #endif
         }
 

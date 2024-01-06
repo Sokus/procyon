@@ -3,7 +3,6 @@
 #include "pe_core.h"
 #include "pe_file_io.h"
 #include "pe_platform.h"
-#include "pe_temp_arena.h"
 
 #include "p3d.h"
 #include "pp3d.h"
@@ -613,8 +612,7 @@ bool pe_parse_pp3d(peArena *arena, peFileContents pp3d_file_contents, pp3dFile *
 	return true;
 }
 
-static peModel pe_model_load_psp(const char *file_path) {
-	peArena *temp_arena = pe_temp_arena();
+static peModel pe_model_load_psp(peArena *temp_arena, const char *file_path) {
     peArenaTemp temp_arena_memory = pe_arena_temp_begin(temp_arena);
 
 	pp3dFile pp3d;
@@ -667,7 +665,7 @@ static peModel pe_model_load_psp(const char *file_path) {
 
 			int w, h, channels;
 			stbi_uc *stbi_data = stbi_load(diffuse_texture_path, &w, &h, &channels, STBI_rgb_alpha);
-			model.material[m].diffuse_map = pe_texture_create(stbi_data, w, h, GU_PSM_8888);
+			model.material[m].diffuse_map = pe_texture_create(temp_arena, stbi_data, w, h, GU_PSM_8888);
 			stbi_image_free(stbi_data);
 		}
 	}
@@ -804,12 +802,12 @@ bool pe_parse_p3d(peFileContents p3d_file_contents, p3dFile *p3d) {
 	return true;
 }
 
-peModel pe_model_load(char *file_path) {
+peModel pe_model_load(peArena *temp_arena, char *file_path) {
 #if defined(_WIN32) || defined(__linux__)
-    peArenaTemp temp_arena_memory = pe_arena_temp_begin(pe_temp_arena());
+    peArenaTemp temp_arena_memory = pe_arena_temp_begin(temp_arena);
 
 	p3dFile p3d;
-    peFileContents p3d_file_contents = pe_file_read_contents(pe_temp_arena(), file_path, false);
+    peFileContents p3d_file_contents = pe_file_read_contents(temp_arena, file_path, false);
 	pe_parse_p3d(p3d_file_contents, &p3d);
 
     peModel model = {0};
@@ -860,7 +858,7 @@ peModel pe_model_load(char *file_path) {
 
 			int w, h, channels;
 			stbi_uc *stbi_data = stbi_load(diffuse_texture_path, &w, &h, &channels, STBI_rgb_alpha);
-			model.material[m].diffuse_map = pe_texture_create(stbi_data, w, h, channels);
+			model.material[m].diffuse_map = pe_texture_create(temp_arena, stbi_data, w, h, channels);
 			stbi_image_free(stbi_data);
 		}
     }
@@ -877,12 +875,12 @@ peModel pe_model_load(char *file_path) {
 	size_t bone_index_buffer_size = 4*p3d.static_info->num_vertex*sizeof(uint32_t);
 	size_t bone_weight_buffer_size = 4*p3d.static_info->num_vertex*sizeof(float);
 
-    float *pos_buffer = pe_arena_alloc(pe_temp_arena(), pos_buffer_size);
-    float *nor_buffer = pe_arena_alloc(pe_temp_arena(), nor_buffer_size);
-    float *tex_buffer = pe_arena_alloc(pe_temp_arena(), tex_buffer_size);
-    uint32_t *col_buffer = pe_arena_alloc(pe_temp_arena(), p3d.static_info->num_vertex*sizeof(uint32_t));
-    uint32_t *bone_index_buffer = pe_arena_alloc(pe_temp_arena(), bone_index_buffer_size);
-    float *bone_weight_buffer = pe_arena_alloc(pe_temp_arena(), bone_weight_buffer_size);
+    float *pos_buffer = pe_arena_alloc(temp_arena, pos_buffer_size);
+    float *nor_buffer = pe_arena_alloc(temp_arena, nor_buffer_size);
+    float *tex_buffer = pe_arena_alloc(temp_arena, tex_buffer_size);
+    uint32_t *col_buffer = pe_arena_alloc(temp_arena, p3d.static_info->num_vertex*sizeof(uint32_t));
+    uint32_t *bone_index_buffer = pe_arena_alloc(temp_arena, bone_index_buffer_size);
+    float *bone_weight_buffer = pe_arena_alloc(temp_arena, bone_weight_buffer_size);
 
     for (unsigned int p = 0; p < 3*p3d.static_info->num_vertex; p += 1) {
         pos_buffer[p] = p3d.static_info->scale * pe_int16_to_float(p3d.position[p], -1.0f, 1.0f);
@@ -977,7 +975,7 @@ peModel pe_model_load(char *file_path) {
 
     return model;
 #elif defined(PSP)
-	return pe_model_load_psp(file_path);
+	return pe_model_load_psp(temp_arena, file_path);
 #endif
 }
 
@@ -989,8 +987,8 @@ int frame_index = 0;
 uint64_t last_frame_time;
 bool last_frame_time_initialized = false;
 
-void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
-    peArenaTemp temp_arena_memory = pe_arena_temp_begin(pe_temp_arena());
+void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_Vec3 rotation) {
+    peArenaTemp temp_arena_memory = pe_arena_temp_begin(temp_arena);
 	if (!last_frame_time_initialized) {
 		last_frame_time = pe_time_now();
 		last_frame_time_initialized = true;
@@ -1035,7 +1033,7 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
     ID3D11DeviceContext_IASetIndexBuffer(pe_d3d.context, model->index_buffer, DXGI_FORMAT_R32_UINT, 0);
 
     {
-        peAnimationJoint *model_space_joints = pe_arena_alloc(pe_temp_arena(), model->num_bone * sizeof(peAnimationJoint));
+        peAnimationJoint *model_space_joints = pe_arena_alloc(temp_arena, model->num_bone * sizeof(peAnimationJoint));
         peAnimationJoint *animation_joints = &model->animation[0].frames[frame_index * model->num_bone];
         for (int b = 0; b < model->num_bone; b += 1) {
             if (model->bone_parent_index[b] < UINT8_MAX) {
@@ -1084,7 +1082,7 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 	pe_shader_set_mat4(pe_opengl.shader_program, "matrix_model", &model_matrix);
 
     {
-        peAnimationJoint *model_space_joints = pe_arena_alloc(pe_temp_arena(), model->num_bone * sizeof(peAnimationJoint));
+        peAnimationJoint *model_space_joints = pe_arena_alloc(temp_arena, model->num_bone * sizeof(peAnimationJoint));
         peAnimationJoint *animation_joints = &model->animation[0].frames[frame_index * model->num_bone];
         for (int b = 0; b < model->num_bone; b += 1) {
             if (model->bone_parent_index[b] < UINT8_MAX) {
@@ -1096,7 +1094,7 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
         }
 
 
-		HMM_Mat4 *final_bone_matrix = pe_arena_alloc(pe_temp_arena(), model->num_bone * sizeof(HMM_Mat4));
+		HMM_Mat4 *final_bone_matrix = pe_arena_alloc(temp_arena, model->num_bone * sizeof(HMM_Mat4));
         for (int b = 0; b < model->num_bone; b += 1) {
             peAnimationJoint *animation_joint = &model_space_joints[b];
 			HMM_Mat4 translation = HMM_Translate(animation_joint->translation);
@@ -1134,7 +1132,7 @@ void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation) {
 	sceGumRotateXYZ((ScePspFVector3 *)&rotation);
 	sceGumScale(&scale_vector);
 
-	peAnimationJoint *model_space_joints = pe_arena_alloc(pe_temp_arena(), model->num_bone * sizeof(peAnimationJoint));
+	peAnimationJoint *model_space_joints = pe_arena_alloc(temp_arena, model->num_bone * sizeof(peAnimationJoint));
 	peAnimationJoint *animation_joints = &model->animation[0].frames[frame_index * model->num_bone];
 	for (int b = 0; b < model->num_bone; b += 1) {
 		if (model->bone_parent_index[b] < UINT16_MAX) {

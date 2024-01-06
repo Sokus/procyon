@@ -116,8 +116,8 @@ struct p3dStaticInfo;
 struct p3dAnimation;
 
 void pe_model_alloc(peModel *model, peArena *arena, struct p3dStaticInfo *p3d_static_info, struct p3dAnimation *p3d_animation);
-peModel pe_model_load(char *file_path);
-void pe_model_draw(peModel *model, HMM_Vec3 position, HMM_Vec3 rotation);
+peModel pe_model_load(peArena *temp_arena, char *file_path);
+void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_Vec3 rotation);
 
 
 

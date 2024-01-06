@@ -1,7 +1,6 @@
 #include "pe_core.h"
 #include "pe_platform.h"
 #include "pe_graphics.h"
-#include "pe_temp_arena.h"
 #include "pe_model.h"
 #include "pe_time.h"
 #include "pe_net.h"
@@ -15,9 +14,14 @@
 #endif
 
 int main(int argc, char* argv[]) {
-	pe_temp_arena_init(PE_MEGABYTES(4));
+	peArena temp_arena;
+    {
+        size_t temp_arena_size = PE_MEGABYTES(4);
+        pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
+    }
+
 	pe_platform_init();
-    pe_graphics_init(960, 540, "Procyon");
+    pe_graphics_init(&temp_arena, 960, 540, "Procyon");
 	pe_time_init();
 	pe_net_init();
 
@@ -51,7 +55,7 @@ int main(int argc, char* argv[]) {
 		pe_model_draw(&model, (HMM_Vec3){0.0f}, HMM_V3(0.0f, rotation, 0.0f));
 
 		pe_graphics_frame_end(true);
-		pe_arena_clear(pe_temp_arena());
+		pe_arena_clear(&temp_arena);
 	}
 
 	pe_net_shutdown();

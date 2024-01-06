@@ -5,7 +5,6 @@
 #include "pe_core.h"
 #include "pe_time.h"
 #include "pe_net.h"
-#include "pe_temp_arena.h"
 
 #include "pe_config.h"
 #include "pe_protocol.h"
@@ -215,10 +214,9 @@ void pe_process_world_state_message(peWorldStateMessage *msg, peAddress address,
 	//}
 }
 
-void pe_receive_packets(void) {
+void pe_receive_packets(peArena *temp_arena) {
     peAddress address;
     pePacket packet = {0};
-    peArena *temp_arena = pe_temp_arena();
     peArenaTemp receive_packets_arena_temp = pe_arena_temp_begin(temp_arena);
     while (true) {
         peArenaTemp loop_arena_temp = pe_arena_temp_begin(temp_arena);
@@ -292,7 +290,12 @@ void pe_check_for_time_out(void) {
 }
 
 int main(int argc, char *argv[]) {
-	pe_temp_arena_init(PE_MEGABYTES(4));
+	peArena temp_arena;
+    {
+        size_t temp_arena_size = PE_MEGABYTES(4);
+        pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
+    }
+
     pe_time_init();
     pe_net_init();
 
@@ -323,7 +326,7 @@ int main(int argc, char *argv[]) {
     }
 
 #if !defined(PE_SERVER_STANDALONE)
-    pe_client_init(&server.socket);
+    pe_client_init(&temp_arena, &server.socket);
 #endif
 
     /*
@@ -337,7 +340,7 @@ int main(int argc, char *argv[]) {
     while(true) {
         uint64_t work_start_tick = pe_time_now();
 
-        pe_receive_packets();
+        pe_receive_packets(&temp_arena);
 
         if (server.is_hosting) {
             pe_check_for_time_out();
@@ -370,10 +373,10 @@ int main(int argc, char *argv[]) {
         }
 
 #if !defined(PE_SERVER_STANDALONE)
-        pe_client_update();
+        pe_client_update(&temp_arena);
         if (pe_client_should_quit()) break;
 #endif
-        pe_arena_clear(pe_temp_arena());
+        pe_arena_clear(&temp_arena);
 
         uint64_t ticks_spent_working = pe_time_since(work_start_tick);
         double seconds_spent_working = pe_time_sec(ticks_spent_working);

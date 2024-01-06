@@ -14,7 +14,8 @@ typedef struct peOpenGL {
 extern peOpenGL pe_opengl;
 
 void pe_framebuffer_size_callback_linux(int width, int height);
-void pe_graphics_init_linux(int window_width, int window_height);
+struct peArena;
+void pe_graphics_init_linux(struct peArena *temp_arena, int window_width, int window_height);
 
 union HMM_Vec3;
 union HMM_Mat4;

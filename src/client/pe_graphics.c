@@ -3,7 +3,6 @@
 #include "pe_core.h"
 #include "pe_math.h"
 #include "pe_platform.h"
-#include "pe_temp_arena.h"
 
 #if defined(_WIN32)
     #define WIN32_LEAN_AND_MEAN
@@ -33,20 +32,20 @@
 
 static peTexture default_texture;
 
-void pe_graphics_init(int window_width, int window_height, const char *window_name) {
+void pe_graphics_init(peArena *temp_arena, int window_width, int window_height, const char *window_name) {
 #if defined(_WIN32)
-    pe_glfw_init(window_width, window_height, window_name);
+    pe_glfw_init(temp_arena, window_width, window_height, window_name);
 #elif defined(PSP)
     pe_graphics_init_psp();
 #elif defined(__linux__)
-	pe_glfw_init(window_width, window_height, window_name);
+	pe_glfw_init(temp_arena, window_width, window_height, window_name);
 #endif
 
 #if defined(_WIN32) || defined(__linux__)
 	// init default texture
 	{
 		uint32_t texture_data[] = { 0xFFFFFFFF };
-		default_texture = pe_texture_create(texture_data, 1, 1, 4);
+		default_texture = pe_texture_create(temp_arena, texture_data, 1, 1, 4);
 	}
 #endif
 }
@@ -198,13 +197,13 @@ uint32_t pe_color_to_8888(peColor color) {
 	return result;
 }
 
-peTexture pe_texture_create(void *data, int width, int height, int format) {
+peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int height, int format) {
 #if defined(_WIN32)
 	return pe_texture_create_win32(data, (UINT)width, (UINT)height, format);
 #elif defined(__linux__)
 	return pe_texture_create_linux(data, width, height, format);
 #elif defined(PSP)
-	return pe_texture_create_psp(data, width, height, format);
+	return pe_texture_create_psp(temp_arena, data, width, height, format);
 #endif
 }
 

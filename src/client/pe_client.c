@@ -1,5 +1,6 @@
 #include "pe_client.h"
 
+#include "pe_core.h"
 #include "pe_net.h"
 #include "pe_platform.h"
 #include "pe_graphics.h"
@@ -7,7 +8,6 @@
 #include "pe_time.h"
 #include "pe_input.h"
 
-#include "pe_temp_arena.h"
 #include "pe_config.h"
 #include "pe_protocol.h"
 #include "game/pe_entity.h"
@@ -41,12 +41,12 @@ struct peClientState {
     uint64_t last_packet_receive_time;
 } client = {0};
 
-void pe_client_init(peSocket *socket) {
+void pe_client_init(peArena *temp_arena, peSocket *socket) {
     client.socket = socket;
     client.server_address = pe_address4(127, 0, 0, 1, SERVER_PORT_MIN);
 
     pe_platform_init();
-    pe_graphics_init(960, 540, "Procyon");
+    pe_graphics_init(temp_arena, 960, 540, "Procyon");
     pe_input_init();
 
 #if !defined(PSP)
@@ -54,7 +54,7 @@ void pe_client_init(peSocket *socket) {
 #else
     #define PE_MODEL_EXTENSION ".pp3d"
 #endif
-    client.model = pe_model_load("./res/fox" PE_MODEL_EXTENSION);
+    client.model = pe_model_load(temp_arena, "./res/fox" PE_MODEL_EXTENSION);
 
     client.camera = (peCamera){
         .target = {0.0f, 0.7f, 0.0f},
@@ -70,7 +70,7 @@ static float look_angle = 0.0f;
     #include "pe_math.h"
 #endif
 
-void pe_client_update(void) {
+void pe_client_update(peArena *temp_arena) {
     pe_platform_poll_events();
     pe_input_update();
 
@@ -101,7 +101,7 @@ void pe_client_update(void) {
     }
 #endif
 
-    peArenaTemp send_packets_arena_temp = pe_arena_temp_begin(pe_temp_arena());
+    peArenaTemp send_packets_arena_temp = pe_arena_temp_begin(temp_arena);
     pePacket outgoing_packet = {0};
     switch (client.network_state) {
 		case peClientNetworkState_Disconnected: {
@@ -121,12 +121,12 @@ void pe_client_update(void) {
 			uint64_t ticks_since_last_sent_packet = pe_time_since(client.last_packet_send_time);
 			float seconds_since_last_sent_packet = (float)pe_time_sec(ticks_since_last_sent_packet);
 			if (seconds_since_last_sent_packet > connection_request_send_interval) {
-				peMessage message = pe_message_create(pe_temp_arena(), peMessageType_ConnectionRequest);
+				peMessage message = pe_message_create(temp_arena, peMessageType_ConnectionRequest);
 				pe_append_message(&outgoing_packet, message);
 			}
 		} break;
 		case peClientNetworkState_Connected: {
-			peMessage message = pe_message_create(pe_temp_arena(), peMessageType_InputState);
+			peMessage message = pe_message_create(temp_arena, peMessageType_InputState);
             HMM_Vec2 gamepad_input = {
                 .X = pe_input_gamepad_axis(peGamepadAxis_LeftX),
                 .Y = pe_input_gamepad_axis(peGamepadAxis_LeftY)
@@ -163,7 +163,7 @@ void pe_client_update(void) {
         peEntity *entity = &entities[e];
         if (!entity->active) continue;
 
-        pe_model_draw(&client.model, entity->position, HMM_V3(0.0f, entity->angle, 0.0f));
+        pe_model_draw(&client.model, temp_arena, entity->position, HMM_V3(0.0f, entity->angle, 0.0f));
     }
 
     pe_graphics_frame_end(true);

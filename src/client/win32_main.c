@@ -8,7 +8,6 @@
 #include "pe_model.h"
 #include "pe_math.h"
 #include "p3d.h"
-#include "pe_temp_arena.h"
 
 #include "stb_image.h"
 
@@ -119,12 +118,17 @@ peTexture pe_create_grid_texture(void) {
 }
 
 int main(int argc, char *argv[]) {
-    pe_temp_arena_init(PE_MEGABYTES(4));
+	peArena temp_arena;
+    {
+        size_t temp_arena_size = PE_MEGABYTES(4);
+        pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
+    }
+
     pe_time_init();
     pe_net_init();
     pe_platform_init();
 
-    pe_graphics_init(960, 540, "Procyon");
+    pe_graphics_init(&temp_arena, 960, 540, "Procyon");
 
     pe_allocate_entities();
 

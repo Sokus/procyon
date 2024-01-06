@@ -8,7 +8,6 @@
 #include "pe_file_io.h"
 #include "pe_graphics.h"
 #include "pe_model.h"
-#include "pe_temp_arena.h"
 #include "pe_graphics_psp.h"
 
 #include <stdio.h>
@@ -164,12 +163,15 @@ void pe_draw_line(HMM_Vec3 start_pos, HMM_Vec3 end_pos, peColor color) {
 
 int main(int argc, char* argv[])
 {
-	pe_temp_arena_init(PE_MEGABYTES(4));
-	peArena *temp_arena = pe_temp_arena();
+	peArena temp_arena;
+    {
+        size_t temp_arena_size = PE_MEGABYTES(4);
+        pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
+    }
 
 	pe_platform_init();
 
-	pe_graphics_init(0, 0, NULL);
+	pe_graphics_init(&temp_arena, 0, 0, NULL);
 	pe_default_texture_init();
 
 	pe_net_init();
@@ -207,7 +209,7 @@ int main(int argc, char* argv[])
 			//pe_receive_packets();
 		}
 
-		peArenaTemp send_packets_arena_temp = pe_arena_temp_begin(pe_temp_arena());
+		peArenaTemp send_packets_arena_temp = pe_arena_temp_begin(&temp_arena);
 		switch (network_state) {
 			case peClientNetworkState_Disconnected: {
 				fprintf(stdout, "connecting to the server\n");
@@ -226,12 +228,12 @@ int main(int argc, char* argv[])
 				uint64_t ticks_since_last_sent_packet = pe_time_since(last_packet_send_time);
 				float seconds_since_last_sent_packet = (float)pe_time_sec(ticks_since_last_sent_packet);
 				if (seconds_since_last_sent_packet > connection_request_send_interval) {
-					peMessage message = pe_message_create(temp_arena, peMessageType_ConnectionRequest);
+					peMessage message = pe_message_create(&temp_arena, peMessageType_ConnectionRequest);
 					pe_append_message(&outgoing_packet, message);
 				}
 			} break;
 			case peClientNetworkState_Connected: {
-				peMessage message = pe_message_create(temp_arena, peMessageType_InputState);
+				peMessage message = pe_message_create(&temp_arena, peMessageType_InputState);
 				message.input_state->input.movement.X = pe_input_gamepad_axis(peGamepadAxis_LeftX);
 				message.input_state->input.movement.Y = pe_input_gamepad_axis(peGamepadAxis_LeftY);
 				pe_append_message(&outgoing_packet, message);
@@ -275,7 +277,7 @@ int main(int argc, char* argv[])
 
 		pe_graphics_frame_end(true);
 
-		pe_arena_clear(pe_temp_arena());
+		pe_arena_clear(&temp_arena);
 	}
 
 	pe_graphics_shutdown();

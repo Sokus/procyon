@@ -16,7 +16,6 @@ add_library(shared STATIC
     src/pe_bit_stream.c
     src/pe_protocol.c
     src/pe_file_io.c
-    src/pe_temp_arena.c
     src/game/pe_entity.c
 )
 target_include_directories(shared PRIVATE src)
