@@ -6,6 +6,18 @@
 #include <malloc.h>
 #include <stdlib.h>
 
+PE_INLINE void pe_debug_trap(void) {
+#if defined(PSP)
+    asm(".set push\n"
+		".set noreorder\n"
+		"break\n"
+		"nop\n"
+		"jr $31\n" \
+		"nop\n"
+		".set pop\n");
+#endif
+}
+
 PE_INLINE void *pe_heap_alloc_align(size_t size, size_t alignment) {
     void *result = NULL;
 #if defined(_WIN32)

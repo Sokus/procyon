@@ -33,17 +33,11 @@
 #endif
 
 void pe_assert_handler(char *prefix, char *condition, char *file, int line, char *msg, ...);
+void pe_debug_trap(void);
 
 #ifndef PE_DEBUG_TRAP
 	#if defined(PSP)
-		#define PE_DEBUG_TRAP() \
-			asm(".set push\n" \
-				".set noreorder\n" \
-				"break\n" \
-				"nop\n" \
-				"jr $31\n" \
-				"nop\n" \
-				".set pop\n")
+		#define PE_DEBUG_TRAP() pe_debug_trap()
 	#elif defined(_MSC_VER)
 	 	#if _MSC_VER < 1300
 		#define PE_DEBUG_TRAP() __asm int 3 /* Trap to debugger! */
@@ -55,17 +49,26 @@ void pe_assert_handler(char *prefix, char *condition, char *file, int line, char
 	#endif
 #endif
 
-#ifndef PE_ASSERT_MSG
-#define PE_ASSERT_MSG(cond, msg, ...) do { \
+#if !defined(PE_ASSERT_MSG) && !defined(NDEBUG)
+#define PE_ASSERT_MSG(cond, msg, ...) \
+do { \
 	if (!(cond)) { \
 		pe_assert_handler("Assertion Failure", #cond, __FILE__, (int)__LINE__, msg, ##__VA_ARGS__); \
 		PE_DEBUG_TRAP(); \
 	} \
 } while (0)
+#elif !defined(PE_ASSERT_MSG) && defined(NDEBUG)
+#define PE_ASSERT_MSG(cond, msg, ...) do {} while (0)
 #endif
 
-#ifndef PE_ASSERT
+#if !defined(PE_ASSERT)
 #define PE_ASSERT(cond) PE_ASSERT_MSG(cond, NULL)
+#endif
+
+#if !defined(PE_ALWAYS) && !defined(NDEBUG)
+#define PE_ALWAYS(cond) ((cond) ? 1 : (pe_assert_handler("Assertion Failure", #cond, __FILE__, (int)__LINE__, NULL), (void)PE_DEBUG_TRAP(), 0))
+#elif !defined(PE_ALWAYS) && defined(NDEBUG)
+#define PE_ALWAYS(cond) (cond)
 #endif
 
 #ifndef PE_PANIC_MSG
