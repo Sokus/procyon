@@ -3,6 +3,7 @@
 #include "pe_core.h"
 #include "pe_file_io.h"
 #include "pe_platform.h"
+#include "pe_profile.h"
 
 #include "p3d.h"
 #include "pp3d.h"
@@ -530,10 +531,16 @@ bool pe_parse_pp3d(peArena *arena, peFileContents pp3d_file_contents, pp3dFile *
 	uint8_t *pp3d_file_pointer = pp3d_file_contents.data;
 	size_t pp3d_file_contents_left = pp3d_file_contents.size;
 
-	if (pp3d_file_contents_left < sizeof(pp3dStaticInfo)) return false;
+	if (sizeof(pp3dStaticInfo) > pp3d_file_contents_left) return false;
 	pp3d->static_info = (pp3dStaticInfo *)pp3d_file_pointer;
 	pp3d_file_pointer += sizeof(pp3dStaticInfo);
 	pp3d_file_contents_left -= sizeof(pp3dStaticInfo);
+	{
+		int8_t bone_weight_size = pp3d->static_info->bone_weight_size;
+		if (!(bone_weight_size == 1 || bone_weight_size == 2 || bone_weight_size == 4)) {
+			return false;
+		}
+	}
 
 	size_t mesh_size = pp3d->static_info->num_meshes * sizeof(pp3dMesh);
 	if (mesh_size > pp3d_file_contents_left) return false;
@@ -565,15 +572,20 @@ bool pe_parse_pp3d(peArena *arena, peFileContents pp3d_file_contents, pp3dFile *
 	pp3d->index_size = pe_arena_alloc(arena, pp3d->static_info->num_meshes * sizeof(size_t));
 	for (int m = 0; m < pp3d->static_info->num_meshes; m += 1) {
 		uint8_t num_weights = pp3d->subskeleton[pp3d->mesh[m].subskeleton_index].num_bones;
+		bool has_diffuse_map = (
+			pp3d->material[pp3d->mesh[m].material_index].diffuse_image_file_name[0] != '\0'
+		);
 		size_t single_vertex_size = (
-			num_weights * sizeof(float) + // weights
-			2 * sizeof(int16_t) +         // uv
+			num_weights * (size_t)(pp3d->static_info->bone_weight_size) + // weights
+			(has_diffuse_map ? 2 * sizeof(int16_t) : 0) + // uv
 			3 * sizeof(int16_t) +         // normal
 			3 * sizeof(int16_t)	          // position
 		);
+
 		size_t vertex_size = single_vertex_size * pp3d->mesh[m].num_vertex;
 		if (vertex_size > pp3d_file_contents_left) return false;
 		pp3d->vertex[m] = pp3d_file_pointer;
+		fprintf(stdout, "%u\n", pp3d->vertex[m]);
 		pp3d->vertex_size[m] = vertex_size;
 		pp3d_file_pointer += vertex_size;
 		pp3d_file_contents_left -= vertex_size;
@@ -631,6 +643,10 @@ static peModel pe_model_load_psp(peArena *temp_arena, const char *file_path) {
 		pe_arena_init(&model_arena, model_memory, model_memory_size);
         pe_model_alloc_psp(&model, &model_arena, pp3d.static_info, pp3d.mesh, pp3d.animation, pp3d.vertex_size, pp3d.index_size);
     }
+
+	fprintf(stdout, "num_meshes: %u\n", pp3d.static_info->num_meshes);
+	fprintf(stdout, "num_subskeletons: %u\n", pp3d.static_info->num_subskeletons);
+	fprintf(stdout, "num_bones: %u\n", pp3d.static_info->num_bones);
 
 	// TODO: 8 and 16 bit UVs depending on texture size
 	// TODO: 8 and 16 bit indices depending on vertex count
@@ -690,10 +706,19 @@ static peModel pe_model_load_psp(peArena *temp_arena, const char *file_path) {
 		model.mesh[m].num_vertex = pp3d.mesh[m].num_vertex;
 		model.mesh[m].num_index = pp3d.mesh[m].num_index;
 
-		model.mesh[m].vertex_type = GU_TEXTURE_16BIT|GU_NORMAL_16BIT|GU_VERTEX_16BIT|GU_TRANSFORM_3D;
+		model.mesh[m].vertex_type = GU_NORMAL_16BIT|GU_VERTEX_16BIT|GU_TRANSFORM_3D;
+		if (pp3d.material[pp3d.mesh[m].material_index].diffuse_image_file_name[0] != '\0') {
+			model.mesh[m].vertex_type |= GU_TEXTURE_16BIT;
+		}
 		uint8_t num_weights = pp3d.subskeleton[pp3d.mesh[m].subskeleton_index].num_bones;
 		if (num_weights > 0) {
-			model.mesh[m].vertex_type |= GU_WEIGHT_32BITF|GU_WEIGHTS(num_weights);
+			model.mesh[m].vertex_type |= GU_WEIGHTS(num_weights);
+			switch (pp3d.static_info->bone_weight_size) {
+				case 1: model.mesh[m].vertex_type |= GU_WEIGHT_8BIT; break;
+				case 2: model.mesh[m].vertex_type |= GU_WEIGHT_16BIT; break;
+				case 4: model.mesh[m].vertex_type |= GU_WEIGHT_32BITF; break;
+				default: PE_PANIC(); break;
+			}
 		}
 
 		memcpy(model.mesh[m].vertex, pp3d.vertex[m], pp3d.vertex_size[m]);
@@ -1132,6 +1157,7 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 	sceGumRotateXYZ((ScePspFVector3 *)&rotation);
 	sceGumScale(&scale_vector);
 
+	pe_profile_region_begin(peProfileRegion_ModelDraw_ConcatenateAnimationJoints);
 	peAnimationJoint *model_space_joints = pe_arena_alloc(temp_arena, model->num_bone * sizeof(peAnimationJoint));
 	peAnimationJoint *animation_joints = &model->animation[0].frames[frame_index * model->num_bone];
 	for (int b = 0; b < model->num_bone; b += 1) {
@@ -1142,27 +1168,35 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 			model_space_joints[b] = animation_joints[b];
 		}
 	}
+	pe_profile_region_end(peProfileRegion_ModelDraw_ConcatenateAnimationJoints);
+
+	pe_profile_region_begin(peProfileRegion_ModelDraw_CalculateMatrices);
+	HMM_Mat4 *final_bone_matrix = pe_arena_alloc(temp_arena, model->num_bone * sizeof(HMM_Mat4));
+	PE_ASSERT(final_bone_matrix != NULL);
+	for (int b = 0; b < model->num_bone; b += 1) {
+		peAnimationJoint *animation_joint = &model_space_joints[b];
+		HMM_Mat4 translation = HMM_Translate(animation_joint->translation);
+		HMM_Mat4 rotation = HMM_QToM4(animation_joint->rotation);
+		HMM_Mat4 scale = HMM_Scale(animation_joint->scale);
+		HMM_Mat4 transform = HMM_MulM4(translation, HMM_MulM4(scale, rotation));
+
+		HMM_Mat4 *inverse_model_space = &model->bone_inverse_model_space_pose_matrix[b];
+
+		final_bone_matrix[b] = HMM_MulM4(transform, *inverse_model_space);
+	}
+	pe_profile_region_end(peProfileRegion_ModelDraw_CalculateMatrices);
 
 	ScePspFMatrix4 bone_matrix[8];
 
 	sceGuTexImage(0, 0, 0, 0, NULL);
 	for (int m = 0; m < model->num_mesh; m += 1) {
 		peSubskeleton *subskeleton = &model->subskeleton[model->mesh_subskeleton[m]];
-
+		pe_profile_region_begin(peProfileRegion_ModelDraw_AssignMatrices);
 		for (int b = 0; b < subskeleton->num_bones; b += 1) {
-			peAnimationJoint *animation_joint = &model_space_joints[subskeleton->bone_indices[b]];
-			HMM_Mat4 translation = HMM_Translate(animation_joint->translation);
-			HMM_Mat4 rotation = HMM_QToM4(animation_joint->rotation);
-			HMM_Mat4 scale = HMM_Scale(animation_joint->scale);
-			HMM_Mat4 transform = HMM_MulM4(translation, HMM_MulM4(scale, rotation));
-
-			HMM_Mat4 *inverse_model_space = &model->bone_inverse_model_space_pose_matrix[subskeleton->bone_indices[b]];
-
-			HMM_Mat4 final_bone_matrix = HMM_MulM4(transform, *inverse_model_space);
-
-			sceGuBoneMatrix(b, (void*)&final_bone_matrix);
+			sceGuBoneMatrix(b, (void*)&final_bone_matrix[subskeleton->bone_indices[b]]);
 			sceGuMorphWeight(b, 1.0f);
 		}
+		pe_profile_region_end(peProfileRegion_ModelDraw_AssignMatrices);
 
 		peMaterial *mesh_material = &model->material[model->mesh_material[m]];
 
@@ -1175,8 +1209,10 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
             pe_texture_bind_default();
 		}
 
+		pe_profile_region_begin(peProfileRegion_ModelDraw_DrawArray);
 		int count = (model->mesh[m].index != NULL) ? model->mesh[m].num_index : model->mesh[m].num_vertex;
 		sceGumDrawArray(GU_TRIANGLES, model->mesh[m].vertex_type, count, model->mesh[m].index, model->mesh[m].vertex);
+		pe_profile_region_end(peProfileRegion_ModelDraw_DrawArray);
 	}
 	sceGuColor(0xFFFFFFFF);
 	sceGumPopMatrix();

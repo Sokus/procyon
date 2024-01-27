@@ -16,6 +16,8 @@ typedef struct pp3dStaticInfo {
     uint16_t num_animations;
     uint16_t num_bones;
     uint16_t num_frames_total;
+
+    int8_t bone_weight_size;
 } pp3dStaticInfo;
 // pp3dStaticInfo static_info;
 
@@ -54,7 +56,8 @@ typedef struct pp3dAnimation {
 // 6.
 //   6.1. vertices
 // typedef struct pp3dVertex {
-//     float bone_weights[0-8]; // depends on `subskeletons[mesh[m].subskeleton_index].num_bones`
+//     int8_t/int16_t/float bone_weights[0-8]; // type depends on `static_info.bone_weight_size`
+//                                             // size depends on `subskeletons[mesh[m].subskeleton_index].num_bones`
 //     uint16_t uv[2];
 //     uint16_t normal[3];
 //     uint16_t position[3];

@@ -18,9 +18,12 @@ from bpy_extras.node_shader_utils import (PrincipledBSDFWrapper)
 
 p_parsed_arguments = None # set by `p_argument_parser`
 
-UINT8_MAX = 255
+INT8_MIN = -128
+INT8_MAX = 127
 INT16_MAX = 32767
 INT16_MIN = -32768
+
+UINT8_MAX = 255
 UINT16_MAX = 65535
 
 class ProcyonVertex:
@@ -92,6 +95,13 @@ class ProcyonArmatureObjectState:
 #--------------------------------------------------------------------------------
 # Utility functions
 #--------------------------------------------------------------------------------
+
+def p_float_to_int8(value, a=-1.0, b=1.0):
+    float_negative_one_to_one = 2.0 * ((value - a) / (b - a)) - 1.0
+    if float_negative_one_to_one >= 0:
+        return int(float_negative_one_to_one * float(INT8_MAX))
+    else:
+        return int(float_negative_one_to_one * float(abs(INT8_MIN)))
 
 def p_float_to_int16(value, a=-1.0, b=1.0):
     float_negative_one_to_one = 2.0 * ((value - a) / (b - a)) - 1.0
@@ -211,8 +221,8 @@ def p_procyon_data_process_mesh_objects(procyon_data, mesh_objects, armature):
                         alpha = material_bsdf.alpha
                     p_materials[material].diffuse_color = [material_bsdf.base_color[0], material_bsdf.base_color[1], material_bsdf.base_color[2], alpha]
 
-                    base_color_socket = material_bsdf.node_principled_bsdf.inputs['Base Color']
-                    if base_color_socket.links:
+                    if use_materials:
+                        base_color_socket = material_bsdf.node_principled_bsdf.inputs['Base Color']
                         p_materials[material].diffuse_image = base_color_socket.links[0].from_node.image
                         if len(base_color_socket.links) > 1:
                             print(f"WARNING: base color socket has {len(base_color_socket.links)} links, only the first one is processed!")
@@ -284,6 +294,80 @@ def p_procyon_data_process_mesh_objects(procyon_data, mesh_objects, armature):
         procyon_data.meshes = p_meshes
 
 def p_procyon_data_make_subskeletons(procyon_data):
+    print("Procyon: Splitting meshes...")
+    bone_connections = []
+    for mesh in procyon_data.meshes:
+        for f in range(int(len(mesh.indices)/3)):
+            triangle_bone_indices = []
+            for index in mesh.indices[(3*f):(3*f+3)]:
+                vertex = list(mesh.vertices.keys())[index]
+                for w, weight in enumerate(vertex.joint_weights):
+                    bone_index = vertex.joint_indices[w]
+                    if weight > 0.0 and bone_index != -1 and bone_index not in triangle_bone_indices:
+                        triangle_bone_indices.append(bone_index)
+                triangle_bone_indices.sort()
+            if not any(connection==triangle_bone_indices for connection in bone_connections):
+                bone_connections.append(triangle_bone_indices)
+    bone_connections.extend([b] for b in range(len(procyon_data.joints)) if not any(b in connection for connection in bone_connections))
+    procyon_data.bone_groups = sorted(bone_connections, key=lambda x: x[:])
+
+    new_meshes = []
+    for mesh in procyon_data.meshes:
+        for f in range(int(len(mesh.indices)/3)):
+            triangle_bone_indices = []
+            triangle_bone_weights = []
+            for index in mesh.indices[(3*f):(3*f+3)]:
+                vertex = list(mesh.vertices.keys())[index]
+                for w, weight in enumerate(vertex.joint_weights):
+                    bone_index = vertex.joint_indices[w]
+                    if weight > 0.0 and bone_index != -1 and bone_index not in triangle_bone_indices:
+                        triangle_bone_indices.append(bone_index)
+            triangle_bone_indices.sort()
+
+            # FIXME: this shouldn't actually be enforced
+            assert(len(triangle_bone_indices) > 0) # all vertices must be controlled by a bone
+
+            subskeleton_index = None
+            for group_index, group in enumerate(procyon_data.bone_groups):
+                if all(bone_index in group for bone_index in triangle_bone_indices):
+                    subskeleton_index = group_index
+
+            assert(subskeleton_index) # at this point it should always be possible to find a suitable skeleton
+
+            mesh_index = None
+            for m, new_mesh in enumerate(new_meshes):
+                if new_mesh.material_index == mesh.material_index and new_mesh.subskeleton_index == subskeleton_index:
+                    mesh_index = m
+                    break
+            if not mesh_index:
+                mesh_index = len(new_meshes)
+                new_meshes.append(ProcyonMesh())
+                new_meshes[mesh_index].material_index = mesh.material_index
+                new_meshes[mesh_index].subskeleton_index = subskeleton_index
+
+            for index in mesh.indices[(3*f):(3*f+3)]:
+                old_vertex = list(mesh.vertices.keys())[index]
+                new_vertex = copy(old_vertex)
+
+                new_vertex.joint_indices = []
+                new_vertex.joint_weights = []
+                for bone_index in procyon_data.bone_groups[subskeleton_index]:
+                    if bone_index in old_vertex.joint_indices:
+                        vertex_joint_index = old_vertex.joint_indices.index(bone_index)
+                        new_vertex.joint_indices.append(bone_index)
+                        new_vertex.joint_weights.append(old_vertex.joint_weights[vertex_joint_index])
+                    else:
+                        new_vertex.joint_indices.append(-1)
+                        new_vertex.joint_weights.append(0.0)
+
+                if new_meshes[mesh_index].vertices.get(new_vertex) == None:
+                    new_meshes[mesh_index].vertices[new_vertex] = len(new_meshes[mesh_index].vertices)
+                new_meshes[mesh_index].indices.append(new_meshes[mesh_index].vertices[new_vertex])
+    new_meshes = sorted(new_meshes, key=lambda m: (m.subskeleton_index, m.material_index))
+    procyon_data.meshes = new_meshes
+
+
+def p_procyon_data_make_subskeletons_old(procyon_data):
     print("Procyon: Making subskeletons...")
     bone_connections = []
     for mesh in procyon_data.meshes:
@@ -480,7 +564,8 @@ def p_procyon_data_collect():
         )
 
         if p_parsed_arguments.portable:
-            p_procyon_data_make_subskeletons(procyon_data)
+            p_procyon_data_make_subskeletons_old(procyon_data)
+            #p_procyon_data_make_subskeletons(procyon_data)
 
     return procyon_data
 
@@ -507,6 +592,11 @@ def p_write_uint16(file, value):
     use_ascii = p_parsed_arguments.ascii
     if use_ascii: file.write(str(value) + ' ')
     else: file.write(struct.pack("H", value))
+
+def p_write_int8(file, value):
+    use_ascii = p_parsed_arguments.ascii
+    if use_ascii: file.write(str(value) + ' ')
+    else: file.write(struct.pack("b", value))
 
 def p_write_uint8(file, value):
     use_ascii = p_parsed_arguments.ascii
@@ -643,6 +733,9 @@ def pp3d_write_static_info_header(file, procyon_data):
     num_frames_total = sum([len(animation.frames) for animation in procyon_data.animations])
     p_write_uint16(file, num_frames_total) # 2 bytes (20)
 
+    p_write_int8(file, p_parsed_arguments.bone_weight_size) # 1 byte
+    for a in range(3): p_write_uint8(file, 0) # alignment
+
 def pp3d_write_mesh_info(file, file_path, procyon_data):
     if len(procyon_data.meshes): print("Procyon: Writing mesh info...")
     for mesh in procyon_data.meshes:
@@ -688,20 +781,40 @@ def pp3d_write_animation_info(file, procyon_data):
 def pp3d_write_mesh_data(file, procyon_data):
     if len(procyon_data.meshes): print("Procyon: Writing mesh data...")
     for mesh in procyon_data.meshes:
+        material = procyon_data.materials[mesh.material_index]
+        bytes_written = 0
         for v, vertex in enumerate(mesh.vertices.keys()):
             for weight in vertex.joint_weights:
-                p_write_float(file, weight)
-            for e in range(0, 2):
-                vertex_texcoord_element_int16 = p_float_to_int16(vertex.uv[e])
-                p_write_int16(file, vertex_texcoord_element_int16)
+                if p_parsed_arguments.bone_weight_size == 1:
+                    weight_int8 = p_float_to_int8(weight)
+                    p_write_int8(file, weight_int8)
+                    bytes_written += 1
+                elif p_parsed_arguments.bone_weight_size == 2:
+                    weight_int16 = p_float_to_int16(weight)
+                    p_write_int16(file, weight_int16)
+                    bytes_written += 2
+                elif p_parsed_arguments.bone_weight_size == 4:
+                    p_write_float(file, weight)
+                    bytes_written += 4
+            if material.diffuse_image:
+                for e in range(0, 2):
+                    vertex_texcoord_element_int16 = p_float_to_int16(vertex.uv[e])
+                    p_write_int16(file, vertex_texcoord_element_int16)
+                    bytes_written += 2
             for e in range(0, 3):
                 vertex_normal_element_int16 = p_float_to_int16(vertex.normal[e])
                 p_write_int16(file, vertex_normal_element_int16)
+                bytes_written += 2
             for e in range(0, 3):
                 vertex_position_element_int16 = p_float_to_int16(vertex.position[e] / procyon_data.scale)
                 p_write_int16(file, vertex_position_element_int16)
+                bytes_written += 2
         for i, index in enumerate(mesh.indices):
             p_write_uint16(file, index)
+            bytes_written += 2
+        bytes_align = (4 - bytes_written % 4) % 4
+        for p in range(0, bytes_align):
+            p_write_uint8(file, 0) # pad to 32-bits
 
 # TODO: Convert 16-bit index to 8-bit and merge with `p3d_write_bone_parent_indices`
 def pp3d_write_bone_parent_indices(file, procyon_data):
@@ -777,6 +890,7 @@ if __name__ == "__main__":
     p_argument_parser.add_argument("--output", metavar="<file>", help="place output into <file>")
     p_argument_parser.add_argument("--portable", action='store_true', help="export in portable format")
     p_argument_parser.add_argument("--no-materials", action='store_true', help="don't export mesh materials")
+    p_argument_parser.add_argument("--bone_weight_size", default=1, type=int, choices=[1, 2, 4])
     axis_choices = ["X", "-X", "Y", "-Y", "Z", "-Z"]
     p_argument_parser.add_argument("--forward", default="-Z", choices=axis_choices, metavar="<axis>")
     p_argument_parser.add_argument("--up", default="Y", choices=axis_choices, metavar="<axis>",)
