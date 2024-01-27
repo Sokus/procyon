@@ -9,24 +9,10 @@
     },
     "tasks": [
         {
-            "label": "Configure for PSP",
-            "type": "shell",
-            "command": "docker",
-            "args": [
-                "run", "--tty", "--rm", "--volume", "${workspaceFolder}:/${workspaceFolderBasename}", "--workdir", "/${workspaceFolderBasename}", "pspdev/pspdev:latest",
-                "psp-cmake", "-B", "psp_build"
-            ],
-            "hide": true,
-        },
-        {
             "label": "Build for PSP",
             "type": "shell",
             "group": "build",
-            "command": "docker",
-            "args": [
-                "run", "--tty", "--rm", "--volume", "${workspaceFolder}:/${workspaceFolderBasename}", "--workdir", "/${workspaceFolderBasename}", "pspdev/pspdev:latest",
-                "make", "--directory=psp_build"
-            ],
+            "command": "./scripts/build_psp.ps1",
             "problemMatcher": {
                 "base": "$gcc",
                 "fileLocation":[
@@ -34,7 +20,6 @@
                     "${workspaceFolder}/.."
                 ]
             },
-            "dependsOn": "Configure for PSP"
         }
     ]
 }
