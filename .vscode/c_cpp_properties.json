@@ -1,0 +1,28 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "configurationProvider": "ms-vscode.cmake-tools"
+        },
+        {
+            "name": "PSP",
+            "mergeConfigurations": false,
+            "browse": {
+                "path": [
+                    "${env:PSPSDK_INCLUDE_PATH}"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "forcedInclude": [
+                "${workspaceFolder}/.vscode/configuration_psp_undef.h"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "PSP"
+            ]
+        }
+    ],
+    "version": 4
+}

@@ -1,0 +1,40 @@
+{
+    "version": "2.0.0",
+    "windows": {
+        "options": {
+            "shell": {
+                "executable": "powershell",
+            }
+        }
+    },
+    "tasks": [
+        {
+            "label": "Configure for PSP",
+            "type": "shell",
+            "command": "docker",
+            "args": [
+                "run", "--tty", "--rm", "--volume", "${workspaceFolder}:/${workspaceFolderBasename}", "--workdir", "/${workspaceFolderBasename}", "pspdev/pspdev:latest",
+                "psp-cmake", "-B", "psp_build"
+            ],
+            "hide": true,
+        },
+        {
+            "label": "Build for PSP",
+            "type": "shell",
+            "group": "build",
+            "command": "docker",
+            "args": [
+                "run", "--tty", "--rm", "--volume", "${workspaceFolder}:/${workspaceFolderBasename}", "--workdir", "/${workspaceFolderBasename}", "pspdev/pspdev:latest",
+                "make", "--directory=psp_build"
+            ],
+            "problemMatcher": {
+                "base": "$gcc",
+                "fileLocation":[
+                    "relative",
+                    "${workspaceFolder}/.."
+                ]
+            },
+            "dependsOn": "Configure for PSP"
+        }
+    ]
+}
