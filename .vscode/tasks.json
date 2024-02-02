@@ -20,6 +20,12 @@
                     "${workspaceFolder}/.."
                 ]
             },
+        },
+        {
+            "label": "Build Assets",
+            "type": "shell",
+            "group": "build",
+            "command": "./scripts/build_res.ps1"
         }
     ]
 }
