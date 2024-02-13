@@ -577,6 +577,7 @@ bool pe_parse_pp3d(peArena *arena, peFileContents pp3d_file_contents, pp3dFile *
 		);
 		size_t single_vertex_size = (
 			num_weights * (size_t)(pp3d->static_info->bone_weight_size) + // weights
+			(num_weights % 2) * sizeof(uint8_t) + // weight padding
 			(has_diffuse_map ? 2 * sizeof(int16_t) : 0) + // uv
 			3 * sizeof(int16_t) +         // normal
 			3 * sizeof(int16_t)	          // position
@@ -585,7 +586,6 @@ bool pe_parse_pp3d(peArena *arena, peFileContents pp3d_file_contents, pp3dFile *
 		size_t vertex_size = single_vertex_size * pp3d->mesh[m].num_vertex;
 		if (vertex_size > pp3d_file_contents_left) return false;
 		pp3d->vertex[m] = pp3d_file_pointer;
-		fprintf(stdout, "%u\n", pp3d->vertex[m]);
 		pp3d->vertex_size[m] = vertex_size;
 		pp3d_file_pointer += vertex_size;
 		pp3d_file_contents_left -= vertex_size;
@@ -643,10 +643,6 @@ static peModel pe_model_load_psp(peArena *temp_arena, const char *file_path) {
 		pe_arena_init(&model_arena, model_memory, model_memory_size);
         pe_model_alloc_psp(&model, &model_arena, pp3d.static_info, pp3d.mesh, pp3d.animation, pp3d.vertex_size, pp3d.index_size);
     }
-
-	fprintf(stdout, "num_meshes: %u\n", pp3d.static_info->num_meshes);
-	fprintf(stdout, "num_subskeletons: %u\n", pp3d.static_info->num_subskeletons);
-	fprintf(stdout, "num_bones: %u\n", pp3d.static_info->num_bones);
 
 	// TODO: 8 and 16 bit UVs depending on texture size
 	// TODO: 8 and 16 bit indices depending on vertex count

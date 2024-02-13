@@ -334,16 +334,17 @@ def p_procyon_data_make_subskeletons(procyon_data):
 
             assert(subskeleton_index) # at this point it should always be possible to find a suitable skeleton
 
-            mesh_index = None
+            mesh_index = -1
             for m, new_mesh in enumerate(new_meshes):
                 if new_mesh.material_index == mesh.material_index and new_mesh.subskeleton_index == subskeleton_index:
                     mesh_index = m
                     break
-            if not mesh_index:
+            if mesh_index < 0:
                 mesh_index = len(new_meshes)
                 new_meshes.append(ProcyonMesh())
                 new_meshes[mesh_index].material_index = mesh.material_index
                 new_meshes[mesh_index].subskeleton_index = subskeleton_index
+            assert(mesh_index >= 0)
 
             for index in mesh.indices[(3*f):(3*f+3)]:
                 old_vertex = list(mesh.vertices.keys())[index]
@@ -782,39 +783,35 @@ def pp3d_write_mesh_data(file, procyon_data):
     if len(procyon_data.meshes): print("Procyon: Writing mesh data...")
     for mesh in procyon_data.meshes:
         material = procyon_data.materials[mesh.material_index]
-        bytes_written = 0
         for v, vertex in enumerate(mesh.vertices.keys()):
-            for weight in vertex.joint_weights:
-                if p_parsed_arguments.bone_weight_size == 1:
-                    weight_int8 = p_float_to_int8(weight)
-                    p_write_int8(file, weight_int8)
-                    bytes_written += 1
-                elif p_parsed_arguments.bone_weight_size == 2:
-                    weight_int16 = p_float_to_int16(weight)
-                    p_write_int16(file, weight_int16)
-                    bytes_written += 2
-                elif p_parsed_arguments.bone_weight_size == 4:
-                    p_write_float(file, weight)
-                    bytes_written += 4
+            pp3d_write_vertex_bone_weights(file, vertex)
             if material.diffuse_image:
                 for e in range(0, 2):
                     vertex_texcoord_element_int16 = p_float_to_int16(vertex.uv[e])
                     p_write_int16(file, vertex_texcoord_element_int16)
-                    bytes_written += 2
             for e in range(0, 3):
                 vertex_normal_element_int16 = p_float_to_int16(vertex.normal[e])
                 p_write_int16(file, vertex_normal_element_int16)
-                bytes_written += 2
             for e in range(0, 3):
                 vertex_position_element_int16 = p_float_to_int16(vertex.position[e] / procyon_data.scale)
                 p_write_int16(file, vertex_position_element_int16)
-                bytes_written += 2
         for i, index in enumerate(mesh.indices):
             p_write_uint16(file, index)
-            bytes_written += 2
-        bytes_align = (4 - bytes_written % 4) % 4
-        for p in range(0, bytes_align):
-            p_write_uint8(file, 0) # pad to 32-bits
+
+def pp3d_write_vertex_bone_weights(file, vertex):
+    bone_weight_size = p_parsed_arguments.bone_weight_size
+    for weight in vertex.joint_weights:
+        if bone_weight_size == 1:
+            weight_int8 = p_float_to_int8(weight)
+            p_write_int8(file, weight_int8)
+        elif bone_weight_size == 2:
+            weight_int16 = p_float_to_int16(weight)
+            p_write_int16(file, weight_int16)
+        elif bone_weight_size == 4:
+            p_write_float(file, weight)
+    bone_weights_size = len(vertex.joint_weights) * bone_weight_size
+    if bone_weights_size % 2:
+        p_write_uint8(file, 0) # pad to 16 bits
 
 # TODO: Convert 16-bit index to 8-bit and merge with `p3d_write_bone_parent_indices`
 def pp3d_write_bone_parent_indices(file, procyon_data):
