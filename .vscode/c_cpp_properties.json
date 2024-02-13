@@ -9,7 +9,8 @@
             "mergeConfigurations": false,
             "browse": {
                 "path": [
-                    "${env:PSPSDK_INCLUDE_PATH}"
+                    "${env:PSPSDK_INCLUDE_PATH}",
+                    "${PSPDEV}/psp/sdk/include"
                 ],
                 "limitSymbolsToIncludedHeaders": true
             },

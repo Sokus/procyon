@@ -175,7 +175,7 @@ peTime pe_time_local(void) {
         .milliseconds = ts.tv_nsec/1000000,
     };
 #elif defined(PSP)
-    pspTime psp_time;
+    ScePspDateTime psp_time;
     int rtc_get_local_time_result = sceRtcGetCurrentClockLocalTime(&psp_time);
     PE_ASSERT(rtc_get_local_time_result == 0);
     time = (peTime){
@@ -183,9 +183,9 @@ peTime pe_time_local(void) {
         .month = psp_time.month,
         .day = psp_time.day,
         .hour = psp_time.hour,
-        .minutes = psp_time.minutes,
-        .seconds = psp_time.seconds,
-        .milliseconds = psp_time.microseconds / 1000,
+        .minutes = psp_time.minute,
+        .seconds = psp_time.second,
+        .milliseconds = psp_time.microsecond / 1000,
     };
 #else
     #warning unimplemented
