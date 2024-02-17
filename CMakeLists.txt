@@ -64,7 +64,7 @@ if(NOT SERVER_STANDALONE)
             src/client/pe_input_psp.c
         )
         target_link_libraries(client PUBLIC
-            pspdebug pspdisplay pspge pspgu pspgum pspctrl
+            pspdebug pspdisplay pspge pspgu pspgum_vfpu pspvfpu pspctrl
             pspnet pspnet_apctl pspnet_resolver
         )
     endif()

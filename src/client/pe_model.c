@@ -1184,7 +1184,6 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 
 	ScePspFMatrix4 bone_matrix[8];
 
-	sceGuTexImage(0, 0, 0, 0, NULL);
 	for (int m = 0; m < model->num_mesh; m += 1) {
 		peSubskeleton *subskeleton = &model->subskeleton[model->mesh_subskeleton[m]];
 		pe_profile_region_begin(peProfileRegion_ModelDraw_AssignMatrices);
@@ -1199,11 +1198,13 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 		uint32_t diffuse_color = mesh_material->diffuse_color.rgba;
 		sceGuColor(diffuse_color);
 
+		pe_profile_region_begin(peProfileRegion_ModelDraw_BindTexture);
 		if (mesh_material->has_diffuse_map) {
             pe_texture_bind(mesh_material->diffuse_map);
 		} else {
             pe_texture_bind_default();
 		}
+		pe_profile_region_end(peProfileRegion_ModelDraw_BindTexture);
 
 		pe_profile_region_begin(peProfileRegion_ModelDraw_DrawArray);
 		int count = (model->mesh[m].index != NULL) ? model->mesh[m].num_index : model->mesh[m].num_vertex;

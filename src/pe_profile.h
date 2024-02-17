@@ -9,6 +9,7 @@ typedef enum peProfileRegion {
     peProfileRegion_ModelDraw_ConcatenateAnimationJoints,
     peProfileRegion_ModelDraw_CalculateMatrices,
     peProfileRegion_ModelDraw_AssignMatrices,
+    peProfileRegion_ModelDraw_BindTexture,
     peProfileRegion_ModelDraw_DrawArray,
     peProfileRegion_FrameEnd,
     peProfileRegion_Count
