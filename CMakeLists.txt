@@ -17,6 +17,7 @@ add_library(shared STATIC
     src/pe_protocol.c
     src/pe_file_io.c
     src/pe_profile.c
+    src/pe_trace.c
     src/game/pe_entity.c
 )
 target_include_directories(shared PRIVATE src)
@@ -102,3 +103,9 @@ endif()
 add_executable(tests src/pe_tests.c)
 target_include_directories(tests PRIVATE src)
 target_link_libraries(tests shared client)
+
+if(WIN32 OR LINUX)
+    add_executable(export_google_trace src/tools/export_google_trace.c)
+    target_include_directories(export_google_trace PRIVATE src)
+    target_link_libraries(export_google_trace shared)
+endif()

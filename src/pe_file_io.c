@@ -6,6 +6,7 @@
     #define WIN32_LEAN_AND_MEAN
     #include <windows.h>
 #elif defined(PSP)
+    #include <pspkerneltypes.h>
     #include <pspiofilemgr.h>
 #elif defined(__linux__)
     #include <unistd.h>
@@ -14,7 +15,72 @@
 #endif
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
 
+bool pe_file_open(const char *file_path, peFileHandle *result) {
+    bool success = false;
+#if defined(__PSP__)
+    int sce_flags = PSP_O_NBLOCK | PSP_O_WRONLY | PSP_O_CREAT | PSP_O_TRUNC | PSP_O_APPEND;
+    SceUID sce_fd = sceIoOpen(file_path, sce_flags, 0777);
+    if (sce_fd >= 0) {
+        success = true;
+        *result = (peFileHandle){
+            .fd_psp = sce_fd
+        };
+        sceIoChangeAsyncPriority(sce_fd, 16);
+    }
+#endif
+    return success;
+}
+
+bool pe_file_close(peFileHandle file) {
+    bool success = false;
+#if defined(__PSP__)
+    int sce_rc = sceIoClose(file.fd_psp);
+    if (sce_rc >= 0) {
+        success = true;
+    }
+#endif
+    return success;
+}
+
+bool pe_file_write(peFileHandle file, void *data, size_t data_size) {
+    bool success = false;
+#if defined(__PSP__)
+    int sce_rc = sceIoWriteAsync(file.fd_psp, data, (SceSize)data_size);
+    if (sce_rc >= 0) {
+        success = true;
+    }
+#endif
+    return success;
+}
+
+bool pe_file_poll(peFileHandle file, bool *result) {
+    bool success = false;
+#if defined(__PSP__)
+    SceInt64 sce_result;
+    int sce_rc = sceIoPollAsync(file.fd_psp, &sce_result);
+    switch (sce_rc) {
+        case 0: success = true; *result = false; break;
+        case 1: success = true; *result = true; break;
+        default: break;
+    }
+#endif
+    return success;
+}
+
+bool pe_file_wait(peFileHandle file) {
+    bool success = false;
+#if defined(__PSP__)
+    SceInt64 sce_result;
+    int sce_rc = sceIoWaitAsync(file.fd_psp, &sce_result);
+    if (sce_rc >= 0) {
+        success = true;
+    }
+#endif
+    return success;
+}
 
 peFileContents pe_file_read_contents(peArena *arena, const char *file_path, bool zero_terminate) {
     peFileContents result = {0};

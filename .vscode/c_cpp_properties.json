@@ -21,6 +21,7 @@
                 "_DEBUG",
                 "UNICODE",
                 "_UNICODE",
+                "__PSP__",
                 "PSP"
             ]
         }
