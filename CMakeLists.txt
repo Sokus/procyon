@@ -23,7 +23,7 @@ add_library(shared STATIC
 target_include_directories(shared PRIVATE src)
 target_link_libraries(shared handmade-math)
 if (PSP)
-    target_compile_options(shared PUBLIC -g -O0)
+    target_compile_definitions(shared PUBLIC -DPE_TRACE_ENABLED)
 elseif(MSVC)
     target_compile_options(shared PUBLIC -W3 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127)
 endif()

@@ -25,19 +25,28 @@ typedef struct peTraceEventData {
     uint64_t duration; // type == peTraceEvent_Complete
 } peTraceEventData;
 
-void pe_trace_event_add(const char *name, size_t name_length, peTraceEventType type, uint64_t timestamp, uint64_t duration);
-
 typedef struct peTraceMark {
     const char *name;
     size_t name_length;
     uint64_t timestamp;
 } peTraceMark;
 
-peTraceMark pe_trace_mark_begin(const char *name, size_t name_length);
-void pe_trace_mark_end(peTraceMark trace_mark);
+#if defined(PE_TRACE_ENABLED)
+    peTraceMark pe_trace_mark_begin_internal(const char *name, size_t name_length);
+    void pe_trace_mark_end_internal(peTraceMark trace_mark);
 
-#define PE_TRACE_MARK_BEGIN_LITERAL(name) pe_trace_mark_begin(name, sizeof(name))
-#define PE_TRACE_FUNCTION_BEGIN() peTraceMark _##__func__##_trace_mark = pe_trace_mark_begin(__func__, sizeof(__func__))
-#define PE_TRACE_FUNCTION_END() pe_trace_mark_end(_##__func__##_trace_mark)
+    #define PE_TRACE_MARK_BEGIN(name, name_length) pe_trace_mark_begin_internal(name, name_length)
+    #define PE_TRACE_MARK_BEGIN_LITERAL(name) pe_trace_mark_begin_internal(name, sizeof(name))
+    #define PE_TRACE_MARK_END(trace_mark) pe_trace_mark_end_internal(trace_mark)
+    #define PE_TRACE_FUNCTION_BEGIN() peTraceMark _##__func__##_trace_mark = pe_trace_mark_begin_internal(__func__, sizeof(__func__))
+    #define PE_TRACE_FUNCTION_END() pe_trace_mark_end_internal(_##__func__##_trace_mark)
+#else
+    #define PE_TRACE_MARK_BEGIN(name, name_length) (peTraceMark){0}
+    #define PE_TRACE_MARK_BEGIN_LITERAL(name) (peTraceMark){0}
+    #define PE_TRACE_MARK_END(trace_mark) (void)(trace_mark)
+    #define PE_TRACE_FUNCTION_BEGIN() (void)0
+    #define PE_TRACE_FUNCTION_END() (void)0
+#endif
+
 
 #endif // PE_TRACE_H_HEADER_GUARD
