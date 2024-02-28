@@ -3,7 +3,7 @@
 #include "pe_core.h"
 #include "pe_file_io.h"
 #include "pe_platform.h"
-#include "pe_profile.h"
+#include "pe_trace.h"
 
 #include "p3d.h"
 #include "pp3d.h"
@@ -824,6 +824,7 @@ bool pe_parse_p3d(peFileContents p3d_file_contents, p3dFile *p3d) {
 }
 
 peModel pe_model_load(peArena *temp_arena, char *file_path) {
+	PE_TRACE_FUNCTION_BEGIN();
 #if defined(_WIN32) || defined(__linux__)
     peArenaTemp temp_arena_memory = pe_arena_temp_begin(temp_arena);
 
@@ -993,11 +994,11 @@ peModel pe_model_load(peArena *temp_arena, char *file_path) {
     glBindVertexArray(0);
 #endif
     pe_arena_temp_end(temp_arena_memory);
-
-    return model;
 #elif defined(PSP)
-	return pe_model_load_psp(temp_arena, file_path);
+	peModel model = pe_model_load_psp(temp_arena, file_path);
 #endif
+	PE_TRACE_FUNCTION_END();
+	return model;
 }
 
 #include "pe_time.h"
@@ -1009,6 +1010,7 @@ uint64_t last_frame_time;
 bool last_frame_time_initialized = false;
 
 void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_Vec3 rotation) {
+	PE_TRACE_FUNCTION_BEGIN();
     peArenaTemp temp_arena_memory = pe_arena_temp_begin(temp_arena);
 	if (!last_frame_time_initialized) {
 		last_frame_time = pe_time_now();
@@ -1145,6 +1147,7 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 	glBindVertexArray(0);
 #endif
 #if defined(PSP)
+	peTraceMark tm_sce_gum = PE_TRACE_MARK_BEGIN_LITERAL("SCE GUM");
 	sceGumMatrixMode(GU_MODEL);
 	sceGumPushMatrix();
 	sceGumLoadIdentity();
@@ -1152,8 +1155,9 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 	ScePspFVector3 scale_vector = { model->scale, model->scale, model->scale };
 	sceGumRotateXYZ((ScePspFVector3 *)&rotation);
 	sceGumScale(&scale_vector);
+	PE_TRACE_MARK_END(tm_sce_gum);
 
-	pe_profile_region_begin(peProfileRegion_ModelDraw_ConcatenateAnimationJoints);
+	peTraceMark tm_concat_anim_joints = PE_TRACE_MARK_BEGIN_LITERAL("concatenate animation joints");
 	peAnimationJoint *model_space_joints = pe_arena_alloc(temp_arena, model->num_bone * sizeof(peAnimationJoint));
 	peAnimationJoint *animation_joints = &model->animation[0].frames[frame_index * model->num_bone];
 	for (int b = 0; b < model->num_bone; b += 1) {
@@ -1164,9 +1168,9 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 			model_space_joints[b] = animation_joints[b];
 		}
 	}
-	pe_profile_region_end(peProfileRegion_ModelDraw_ConcatenateAnimationJoints);
+	PE_TRACE_MARK_END(tm_concat_anim_joints);
 
-	pe_profile_region_begin(peProfileRegion_ModelDraw_CalculateMatrices);
+	peTraceMark tm_calc_matrices = PE_TRACE_MARK_BEGIN_LITERAL("calculate matrices");
 	HMM_Mat4 *final_bone_matrix = pe_arena_alloc(temp_arena, model->num_bone * sizeof(HMM_Mat4));
 	PE_ASSERT(final_bone_matrix != NULL);
 	for (int b = 0; b < model->num_bone; b += 1) {
@@ -1180,39 +1184,46 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 
 		final_bone_matrix[b] = HMM_MulM4(transform, *inverse_model_space);
 	}
-	pe_profile_region_end(peProfileRegion_ModelDraw_CalculateMatrices);
+	PE_TRACE_MARK_END(tm_calc_matrices);
 
 	ScePspFMatrix4 bone_matrix[8];
 
 	for (int m = 0; m < model->num_mesh; m += 1) {
+		peTraceMark tm_draw_mesh = PE_TRACE_MARK_BEGIN_LITERAL("draw mesh");
 		peSubskeleton *subskeleton = &model->subskeleton[model->mesh_subskeleton[m]];
-		pe_profile_region_begin(peProfileRegion_ModelDraw_AssignMatrices);
+		peTraceMark tm_assign_matrices = PE_TRACE_MARK_BEGIN_LITERAL("assign matrices");
 		for (int b = 0; b < subskeleton->num_bones; b += 1) {
 			sceGuBoneMatrix(b, (void*)&final_bone_matrix[subskeleton->bone_indices[b]]);
-			sceGuMorphWeight(b, 1.0f);
+			//sceGuMorphWeight(b, 1.0f);
 		}
-		pe_profile_region_end(peProfileRegion_ModelDraw_AssignMatrices);
+		PE_TRACE_MARK_END(tm_assign_matrices);
 
 		peMaterial *mesh_material = &model->material[model->mesh_material[m]];
 
+		peTraceMark tm_diffuse_color = PE_TRACE_MARK_BEGIN_LITERAL("diffuse color");
 		uint32_t diffuse_color = mesh_material->diffuse_color.rgba;
 		sceGuColor(diffuse_color);
+		PE_TRACE_MARK_END(tm_diffuse_color);
 
-		pe_profile_region_begin(peProfileRegion_ModelDraw_BindTexture);
+		peTraceMark tm_bind_texture = PE_TRACE_MARK_BEGIN_LITERAL("bind texture");
 		if (mesh_material->has_diffuse_map) {
             pe_texture_bind(mesh_material->diffuse_map);
 		} else {
             pe_texture_bind_default();
 		}
-		pe_profile_region_end(peProfileRegion_ModelDraw_BindTexture);
+		PE_TRACE_MARK_END(tm_bind_texture);
 
-		pe_profile_region_begin(peProfileRegion_ModelDraw_DrawArray);
+		peTraceMark tm_draw_array = PE_TRACE_MARK_BEGIN_LITERAL("draw array");
 		int count = (model->mesh[m].index != NULL) ? model->mesh[m].num_index : model->mesh[m].num_vertex;
 		sceGumDrawArray(GU_TRIANGLES, model->mesh[m].vertex_type, count, model->mesh[m].index, model->mesh[m].vertex);
-		pe_profile_region_end(peProfileRegion_ModelDraw_DrawArray);
+		PE_TRACE_MARK_END(tm_draw_array);
+		PE_TRACE_MARK_END(tm_draw_mesh);
 	}
+	peTraceMark tm_diffuse_color = PE_TRACE_MARK_BEGIN_LITERAL("diffuse color");
 	sceGuColor(0xFFFFFFFF);
+	PE_TRACE_MARK_END(tm_diffuse_color);
 	sceGumPopMatrix();
 #endif
 	pe_arena_temp_end(temp_arena_memory);
+	PE_TRACE_FUNCTION_END();
 }

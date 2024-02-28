@@ -5,6 +5,7 @@
 #include "client/pe_model.h"
 #include "pe_time.h"
 #include "pe_profile.h"
+#include "pe_trace.h"
 
 #include <stdio.h>
 
@@ -21,6 +22,7 @@ int main(int argc, char *argv[]) {
     pe_graphics_init(&temp_arena, 960, 540, "Procyon");
     pe_input_init();
     pe_time_init();
+    pe_trace_init();
 
 #if !defined(PSP)
     #define PE_MODEL_EXTENSION ".p3d"
@@ -43,13 +45,11 @@ int main(int argc, char *argv[]) {
     HMM_Vec3 camera_offset = HMM_V3(0.0f, 5.0f, 10.0f);
     camera.position = HMM_AddV3(camera.target, camera_offset);
 
-    float time_since_last_print = 0.0f;
+    float average_frame_duration = 0.0f;
 
     while(!pe_platform_should_quit()) {
-        pe_profile_reset();
-        pe_profile_region_begin(peProfileRegion_GameLoop);
-
         uint64_t frame_start_time = pe_time_now();
+        peTraceMark tm_game_loop = PE_TRACE_MARK_BEGIN_LITERAL("game loop");
 
         pe_platform_poll_events();
         pe_input_update();
@@ -70,39 +70,29 @@ int main(int argc, char *argv[]) {
 
             for (int z = 0; z < models_to_draw_z; z += 1) {
                 for (int x = 0; x < models_to_draw_x; x += 1) {
-                    pe_profile_region_begin(peProfileRegion_ModelDraw);
                     float position_x = draw_x_range.Elements[0] + ((float)x * diff_x);
                     float position_z = draw_z_range.Elements[0] + ((float)z * diff_z);
                     HMM_Vec3 position = HMM_V3(position_x, 0.0f, position_z);
                     pe_model_draw(&model, &temp_arena, position, HMM_V3(0.0f, 0.0f, 0.0f));
-                    pe_profile_region_end(peProfileRegion_ModelDraw);
                 }
             }
         }
 
         // pe_model_draw(&model, &temp_arena, HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 0.0f, 0.0f));
 
-		pe_profile_region_begin(peProfileRegion_FrameEnd);
         pe_graphics_frame_end(false);
-		pe_profile_region_end(peProfileRegion_FrameEnd);
 
         pe_arena_clear(&temp_arena);
 
-        pe_profile_region_end(peProfileRegion_GameLoop);
-
-        uint64_t frame_time = pe_time_since(frame_start_time);
-        time_since_last_print += (float)pe_time_sec(frame_time);
-        if (time_since_last_print > 2.0f) {
-            fprintf(stdout, "PROFILE DATA:\n");
-            for (int r = 0; r < peProfileRegion_Count; r += 1) {
-                peProfileRecord pr = pe_profile_record_get(r);
-                double pr_ms = pe_time_ms(pr.time_spent);
-                //fprintf(stdout, "%2d: total=%.3f, count=%u, avg=%.4f\n", r, pr_ms, pr.count, pr_ms/(double)pr.count);
-            }
-            time_since_last_print = 0.0f;
-        }
+        PE_TRACE_MARK_END(tm_game_loop);
+        uint64_t frame_duration = pe_time_since(frame_start_time);
+        float frame_duration_ms = (float)pe_time_ms(frame_duration);
+        average_frame_duration += 0.05f * (frame_duration_ms - average_frame_duration);
+        // printf("average frame duration: %6.3f\n", average_frame_duration);
     }
 
+
+    pe_trace_shutdown();
     pe_graphics_shutdown();
     pe_platform_shutdown();
 
