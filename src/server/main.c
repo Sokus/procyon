@@ -8,7 +8,6 @@
 
 #include "pe_config.h"
 #include "pe_protocol.h"
-#include "client/pe_client.h"
 #include "game/pe_entity.h"
 
 #include <string.h>
@@ -25,8 +24,6 @@ typedef struct peClientData {
 } peClientData;
 
 struct peServerState {
-    bool is_hosting;
-
     peSocket socket;
     int client_count;
     bool client_connected[MAX_CLIENT_COUNT];
@@ -208,12 +205,6 @@ void pe_process_input_state_message(peInputStateMessage *msg, peAddress address,
     }
 }
 
-void pe_process_world_state_message(peWorldStateMessage *msg, peAddress address, bool client_exists, int client_index) {
-	//if (client.network_state == peClientNetworkState_Connected) {
-		memcpy(pe_get_entities(), msg->entities, MAX_ENTITY_COUNT*sizeof(peEntity));
-	//}
-}
-
 void pe_receive_packets(peArena *temp_arena) {
     peAddress address;
     pePacket packet = {0};
@@ -239,15 +230,7 @@ void pe_receive_packets(peArena *temp_arena) {
                 case peMessageType_InputState:
                     pe_process_input_state_message(message->input_state, address, client_exists, client_index);
                     break;
-#if !defined(PE_SERVER_STANDALONE)
-                case peMessageType_WorldState:
-                    pe_process_world_state_message(message->world_state, address, client_exists, client_index);
-                    break;
-#endif
                 default:
-#if !defined(PE_SERVER_STANDALONE)
-                    pe_client_process_message(*message, address);
-#endif
                     break;
             }
         }
@@ -269,7 +252,6 @@ void pe_send_packets(void) {
     memcpy(world_state_message.entities, entities, MAX_ENTITY_COUNT*sizeof(peEntity));
 
     for (int i = 0; i < MAX_CLIENT_COUNT; i += 1) {
-        // TODO: skip local client
         if (server.client_connected[i]) {
             // TODO: send pending messages
             pe_send_packet_to_connected_client(i, &packet);
@@ -301,40 +283,12 @@ int main(int argc, char *argv[]) {
 
     pe_socket_create(peAddressFamily_IPv4, &server.socket);
     pe_socket_set_nonblocking(server.socket);
-    server.is_hosting = true;
-#if defined(PE_SERVER_STANDALONE)
     {
-        peSocketBindError socket_bind_error = pe_socket_bind(server.socket, peAddressFamily_IPv4, SERVER_PORT_MIN);
-        PE_ASSERT_MSG(socket_bind_error == peSocketBindError_None, "Could not bind to %u on standalone server!\n", SERVER_PORT_MIN);
+        peSocketBindError socket_bind_error = pe_socket_bind(server.socket, peAddressFamily_IPv4, SERVER_PORT);
+        PE_ASSERT(socket_bind_error == peSocketBindError_None);
     }
-#else
-    for (uint16_t port = SERVER_PORT_MIN; port < SERVER_PORT_MAX; port += 1) {
-        peSocketBindError socket_bind_error = pe_socket_bind(server.socket, peAddressFamily_IPv4, port);
-        if (socket_bind_error == peSocketBindError_None) {
-            break;
-        } else {
-            server.is_hosting = false;
-        }
-    }
-#endif
 
     pe_allocate_entities();
-    {
-        peEntity *entity = pe_make_entity();
-        entity->active = true;
-        pe_entity_property_set(entity, peEntityProperty_CanCollide);
-    }
-
-#if !defined(PE_SERVER_STANDALONE)
-    pe_client_init(&temp_arena, &server.socket);
-#endif
-
-    /*
-        float connection_request_repsonse_interval = 1.0f / (float)CONNECTION_REQUEST_RESPONSE_SEND_RATE;
-        uint64_t ticks_since_last_sent_packet = pe_time_since(server.client_data[client_index].last_packet_send_time);
-        float seconds_since_last_sent_packet = (float)pe_time_sec(ticks_since_last_sent_packet);
-        if (seconds_since_last_sent_packet > connection_request_repsonse_interval) {
-    */
 
     float dt = 1.0f/60.0f;
     while(true) {
@@ -342,40 +296,34 @@ int main(int argc, char *argv[]) {
 
         pe_receive_packets(&temp_arena);
 
-        if (server.is_hosting) {
-            pe_check_for_time_out();
+        pe_check_for_time_out();
 
-            peEntity *entities = pe_get_entities();
-            for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
-                peEntity *entity = &entities[e];
-                if (!entity->active)
-                    continue;
+        peEntity *entities = pe_get_entities();
+        for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
+            peEntity *entity = &entities[e];
+            if (!entity->active)
+                continue;
 
-                if (pe_entity_property_get(entity, peEntityProperty_ControlledByPlayer)) {
-                    PE_ASSERT(entity->client_index >= 0 && entity->client_index < MAX_CLIENT_COUNT);
-                    PE_ASSERT(server.client_connected[entity->client_index] || entity->marked_for_destruction);
+            if (pe_entity_property_get(entity, peEntityProperty_ControlledByPlayer)) {
+                PE_ASSERT(entity->client_index >= 0 && entity->client_index < MAX_CLIENT_COUNT);
+                PE_ASSERT(server.client_connected[entity->client_index] || entity->marked_for_destruction);
 
-                    peInput *input = &server.client_data[entity->client_index].input;
-                    entity->velocity.X = input->movement.X * 2.0f;
-                    entity->velocity.Z = input->movement.Y * 2.0f;
-                    entity->angle = input->angle;
-                }
-
-                // PHYSICS
-                if (entity->velocity.X != 0.0f || entity->velocity.Z != 0.0f) {
-                    HMM_Vec3 position_delta = HMM_MulV3F(entity->velocity, dt);
-                    entity->position = HMM_AddV3(entity->position, position_delta);
-                }
+                peInput *input = &server.client_data[entity->client_index].input;
+                entity->velocity.X = input->movement.X * 2.0f;
+                entity->velocity.Z = input->movement.Y * 2.0f;
+                entity->angle = input->angle;
             }
-            pe_cleanup_entities();
 
-            pe_send_packets();
+            // PHYSICS
+            if (entity->velocity.X != 0.0f || entity->velocity.Z != 0.0f) {
+                HMM_Vec3 position_delta = HMM_MulV3F(entity->velocity, dt);
+                entity->position = HMM_AddV3(entity->position, position_delta);
+            }
         }
+        pe_cleanup_entities();
 
-#if !defined(PE_SERVER_STANDALONE)
-        pe_client_update(&temp_arena);
-        if (pe_client_should_quit()) break;
-#endif
+        pe_send_packets();
+
         pe_arena_clear(&temp_arena);
 
         uint64_t ticks_spent_working = pe_time_since(work_start_tick);
@@ -386,10 +334,6 @@ int main(int argc, char *argv[]) {
             pe_time_sleep(ms_sleep_duration);
         }
     }
-
-#if !defined(PE_SERVER_STANDALONE)
-    pe_client_shutdown();
-#endif
 
     pe_socket_destroy(server.socket);
 
