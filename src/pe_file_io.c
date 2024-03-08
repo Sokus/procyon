@@ -14,6 +14,7 @@
     #include <sys/stat.h>
 #endif
 
+#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -31,6 +32,23 @@ bool pe_file_open(const char *file_path, peFileHandle *result) {
         sceIoChangeAsyncPriority(sce_fd, 16);
     }
 #endif
+#if defined(_WIN32)
+    HANDLE handle_win32 = CreateFileA(
+        file_path,
+        GENERIC_WRITE | FILE_APPEND_DATA,
+        0,
+        NULL,
+        CREATE_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+    if (handle_win32 != INVALID_HANDLE_VALUE) {
+        success = true;
+        *result = (peFileHandle){
+            .handle_win32 = handle_win32
+        };
+    }
+#endif
     return success;
 }
 
@@ -38,20 +56,24 @@ bool pe_file_close(peFileHandle file) {
     bool success = false;
 #if defined(__PSP__)
     int sce_rc = sceIoClose(file.fd_psp);
-    if (sce_rc >= 0) {
-        success = true;
-    }
+    success = (sce_rc >= 0);
+#endif
+#if defined(_WIN32)
+    success = CloseHandle(file.handle_win32);
 #endif
     return success;
 }
 
-bool pe_file_write(peFileHandle file, void *data, size_t data_size) {
+bool pe_file_write_async(peFileHandle file, void *data, size_t data_size) {
     bool success = false;
 #if defined(__PSP__)
     int sce_rc = sceIoWriteAsync(file.fd_psp, data, (SceSize)data_size);
     if (sce_rc >= 0) {
         success = true;
     }
+#endif
+#if defined(_WIN32)
+    success = WriteFile(file.handle_win32, data, data_size, NULL, NULL);
 #endif
     return success;
 }
@@ -67,6 +89,10 @@ bool pe_file_poll(peFileHandle file, bool *result) {
         default: break;
     }
 #endif
+#if defined(_WIN32) || defined(__linux__)
+    success = true;
+    *result = false;
+#endif
     return success;
 }
 
@@ -78,6 +104,9 @@ bool pe_file_wait(peFileHandle file) {
     if (sce_rc >= 0) {
         success = true;
     }
+#endif
+#if defined(_WIN32) || defined(__linux__)
+    success = true;
 #endif
     return success;
 }

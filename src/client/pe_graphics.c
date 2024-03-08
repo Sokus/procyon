@@ -3,6 +3,7 @@
 #include "pe_core.h"
 #include "pe_math.h"
 #include "pe_platform.h"
+#include "pe_trace.h"
 
 #if defined(_WIN32)
     #define WIN32_LEAN_AND_MEAN
@@ -65,12 +66,15 @@ void pe_graphics_frame_begin(void) {
 }
 
 void pe_graphics_frame_end(bool vsync) {
+	PE_TRACE_FUNCTION_BEGIN();
 #if defined(_WIN32)
     UINT sync_interval = (vsync ? 1 : 0);
     IDXGISwapChain1_Present(pe_d3d.swapchain, sync_interval, 0);
 #elif defined(PSP)
     sceGuFinish();
+	peTraceMark tm_sync = PE_TRACE_MARK_BEGIN("sceGuSync");
     sceGuSync(0, 0);
+	PE_TRACE_MARK_END(tm_sync);
     if (vsync) {
         sceDisplayWaitVblankStart();
     }
@@ -80,6 +84,7 @@ void pe_graphics_frame_end(bool vsync) {
 	glfwSwapInterval(interval);
 	glfwSwapBuffers(pe_glfw.window);
 #endif
+	PE_TRACE_FUNCTION_END();
 }
 
 void pe_graphics_projection_perspective(float fovy, float aspect_ratio, float near_z, float far_z) {

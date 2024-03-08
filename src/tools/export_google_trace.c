@@ -8,8 +8,8 @@
 #include "pe_trace.h"
 
 int main(int argc, char *argv[]) {
-    if (argc < 3) {
-        printf("usage: export_google_trace input.pt output.json\n");
+    if (argc < 4) {
+        printf("usage: export_google_trace traced_binary input.pt output.json\n");
         return 1;
     }
 
@@ -19,13 +19,40 @@ int main(int argc, char *argv[]) {
         pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
     }
 
-    char *input_path = argv[1];
+    char *binary_path = argv[1];
+    peFileContents binary_file_contents = pe_file_read_contents(&temp_arena, binary_path, false);
+    if (binary_file_contents.size == 0) {
+        return 1;
+    }
+
+    char *input_path = argv[2];
     peFileContents input_file_contents = pe_file_read_contents(&temp_arena, input_path, false);
     if (input_file_contents.size == 0) {
         return 1;
     }
 
-    char *output_path = argv[2];
+    bool trace_reference_literal_found = false;
+    size_t trace_reference_literal_offset;
+    if (binary_file_contents.size >= sizeof(PE_TRACE_REFERENCE_LITERAL)) {
+        for (
+            size_t binary_offset = 0;
+            binary_offset <= binary_file_contents.size - sizeof(PE_TRACE_REFERENCE_LITERAL);
+            binary_offset += 1
+        ) {
+            int memcmp_result = memcmp(
+                (uint8_t*)binary_file_contents.data + binary_offset,
+                PE_TRACE_REFERENCE_LITERAL,
+                sizeof(PE_TRACE_REFERENCE_LITERAL)
+            );
+            if (memcmp_result == 0) {
+                printf("trace reference literal found at 0x%zx\n", binary_offset);
+                trace_reference_literal_found = true;
+                trace_reference_literal_offset = binary_offset;
+            }
+        }
+    }
+
+    char *output_path = argv[3];
     FILE *output_file = fopen(output_path, "w");
     if (output_file == NULL) {
         return 1;
@@ -35,9 +62,27 @@ int main(int argc, char *argv[]) {
     size_t input_file_contents_offset = 0;
     size_t input_file_contents_left = input_file_contents.size;
 
+    peTraceHeader *trace_header;
+    if (sizeof(peTraceHeader) > input_file_contents_left) {
+        printf("not enough content left for trace header\n");
+        input_file_contents_left = 0;
+    }
+    trace_header = (void*)((uint8_t*)input_file_contents.data + input_file_contents_offset);
+    input_file_contents_offset += sizeof(peTraceHeader);
+    input_file_contents_left -= sizeof(peTraceHeader);
+    size_t reference_literal_address = (
+        trace_header->address_bytes == 8
+        ? trace_header->address_64
+        : trace_header->address_32
+    );
+
+    printf("address_bytes: %d, address: %zx\n", trace_header->address_bytes, reference_literal_address);
+
+    ptrdiff_t trace_address_correction = (ptrdiff_t)trace_reference_literal_offset - (ptrdiff_t)reference_literal_address;
+    printf("address correction: %lld\n", trace_address_correction);
+
     while (input_file_contents_left > 0) {
         peTraceEventData *trace_event_data;
-        char trace_event_name[PE_TRACE_EVENT_NAME_SIZE+1];
 
         if (sizeof(peTraceEventData) > input_file_contents_left) {
             printf("not enough content left for event data\n");
@@ -47,36 +92,18 @@ int main(int argc, char *argv[]) {
         input_file_contents_offset += sizeof(peTraceEventData);
         input_file_contents_left -= sizeof(peTraceEventData);
 
-        if (trace_event_data->name_length > input_file_contents_left) {
-            printf("not enough content left for event name\n");
-            break;
-        }
-        if (trace_event_data->name_length > PE_TRACE_EVENT_NAME_SIZE) {
-            printf("name too long (%u)\n", trace_event_data->name_length);
-            break;
-        }
-        void *trace_event_name_source = (uint8_t*)input_file_contents.data + input_file_contents_offset;
-        memcpy(trace_event_name, trace_event_name_source, trace_event_data->name_length);
-        trace_event_name[trace_event_data->name_length] = '\0';
-        input_file_contents_offset += trace_event_data->name_length;
-        input_file_contents_left -= trace_event_data->name_length;
-
-        char trace_event_type_character;
-        switch (trace_event_data->type) {
-            case peTraceEvent_Begin: trace_event_type_character = 'B'; break;
-            case peTraceEvent_End: trace_event_type_character = 'E'; break;
-            case peTraceEvent_Complete: trace_event_type_character = 'X'; break;
-            default: trace_event_type_character = '?'; break;
-        }
-        if (trace_event_type_character == '?') {
-            printf("%llu: unknown event type: %d\n", input_file_contents_offset, trace_event_data->type);
-        }
+        void *trace_event_name_address = (void*)(
+            trace_header->address_bytes == 8
+            ? trace_event_data->address_64
+            : trace_event_data->address_32
+        );
+        size_t trace_event_name_offset = (size_t)((ptrdiff_t)trace_event_name_address + trace_address_correction);
+        char *trace_event_name = (char*)binary_file_contents.data + trace_event_name_offset;
 
         fprintf(
             output_file,
-            "\t{\"pid\":0,\"name\":\"%s\",\"ph\":\"%c\",\"ts\":%f,\"dur\":%f},\n",
+            "\t{\"pid\":0,\"name\":\"%s\",\"ph\":\"X\",\"ts\":%f,\"dur\":%f},\n",
             trace_event_name,
-            trace_event_type_character,
             pe_time_us(trace_event_data->timestamp),
             pe_time_us(trace_event_data->duration)
         );

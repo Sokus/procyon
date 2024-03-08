@@ -1,5 +1,7 @@
 #include "pe_input.h"
 #include "pe_core.h"
+#include "pe_trace.h"
+
 
 #include <stdbool.h>
 
@@ -25,12 +27,14 @@ void pe_input_init(void) {
 }
 
 void pe_input_update(void) {
+    PE_TRACE_FUNCTION_BEGIN();
     PE_ASSERT(input_initialized);
 #if defined(_WIN32) || defined(__linux__)
     pe_input_update_glfw();
-#elif defined(PSP)
+#elif defined(__PSP__)
     pe_input_update_psp();
 #endif
+    PE_TRACE_FUNCTION_END();
 }
 
 bool pe_input_key_is_down(peKeyboardKey key) {

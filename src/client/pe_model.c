@@ -1147,7 +1147,7 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 	glBindVertexArray(0);
 #endif
 #if defined(PSP)
-	peTraceMark tm_sce_gum = PE_TRACE_MARK_BEGIN_LITERAL("SCE GUM");
+	peTraceMark tm_sce_gum = PE_TRACE_MARK_BEGIN("SCE GUM");
 	sceGumMatrixMode(GU_MODEL);
 	sceGumPushMatrix();
 	sceGumLoadIdentity();
@@ -1157,7 +1157,7 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 	sceGumScale(&scale_vector);
 	PE_TRACE_MARK_END(tm_sce_gum);
 
-	peTraceMark tm_concat_anim_joints = PE_TRACE_MARK_BEGIN_LITERAL("concatenate animation joints");
+	peTraceMark tm_concat_anim_joints = PE_TRACE_MARK_BEGIN("concatenate animation joints");
 	peAnimationJoint *model_space_joints = pe_arena_alloc(temp_arena, model->num_bone * sizeof(peAnimationJoint));
 	peAnimationJoint *animation_joints = &model->animation[0].frames[frame_index * model->num_bone];
 	for (int b = 0; b < model->num_bone; b += 1) {
@@ -1170,7 +1170,7 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 	}
 	PE_TRACE_MARK_END(tm_concat_anim_joints);
 
-	peTraceMark tm_calc_matrices = PE_TRACE_MARK_BEGIN_LITERAL("calculate matrices");
+	peTraceMark tm_calc_matrices = PE_TRACE_MARK_BEGIN("calculate matrices");
 	HMM_Mat4 *final_bone_matrix = pe_arena_alloc(temp_arena, model->num_bone * sizeof(HMM_Mat4));
 	PE_ASSERT(final_bone_matrix != NULL);
 	for (int b = 0; b < model->num_bone; b += 1) {
@@ -1189,9 +1189,9 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 	ScePspFMatrix4 bone_matrix[8];
 
 	for (int m = 0; m < model->num_mesh; m += 1) {
-		peTraceMark tm_draw_mesh = PE_TRACE_MARK_BEGIN_LITERAL("draw mesh");
+		peTraceMark tm_draw_mesh = PE_TRACE_MARK_BEGIN("draw mesh");
 		peSubskeleton *subskeleton = &model->subskeleton[model->mesh_subskeleton[m]];
-		peTraceMark tm_assign_matrices = PE_TRACE_MARK_BEGIN_LITERAL("assign matrices");
+		peTraceMark tm_assign_matrices = PE_TRACE_MARK_BEGIN("assign matrices");
 		for (int b = 0; b < subskeleton->num_bones; b += 1) {
 			sceGuBoneMatrix(b, (void*)&final_bone_matrix[subskeleton->bone_indices[b]]);
 			//sceGuMorphWeight(b, 1.0f);
@@ -1200,12 +1200,12 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 
 		peMaterial *mesh_material = &model->material[model->mesh_material[m]];
 
-		peTraceMark tm_diffuse_color = PE_TRACE_MARK_BEGIN_LITERAL("diffuse color");
+		peTraceMark tm_diffuse_color = PE_TRACE_MARK_BEGIN("diffuse color");
 		uint32_t diffuse_color = mesh_material->diffuse_color.rgba;
 		sceGuColor(diffuse_color);
 		PE_TRACE_MARK_END(tm_diffuse_color);
 
-		peTraceMark tm_bind_texture = PE_TRACE_MARK_BEGIN_LITERAL("bind texture");
+		peTraceMark tm_bind_texture = PE_TRACE_MARK_BEGIN("bind texture");
 		if (mesh_material->has_diffuse_map) {
             pe_texture_bind(mesh_material->diffuse_map);
 		} else {
@@ -1213,13 +1213,13 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 		}
 		PE_TRACE_MARK_END(tm_bind_texture);
 
-		peTraceMark tm_draw_array = PE_TRACE_MARK_BEGIN_LITERAL("draw array");
+		peTraceMark tm_draw_array = PE_TRACE_MARK_BEGIN("draw array");
 		int count = (model->mesh[m].index != NULL) ? model->mesh[m].num_index : model->mesh[m].num_vertex;
 		sceGumDrawArray(GU_TRIANGLES, model->mesh[m].vertex_type, count, model->mesh[m].index, model->mesh[m].vertex);
 		PE_TRACE_MARK_END(tm_draw_array);
 		PE_TRACE_MARK_END(tm_draw_mesh);
 	}
-	peTraceMark tm_diffuse_color = PE_TRACE_MARK_BEGIN_LITERAL("diffuse color");
+	peTraceMark tm_diffuse_color = PE_TRACE_MARK_BEGIN("diffuse color");
 	sceGuColor(0xFFFFFFFF);
 	PE_TRACE_MARK_END(tm_diffuse_color);
 	sceGumPopMatrix();

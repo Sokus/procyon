@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
 
     while(!pe_platform_should_quit()) {
         uint64_t frame_start_time = pe_time_now();
-        peTraceMark tm_game_loop = PE_TRACE_MARK_BEGIN_LITERAL("game loop");
+        peTraceMark tm_game_loop = PE_TRACE_MARK_BEGIN("game loop");
 
         pe_platform_poll_events();
         pe_input_update();

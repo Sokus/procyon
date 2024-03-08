@@ -32,7 +32,7 @@ static float pe_psp_process_axis_value(unsigned char value, float deadzone_radiu
 
 void pe_input_update_psp(void) {
     SceCtrlData ctrl_data;
-	sceCtrlReadBufferPositive(&ctrl_data, 1);
+    sceCtrlPeekBufferPositive(&ctrl_data, 1);
 	pe_input_state_psp.button_current[peGamepadButton_ActionDown] = ctrl_data.Buttons & PSP_CTRL_CROSS;
     pe_input_state_psp.button_current[peGamepadButton_ActionRight] = ctrl_data.Buttons & PSP_CTRL_CIRCLE;
     pe_input_state_psp.button_current[peGamepadButton_ActionLeft] = ctrl_data.Buttons & PSP_CTRL_SQUARE;

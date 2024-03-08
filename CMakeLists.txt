@@ -24,8 +24,9 @@ target_include_directories(shared PRIVATE src)
 target_link_libraries(shared handmade-math)
 if (PSP)
     target_compile_definitions(shared PUBLIC -DPE_TRACE_ENABLED)
+    target_compile_options(shared PUBLIC -O3)
 elseif(MSVC)
-    target_compile_options(shared PUBLIC -W3 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127)
+    target_compile_options(shared PUBLIC -W3 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127 -DPE_TRACE_ENABLED)
 endif()
 
 # COMPILE CLIENT:
@@ -69,6 +70,32 @@ elseif(PSP)
     )
 endif()
 
+# COMPILE SERVER:
+
+if(WIN32 OR LINUX)
+    add_executable(server src/server/main.c)
+    target_include_directories(server PRIVATE src)
+    target_link_libraries(server PRIVATE shared)
+endif()
+
+# COMPILE OTHER TARGETS:
+
+#add_executable(socket_test src/samples/psp_socket_tests.c)
+#target_include_directories(socket_test PRIVATE src)
+#target_link_libraries(socket_test shared)
+
+# add_executable(tests src/pe_tests.c)
+# target_include_directories(tests PRIVATE src)
+# target_link_libraries(tests shared)
+
+if(WIN32 OR LINUX)
+    add_executable(export_google_trace src/tools/export_google_trace.c)
+    target_include_directories(export_google_trace PRIVATE src)
+    target_link_libraries(export_google_trace shared)
+endif()
+
+# ------------------------------------------------------------
+
 SET(PSP_TARGET "client" CACHE STRING "Target to build the PBP from")
 if(PSP)
     if(TARGET ${PSP_TARGET})
@@ -82,24 +109,4 @@ if(PSP)
     else()
         message(SEND_ERROR "PSP: target ${PSP_TARGET} doesn't exist")
     endif()
-endif()
-
-# COMPILE SERVER:
-
-if(WIN32 OR LINUX)
-    add_executable(server src/server/main.c)
-    target_include_directories(server PRIVATE src)
-    target_link_libraries(server PRIVATE shared)
-endif()
-
-# COMPILE OTHER TARGETS:
-
-# add_executable(tests src/pe_tests.c)
-# target_include_directories(tests PRIVATE src)
-# target_link_libraries(tests shared)
-
-if(WIN32 OR LINUX)
-    add_executable(export_google_trace src/tools/export_google_trace.c)
-    target_include_directories(export_google_trace PRIVATE src)
-    target_link_libraries(export_google_trace shared)
 endif()

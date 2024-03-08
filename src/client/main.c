@@ -72,9 +72,11 @@ static float look_angle = 0.0f;
 #endif
 
 void pe_client_update(peArena *temp_arena) {
+    PE_TRACE_FUNCTION_BEGIN();
     pe_platform_poll_events();
     pe_input_update();
 
+    peTraceMark entity_logic_tm = PE_TRACE_MARK_BEGIN("entity logic");
     peEntity *entities = pe_get_entities();
     for (int i = 0; i < MAX_ENTITY_COUNT; i += 1) {
         peEntity *entity = &entities[i];
@@ -85,6 +87,7 @@ void pe_client_update(peArena *temp_arena) {
             client.camera.position = HMM_AddV3(client.camera.target, client.camera_offset);
         }
     };
+    PE_TRACE_MARK_END(entity_logic_tm);
 
     pe_camera_update(client.camera);
 
@@ -102,6 +105,7 @@ void pe_client_update(peArena *temp_arena) {
     }
 #endif
 
+    peTraceMark send_packets_tm = PE_TRACE_MARK_BEGIN("prepare packet");
     peArenaTemp send_packets_arena_temp = pe_arena_temp_begin(temp_arena);
     pePacket outgoing_packet = {0};
     switch (client.network_state) {
@@ -149,9 +153,12 @@ void pe_client_update(peArena *temp_arena) {
 		} break;
 		default: break;
 	}
+    PE_TRACE_MARK_END(send_packets_tm);
 
 	if (outgoing_packet.message_count > 0) {
+        peTraceMark send_packet_tm = PE_TRACE_MARK_BEGIN("pe_send_packet");
 		pe_send_packet(*client.socket, client.server_address, &outgoing_packet);
+        PE_TRACE_MARK_END(send_packet_tm);
 		client.last_packet_send_time = pe_time_now();
 	}
 	outgoing_packet.message_count = 0;
@@ -168,6 +175,7 @@ void pe_client_update(peArena *temp_arena) {
     }
 
     pe_graphics_frame_end(true);
+    PE_TRACE_FUNCTION_END();
 }
 
 bool pe_client_should_quit(void) {
@@ -207,6 +215,7 @@ void pe_client_process_message(peMessage message, peAddress sender) {
 }
 
 void pe_receive_packets(peArena *temp_arena, peSocket socket) {
+    PE_TRACE_FUNCTION_BEGIN();
     peAddress address;
     pePacket packet = {0};
     peArenaTemp receive_packets_arena_temp = pe_arena_temp_begin(temp_arena);
@@ -259,6 +268,7 @@ void pe_receive_packets(peArena *temp_arena, peSocket socket) {
         packet.message_count = 0;
     }
     pe_arena_temp_end(receive_packets_arena_temp);
+    PE_TRACE_FUNCTION_END();
 }
 
 int main(int argc, char* argv[]) {
