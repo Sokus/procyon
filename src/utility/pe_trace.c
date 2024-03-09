@@ -3,10 +3,10 @@
 #include <stddef.h>
 #include <string.h>
 
-#include "pe_time.h"
-#include "pe_core.h"
+#include "platform/pe_time.h"
+#include "core/pe_core.h"
 #include "pe_trace.h"
-#include "pe_file_io.h"
+#include "core/pe_file_io.h"
 
 struct peTraceState {
     peFileHandle output_file;

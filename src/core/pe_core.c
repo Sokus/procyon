@@ -1,7 +1,5 @@
 #include "pe_core.h"
 
-#include "pe_time.h"
-
 #include <stdio.h>
 #include <stdarg.h>
 #include <limits.h>

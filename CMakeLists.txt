@@ -6,28 +6,47 @@ if (UNIX AND NOT APPLE AND NOT PSP)
 endif()
 add_subdirectory(ext)
 
-# COMPILE SHARED LIBRARY:
+# PROJECT-WIDE TARGET SETTINGS
 
-add_library(shared STATIC
-    src/pe_core.c
-    src/pe_time.c
-    src/pe_random.c
-    src/pe_net.c
-    src/pe_bit_stream.c
-    src/pe_protocol.c
-    src/pe_file_io.c
-    src/pe_profile.c
-    src/pe_trace.c
-    src/game/pe_entity.c
-)
-target_include_directories(shared PRIVATE src)
-target_link_libraries(shared handmade-math)
-if (PSP)
-    target_compile_definitions(shared PUBLIC -DPE_TRACE_ENABLED)
-    target_compile_options(shared PUBLIC -O3)
-elseif(MSVC)
-    target_compile_options(shared PUBLIC -W3 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127 -DPE_TRACE_ENABLED)
+add_library(settings INTERFACE)
+target_include_directories(settings INTERFACE src)
+if(MSVC)
+    target_compile_options(settings INTERFACE -W3 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127)
 endif()
+
+# CORE LIBRARY:
+
+add_library(core STATIC
+    src/core/pe_core.c
+    src/core/pe_file_io.c
+    src/core/pe_random.c
+)
+
+# PLATFORM LIBRARY
+
+add_library(platform STATIC
+    src/platform/pe_net.c
+    src/platform/pe_time.c
+)
+target_link_libraries(platform PRIVATE settings core)
+if(PSP)
+    target_link_libraries(platform PRIVATE pspnet pspnet_apctl pspnet_resolver)
+endif()
+
+# UTILITY LIBRARY
+
+add_library(utility STATIC src/utility/pe_trace.c)
+target_link_libraries(utility PRIVATE settings core)
+
+# GAME LIBRARY
+
+add_library(game STATIC
+    src/game/pe_bit_stream.c
+    src/game/pe_entity.c
+    src/game/pe_protocol.c
+)
+target_link_libraries(game PRIVATE settings)
+target_link_libraries(game PUBLIC handmade-math)
 
 # COMPILE CLIENT:
 
@@ -39,8 +58,10 @@ add_executable(client
     src/client/pe_math.c
     src/client/pe_input.c
 )
-target_include_directories(client PRIVATE src)
-target_link_libraries(client PRIVATE shared handmade-math psp-stb)
+target_link_libraries(client PRIVATE
+    settings core platform utility game
+    handmade-math psp-stb
+)
 
 if(WIN32)
     target_sources(client PRIVATE
@@ -65,8 +86,7 @@ elseif(PSP)
         src/client/pe_input_psp.c
     )
     target_link_libraries(client PUBLIC
-        pspdisplay pspge pspgu pspgum_vfpu pspvfpu pspctrl
-        pspnet pspnet_apctl pspnet_resolver pspdebug pspgu
+        pspdisplay pspge pspgu pspgum_vfpu pspvfpu pspctrl pspdebug
     )
 endif()
 
@@ -74,14 +94,12 @@ endif()
 
 if(WIN32 OR LINUX)
     add_executable(server src/server/main.c)
-    target_include_directories(server PRIVATE src)
-    target_link_libraries(server PRIVATE shared)
+    target_link_libraries(server PRIVATE settings core platform game)
 endif()
 
 # COMPILE OTHER TARGETS:
 
 #add_executable(socket_test src/samples/psp_socket_tests.c)
-#target_include_directories(socket_test PRIVATE src)
 #target_link_libraries(socket_test shared)
 
 # add_executable(tests src/pe_tests.c)
@@ -90,8 +108,7 @@ endif()
 
 if(WIN32 OR LINUX)
     add_executable(export_google_trace src/tools/export_google_trace.c)
-    target_include_directories(export_google_trace PRIVATE src)
-    target_link_libraries(export_google_trace shared)
+    target_link_libraries(export_google_trace settings core platform utility)
 endif()
 
 # ------------------------------------------------------------

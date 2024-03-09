@@ -1,8 +1,8 @@
 #include "pe_protocol.h"
 
-#include "pe_core.h"
+#include "core/pe_core.h"
 #include "pe_bit_stream.h"
-#include "pe_net.h"
+#include "platform/pe_net.h"
 #include "game/pe_entity.h"
 #include "pe_config.h"
 

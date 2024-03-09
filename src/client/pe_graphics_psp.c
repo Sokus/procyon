@@ -1,6 +1,6 @@
 #include "pe_graphics.h"
 #include "pe_graphics_psp.h"
-#include "pe_core.h"
+#include "core/pe_core.h"
 
 #include <pspge.h>
 #include <pspgu.h>

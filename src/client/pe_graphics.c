@@ -1,9 +1,9 @@
 #include "pe_graphics.h"
 
-#include "pe_core.h"
+#include "core/pe_core.h"
 #include "pe_math.h"
 #include "pe_platform.h"
-#include "pe_trace.h"
+#include "utility/pe_trace.h"
 
 #if defined(_WIN32)
     #define WIN32_LEAN_AND_MEAN

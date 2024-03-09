@@ -1,6 +1,6 @@
 #include "pe_input.h"
-#include "pe_core.h"
-#include "pe_trace.h"
+#include "core/pe_core.h"
+#include "utility/pe_trace.h"
 
 
 #include <stdbool.h>

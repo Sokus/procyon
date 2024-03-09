@@ -1,7 +1,7 @@
 #ifndef PE_MODEL_H
 #define PE_MODEL_H
 
-#include "pe_core.h"
+#include "core/pe_core.h"
 #include "pe_graphics.h"
 
 #include "HandmadeMath.h"

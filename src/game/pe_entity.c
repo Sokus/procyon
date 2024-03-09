@@ -1,5 +1,5 @@
 #include "pe_entity.h"
-#include "pe_core.h"
+#include "core/pe_core.h"
 #include "pe_config.h"
 
 #include "pe_bit_stream.h"

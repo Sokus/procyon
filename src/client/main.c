@@ -3,17 +3,17 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "pe_core.h"
-#include "pe_time.h"
-#include "pe_net.h"
+#include "core/pe_core.h"
+#include "platform/pe_time.h"
+#include "platform/pe_net.h"
 #include "pe_platform.h"
 #include "pe_graphics.h"
 #include "pe_model.h"
 #include "pe_input.h"
-#include "pe_trace.h"
+#include "utility/pe_trace.h"
 
 #include "pe_config.h"
-#include "pe_protocol.h"
+#include "game/pe_protocol.h"
 #include "game/pe_entity.h"
 
 #define CONNECTION_REQUEST_TIME_OUT 20.0f // seconds

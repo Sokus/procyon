@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "pe_core.h"
-#include "pe_file_io.h"
-#include "pe_time.h"
+#include "core/pe_core.h"
+#include "core/pe_file_io.h"
+#include "platform/pe_time.h"
 
-#include "pe_trace.h"
+#include "utility/pe_trace.h"
 
 int main(int argc, char *argv[]) {
     if (argc < 4) {

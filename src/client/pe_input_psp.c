@@ -1,5 +1,5 @@
 #include "pe_input_psp.h"
-#include "pe_core.h"
+#include "core/pe_core.h"
 
 #include <pspctrl.h>
 

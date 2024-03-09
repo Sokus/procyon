@@ -1,6 +1,6 @@
 #include "pe_input_glfw.h"
 #include "pe_input.h"
-#include "pe_core.h"
+#include "core/pe_core.h"
 
 #include "pe_window_glfw.h"
 

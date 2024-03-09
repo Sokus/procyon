@@ -1,7 +1,7 @@
 #include "pe_graphics.h"
 #include "client/pe_graphics_win32.h"
 
-#include "pe_core.h"
+#include "core/pe_core.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

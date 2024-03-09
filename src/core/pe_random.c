@@ -1,7 +1,5 @@
 #include "pe_random.h"
 
-#include "pe_time.h"
-
 #include <stddef.h>
 #include <stdint.h>
 
@@ -29,11 +27,14 @@ static uint32_t jenkins_one_at_a_time_hash(const void *data, size_t size) {
     return hash;
 }
 
+// TODO: the user should hash the time and pass it as seed
+#if 0
 peRandom pe_random_from_time(void) {
     peTime time = pe_time_local();
     uint32_t seed = jenkins_one_at_a_time_hash(&time, sizeof(time));
     return pe_random_from_seed(seed);
 }
+#endif
 
 uint32_t pe_random_uint32(peRandom *random) {
     // https://en.wikipedia.org/w/index.php?title=Linear_congruential_generator&oldid=1169975619

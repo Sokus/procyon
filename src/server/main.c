@@ -2,12 +2,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "pe_core.h"
-#include "pe_time.h"
-#include "pe_net.h"
+#include "core/pe_core.h"
+#include "platform/pe_time.h"
+#include "platform/pe_net.h"
 
 #include "pe_config.h"
-#include "pe_protocol.h"
+#include "game/pe_protocol.h"
 #include "game/pe_entity.h"
 
 #include <string.h>

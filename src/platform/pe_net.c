@@ -1,5 +1,5 @@
 #include "pe_net.h"
-#include "pe_core.h"
+#include "core/pe_core.h"
 
 #include <stdbool.h>
 #include <stdlib.h>

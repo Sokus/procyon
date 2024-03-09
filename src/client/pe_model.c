@@ -1,9 +1,10 @@
 #include "pe_model.h"
 
-#include "pe_core.h"
-#include "pe_file_io.h"
+#include "core/pe_core.h"
+#include "core/pe_file_io.h"
 #include "pe_platform.h"
-#include "pe_trace.h"
+#include "utility/pe_trace.h"
+#include "platform/pe_time.h"
 
 #include "p3d.h"
 #include "pp3d.h"
@@ -1000,8 +1001,6 @@ peModel pe_model_load(peArena *temp_arena, char *file_path) {
 	PE_TRACE_FUNCTION_END();
 	return model;
 }
-
-#include "pe_time.h"
 
 float frame_time = 1.0f/25.0f;
 float current_frame_time = 0.0f;
