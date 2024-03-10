@@ -1,5 +1,5 @@
 #include "pe_graphics.h"
-#include "client/pe_graphics_win32.h"
+#include "pe_graphics_win32.h"
 
 #include "core/pe_core.h"
 

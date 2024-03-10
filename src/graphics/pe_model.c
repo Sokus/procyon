@@ -2,7 +2,7 @@
 
 #include "core/pe_core.h"
 #include "core/pe_file_io.h"
-#include "pe_platform.h"
+#include "platform/pe_platform.h"
 #include "utility/pe_trace.h"
 #include "platform/pe_time.h"
 

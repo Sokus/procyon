@@ -10,11 +10,11 @@
     #define GLFW_EXPOSE_NATIVE_WIN32
     #include "GLFW/glfw3native.h"
 
-    #include "pe_graphics_win32.h"
+    #include "graphics/pe_graphics_win32.h"
 #elif defined(__linux__)
 	#include "glad/glad.h"
 
-	#include "pe_graphics_linux.h"
+	#include "graphics/pe_graphics_linux.h"
 #endif
 
 #include <stdbool.h>

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "core/pe_core.h"
 #include "core/pe_file_io.h"

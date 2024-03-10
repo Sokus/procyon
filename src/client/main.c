@@ -4,12 +4,13 @@
 #include <string.h>
 
 #include "core/pe_core.h"
+#include "graphics/pe_math.h"
 #include "platform/pe_time.h"
 #include "platform/pe_net.h"
-#include "pe_platform.h"
-#include "pe_graphics.h"
-#include "pe_model.h"
-#include "pe_input.h"
+#include "platform/pe_platform.h"
+#include "graphics/pe_graphics.h"
+#include "graphics/pe_model.h"
+#include "platform/pe_input.h"
 #include "utility/pe_trace.h"
 
 #include "pe_config.h"
@@ -67,9 +68,6 @@ void pe_client_init(peArena *temp_arena, peSocket *socket) {
 }
 
 static float look_angle = 0.0f;
-#if defined(_WIN32) || defined(__linux__)
-    #include "pe_math.h"
-#endif
 
 void pe_client_update(peArena *temp_arena) {
     PE_TRACE_FUNCTION_BEGIN();

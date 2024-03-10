@@ -1,8 +1,8 @@
 #include "pe_graphics.h"
 #include "pe_graphics_linux.h"
 
-#include "pe_core.h"
-#include "pe_file_io.h"
+#include "core/pe_core.h"
+#include "core/pe_file_io.h"
 
 #include "glad/glad.h"
 

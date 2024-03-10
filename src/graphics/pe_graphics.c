@@ -2,7 +2,7 @@
 
 #include "core/pe_core.h"
 #include "pe_math.h"
-#include "pe_platform.h"
+#include "platform/pe_platform.h"
 #include "utility/pe_trace.h"
 
 #if defined(_WIN32)
@@ -10,7 +10,7 @@
     #include <windows.h>
 
 	#include "pe_graphics_win32.h"
-	#include "pe_window_glfw.h"
+	#include "platform/pe_window_glfw.h"
 #elif defined(PSP)
 	#include "pe_graphics_psp.h"
 
@@ -18,7 +18,7 @@
     #include <pspgu.h>
 	#include <pspgum.h>
 #elif defined(__linux__)
-    #include "pe_window_glfw.h"
+    #include "platform/pe_window_glfw.h"
 	#include "pe_graphics_linux.h"
 
 	#define GLFW_INCLUDE_NONE

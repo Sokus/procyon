@@ -25,12 +25,67 @@ add_library(core STATIC
 # PLATFORM LIBRARY
 
 add_library(platform STATIC
+    src/platform/pe_input.c
     src/platform/pe_net.c
     src/platform/pe_time.c
+    src/platform/pe_platform.c
 )
 target_link_libraries(platform PRIVATE settings core)
-if(PSP)
-    target_link_libraries(platform PRIVATE pspnet pspnet_apctl pspnet_resolver)
+target_link_libraries(platform PRIVATE graphics) # TODO: remove this
+if(WIN32)
+    target_sources(platform PRIVATE
+        src/platform/pe_window_glfw.c
+        src/platform/pe_input_glfw.c
+    )
+    target_link_libraries(platform PRIVATE glfw)
+elseif(LINUX)
+    target_sources(platform PRIVATE
+        src/platform/pe_window_glfw.c
+        src/platform/pe_input_glfw.c
+    )
+    target_link_libraries(platform PRIVATE glfw)
+    target_link_libraries(platform PUBLIC glad)
+elseif(PSP)
+    target_sources(platform PRIVATE
+        src/platform/pe_platform_psp.c
+        src/platform/pe_input_psp.c
+    )
+    target_link_libraries(platform PUBLIC
+        pspnet pspnet_apctl pspnet_resolver
+    )
+endif()
+
+# GRAPHICS LIBRARY
+
+add_library(graphics STATIC
+    src/graphics/pe_graphics.c
+    src/graphics/pe_model.c
+    src/graphics/pe_math.c
+)
+target_link_libraries(graphics PRIVATE
+    settings core
+    psp-stb
+)
+target_link_libraries(graphics PUBLIC handmade-math)
+if(WIN32)
+    target_sources(graphics PRIVATE
+        src/graphics/pe_graphics_win32.c
+    )
+    target_link_libraries(graphics PRIVATE glfw)
+elseif(LINUX)
+    target_sources(graphics PRIVATE
+        ext/glad-gl-4.2-core/src/glad.c # TODO: get rid of this...
+        src/graphics/pe_graphics_linux.c
+    )
+    target_link_libraries(graphics PRIVATE glfw)
+    target_link_libraries(graphics PUBLIC glad)
+elseif(PSP)
+    target_sources(graphics PRIVATE
+        src/graphics/pe_graphics_psp.c
+    )
+    target_link_libraries(graphics PUBLIC
+        pspdisplay pspge pspgu pspgum_vfpu pspvfpu pspctrl pspdebug
+    )
 endif()
 
 # UTILITY LIBRARY
@@ -45,50 +100,17 @@ add_library(game STATIC
     src/game/pe_entity.c
     src/game/pe_protocol.c
 )
-target_link_libraries(game PRIVATE settings)
+target_link_libraries(game PRIVATE settings core)
 target_link_libraries(game PUBLIC handmade-math)
 
 # COMPILE CLIENT:
 
 add_executable(client
     src/client/main.c
-    src/client/pe_graphics.c
-    src/client/pe_platform.c
-    src/client/pe_model.c
-    src/client/pe_math.c
-    src/client/pe_input.c
 )
 target_link_libraries(client PRIVATE
-    settings core platform utility game
-    handmade-math psp-stb
+    settings core platform graphics utility game
 )
-
-if(WIN32)
-    target_sources(client PRIVATE
-        src/client/pe_window_glfw.c
-        src/client/pe_graphics_win32.c
-        src/client/pe_input_glfw.c
-    )
-    target_link_libraries(client PRIVATE glfw)
-elseif(LINUX)
-    target_sources(client PRIVATE
-        src/client/pe_window_glfw.c
-        ext/glad-gl-4.2-core/src/glad.c # TODO: get rid of this...
-        src/client/pe_graphics_linux.c
-        src/client/pe_input_glfw.c
-    )
-    target_link_libraries(client PRIVATE glfw)
-    target_link_libraries(client PUBLIC glad)
-elseif(PSP)
-    target_sources(client PRIVATE
-        src/client/pe_graphics_psp.c
-        src/client/pe_platform_psp.c
-        src/client/pe_input_psp.c
-    )
-    target_link_libraries(client PUBLIC
-        pspdisplay pspge pspgu pspgum_vfpu pspvfpu pspctrl pspdebug
-    )
-endif()
 
 # COMPILE SERVER:
 
