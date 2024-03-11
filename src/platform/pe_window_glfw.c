@@ -30,11 +30,13 @@ static void pe_framebuffer_size_callback_glfw(GLFWwindow *window, int width, int
 }
 
 static void pe_window_key_callback_glfw(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    pe_input_key_callback_glfw(key, action);
+    PE_ASSERT(pe_glfw.key_callback != NULL);
+    pe_glfw.key_callback(key, action);
 }
 
 static void pe_cursor_position_callback_glfw(GLFWwindow *window, double pos_x, double pos_y) {
-    pe_input_cursor_position_callback_glfw(pos_x, pos_y);
+    PE_ASSERT(pe_glfw.cursor_position_callback != NULL);
+    pe_glfw.cursor_position_callback(pos_x, pos_y);
 }
 
 void pe_glfw_init(peArena *temp_arena, int window_width, int window_height, const char *window_name) {
@@ -71,8 +73,6 @@ void pe_glfw_init(peArena *temp_arena, int window_width, int window_height, cons
         }
 
         glfwSetFramebufferSizeCallback(pe_glfw.window, pe_framebuffer_size_callback_glfw);
-        glfwSetKeyCallback(pe_glfw.window, pe_window_key_callback_glfw);
-        glfwSetCursorPosCallback(pe_glfw.window, pe_cursor_position_callback_glfw);
 
         pe_glfw.initialized = true;
     }
@@ -83,6 +83,18 @@ void pe_glfw_shutdown(void) {
     glfwDestroyWindow(pe_glfw.window);
     glfwTerminate();
     pe_glfw.initialized = false;
+}
+
+void pe_window_set_key_callback(peWindowKeyCallback *cb) {
+    PE_ASSERT(pe_glfw.initialized);
+    pe_glfw.key_callback = cb;
+    glfwSetKeyCallback(pe_glfw.window, pe_window_key_callback_glfw);
+}
+
+void pe_window_set_cursor_position_callback(peWindowCursorPositionCallback *cb) {
+    PE_ASSERT(pe_glfw.initialized);
+    pe_glfw.cursor_position_callback = cb;
+    glfwSetCursorPosCallback(pe_glfw.window, pe_cursor_position_callback_glfw);
 }
 
 bool pe_window_should_quit_glfw(void) {

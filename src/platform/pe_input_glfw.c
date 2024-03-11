@@ -38,7 +38,7 @@ struct peInputStateGLFW {
     peGamepadStateGLFW gamepad_state;
 } pe_input_state_glfw = {0};
 
-void pe_input_key_callback_glfw(int key, int action) {
+static void pe_input_key_callback_glfw(int key, int action) {
     if (action != GLFW_PRESS && action != GLFW_RELEASE) {
         return;
     }
@@ -48,9 +48,14 @@ void pe_input_key_callback_glfw(int key, int action) {
     pe_input_state_glfw.keyboard_state.next.key_state_changes[key] += 1;
 }
 
-void pe_input_cursor_position_callback_glfw(double pos_x, double pos_y) {
+static void pe_input_cursor_position_callback_glfw(double pos_x, double pos_y) {
     pe_input_state_glfw.mouse_state.pos_x = pos_x;
     pe_input_state_glfw.mouse_state.pos_y = pos_y;
+}
+
+void pe_input_init_glfw(void) {
+    pe_window_set_key_callback(&pe_input_key_callback_glfw);
+    pe_window_set_cursor_position_callback(&pe_input_cursor_position_callback_glfw);
 }
 
 void pe_input_update_glfw(void) {

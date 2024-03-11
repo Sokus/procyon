@@ -14,18 +14,25 @@
 #define GLFW_INCLUDE_NONE
 #include "GLFW/glfw3.h"
 
+typedef void peWindowKeyCallback(int key, int scancode);
+typedef void peWindowCursorPositionCallback(double pos_x, double pos_y);
+
 typedef struct peGLFW {
     bool initialized;
     GLFWwindow *window;
 
-    bool key_pressed[GLFW_KEY_LAST];
-    int key_state_changes[GLFW_KEY_LAST];
+    peWindowKeyCallback *key_callback;
+    peWindowCursorPositionCallback *cursor_position_callback;
 } peGLFW;
 extern peGLFW pe_glfw;
+
 
 struct peArena;
 void pe_glfw_init(struct peArena *temp_arena, int window_width, int window_height, const char *window_name);
 void pe_glfw_shutdown(void);
+
+void pe_window_set_key_callback(peWindowKeyCallback *cb);
+void pe_window_set_cursor_position_callback(peWindowCursorPositionCallback *cb);
 
 bool pe_window_should_quit_glfw(void);
 void pe_window_poll_events_glfw(void);

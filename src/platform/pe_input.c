@@ -20,6 +20,9 @@ struct peInputState {
 } input_state = {0};
 
 void pe_input_init(void) {
+#if defined(_WIN32) || defined(__linux__)
+    pe_input_init_glfw();
+#endif
 #if defined(PSP)
     pe_input_init_psp();
 #endif

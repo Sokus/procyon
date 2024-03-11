@@ -3,9 +3,8 @@
 
 #include "pe_input.h"
 
+void pe_input_init_glfw(void);
 void pe_input_update_glfw(void);
-void pe_input_key_callback_glfw(int key, int action);
-void pe_input_cursor_position_callback_glfw(double pos_x, double pos_y);
 
 bool pe_input_key_is_down_glfw(peKeyboardKey key);
 bool pe_input_key_was_down_glfw(peKeyboardKey key);
