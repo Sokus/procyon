@@ -29,6 +29,7 @@ add_library(platform STATIC
     src/platform/pe_net.c
     src/platform/pe_time.c
     src/platform/pe_platform.c
+    src/platform/pe_window.c
 )
 target_link_libraries(platform PRIVATE settings core)
 target_link_libraries(platform PRIVATE graphics) # TODO: remove this
@@ -71,13 +72,11 @@ if(WIN32)
     target_sources(graphics PRIVATE
         src/graphics/pe_graphics_win32.c
     )
-    target_link_libraries(graphics PRIVATE glfw)
 elseif(LINUX)
     target_sources(graphics PRIVATE
         ext/glad-gl-4.2-core/src/glad.c # TODO: get rid of this...
         src/graphics/pe_graphics_linux.c
     )
-    target_link_libraries(graphics PRIVATE glfw)
     target_link_libraries(graphics PUBLIC glad)
 elseif(PSP)
     target_sources(graphics PRIVATE
@@ -124,9 +123,8 @@ endif()
 #add_executable(socket_test src/samples/psp_socket_tests.c)
 #target_link_libraries(socket_test shared)
 
-# add_executable(tests src/pe_tests.c)
-# target_include_directories(tests PRIVATE src)
-# target_link_libraries(tests shared)
+add_executable(tests src/samples/pe_tests.c)
+target_link_libraries(tests PRIVATE settings core platform graphics utility)
 
 if(WIN32 OR LINUX)
     add_executable(export_google_trace src/tools/export_google_trace.c)

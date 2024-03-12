@@ -1,8 +1,8 @@
 #include "pe_input_glfw.h"
 #include "pe_input.h"
 #include "core/pe_core.h"
+#include "platform/pe_window.h"
 
-#include "pe_window_glfw.h"
 
 #define GLFW_INCLUDE_NONE
 #include "GLFW/glfw3.h"

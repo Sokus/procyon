@@ -3,6 +3,7 @@
 
 #include "core/pe_core.h"
 #include "core/pe_file_io.h"
+#include "platform/pe_window.h"
 
 #include "glad/glad.h"
 
@@ -133,6 +134,8 @@ void pe_framebuffer_size_callback_linux(int width, int height) {
 void pe_graphics_init_linux(peArena *temp_arena, int window_width, int window_height) {
     pe_opengl.framebuffer_width = window_width;
     pe_opengl.framebuffer_height = window_height;
+
+    gladLoadGLLoader((GLADloadproc)&pe_window_get_proc_address);
 
     // TODO: Confirm that glDebugMessageCallbackARB actually works
 #if !defined(NDEBUG) && defined(GL_ARB_debug_output)

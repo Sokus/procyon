@@ -2,6 +2,7 @@
 #include "pe_graphics_win32.h"
 
 #include "core/pe_core.h"
+#include "platform/pe_window.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -261,6 +262,8 @@ void pe_graphics_init_win32(HWND hwnd, int window_width, int window_height) {
     ID3D11DeviceContext_OMSetBlendState(pe_d3d.context, NULL, NULL, ~(uint32_t)(0));
 
     d3d11_set_viewport(window_width, window_height);
+
+    pe_window_set_framebuffer_size_callback(&pe_framebuffer_size_callback_win32);
 }
 
 ID3D11Buffer *pe_d3d11_create_buffer(void *data, UINT byte_width, D3D11_USAGE usage, UINT bind_flags) {

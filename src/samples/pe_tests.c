@@ -1,11 +1,11 @@
-#include "pe_core.h"
-#include "client/pe_platform.h"
-#include "client/pe_graphics.h"
-#include "client/pe_input.h"
-#include "client/pe_model.h"
-#include "pe_time.h"
-#include "pe_profile.h"
-#include "pe_trace.h"
+#include "core/pe_core.h"
+#include "platform/pe_platform.h"
+#include "graphics/pe_graphics.h"
+#include "platform/pe_input.h"
+#include "graphics/pe_model.h"
+#include "platform/pe_time.h"
+#include "utility/pe_trace.h"
+#include "platform/pe_window.h"
 
 #include <stdio.h>
 
@@ -19,7 +19,8 @@ int main(int argc, char *argv[]) {
     }
 
     pe_platform_init();
-    pe_graphics_init(&temp_arena, 960, 540, "Procyon");
+    pe_window_init(960, 540, "Procyon");
+    pe_graphics_init(&temp_arena, 960, 540);
     pe_input_init();
     pe_time_init();
     pe_trace_init();
@@ -47,11 +48,19 @@ int main(int argc, char *argv[]) {
 
     float average_frame_duration = 0.0f;
 
-    while(!pe_platform_should_quit()) {
+    while(true) {
+        bool should_quit = (
+            pe_platform_should_quit() ||
+            pe_window_should_quit()
+        );
+        if (should_quit) {
+            break;
+        }
+
         uint64_t frame_start_time = pe_time_now();
         peTraceMark tm_game_loop = PE_TRACE_MARK_BEGIN("game loop");
 
-        pe_platform_poll_events();
+        pe_window_poll_events();
         pe_input_update();
 
         pe_camera_update(camera);
@@ -94,6 +103,7 @@ int main(int argc, char *argv[]) {
 
     pe_trace_shutdown();
     pe_graphics_shutdown();
+    pe_window_shutdown();
     pe_platform_shutdown();
 
     return 0;

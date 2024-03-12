@@ -19,88 +19,99 @@
 
 #include <stdbool.h>
 
-peGLFW pe_glfw = {0};
+struct peWindowGLFW {
+    GLFWwindow *window;
+    peWindowFramebufferSizeCallback *framebuffer_size_callback;
+    peWindowKeyCallback *key_callback;
+    peWindowCursorPositionCallback *cursor_position_callback;
+};
+struct peWindowGLFW window_state_glfw = {0};
 
 static void pe_framebuffer_size_callback_glfw(GLFWwindow *window, int width, int height) {
-#if defined(_WIN32)
-    pe_framebuffer_size_callback_win32(width, height);
-#elif defined(__linux__)
-    pe_framebuffer_size_callback_linux(width, height);
-#endif
+    PE_ASSERT(window_state_glfw.framebuffer_size_callback != NULL);
+    window_state_glfw.framebuffer_size_callback(width, height);
 }
 
 static void pe_window_key_callback_glfw(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    PE_ASSERT(pe_glfw.key_callback != NULL);
-    pe_glfw.key_callback(key, action);
+    PE_ASSERT(window_state_glfw.key_callback != NULL);
+    window_state_glfw.key_callback(key, action);
 }
 
 static void pe_cursor_position_callback_glfw(GLFWwindow *window, double pos_x, double pos_y) {
-    PE_ASSERT(pe_glfw.cursor_position_callback != NULL);
-    pe_glfw.cursor_position_callback(pos_x, pos_y);
+    PE_ASSERT(window_state_glfw.cursor_position_callback != NULL);
+    window_state_glfw.cursor_position_callback(pos_x, pos_y);
 }
 
-void pe_glfw_init(peArena *temp_arena, int window_width, int window_height, const char *window_name) {
-    if (pe_glfw.initialized == false) {
-        glfwInit();
+void pe_window_init_glfw(int window_width, int window_height, const char *window_name) {
+    glfwInit();
 
-        // set window hints
-        {
-            glfwWindowHint(GLFW_SCALE_TO_MONITOR, 0);
+    // set window hints
+    {
+        glfwWindowHint(GLFW_SCALE_TO_MONITOR, 0);
 #if defined(_WIN32)
-            glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 #elif defined(__linux__)
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-            glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 #endif
 #if defined(__linux__) && !defined(NDEBUG)
-            glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
+        glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 #endif
-        }
+    }
 
-        pe_glfw.window = glfwCreateWindow(window_width, window_height, window_name, NULL, NULL);
+    window_state_glfw.window = glfwCreateWindow(window_width, window_height, window_name, NULL, NULL);
 
-        // init graphics
-        {
-#if defined(_WIN32)
-            HWND hwnd = glfwGetWin32Window(pe_glfw.window);
-            pe_graphics_init_win32(hwnd, window_width, window_height);
-#elif defined(__linux__)
-            glfwMakeContextCurrent(pe_glfw.window);
-            gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-            pe_graphics_init_linux(temp_arena, window_width, window_height);
+    // init graphics
+    {
+#if defined(__linux__)
+        glfwMakeContextCurrent(window_state_glfw.window);
 #endif
-        }
-
-        glfwSetFramebufferSizeCallback(pe_glfw.window, pe_framebuffer_size_callback_glfw);
-
-        pe_glfw.initialized = true;
     }
 }
 
-void pe_glfw_shutdown(void) {
-    PE_ASSERT(pe_glfw.initialized);
-    glfwDestroyWindow(pe_glfw.window);
+void pe_window_shutdown_glfw(void) {
+    glfwDestroyWindow(window_state_glfw.window);
     glfwTerminate();
-    pe_glfw.initialized = false;
 }
 
-void pe_window_set_key_callback(peWindowKeyCallback *cb) {
-    PE_ASSERT(pe_glfw.initialized);
-    pe_glfw.key_callback = cb;
-    glfwSetKeyCallback(pe_glfw.window, pe_window_key_callback_glfw);
+void pe_window_set_framebuffer_size_callback_glfw(peWindowFramebufferSizeCallback *cb) {
+    window_state_glfw.framebuffer_size_callback = cb;
+    glfwSetFramebufferSizeCallback(window_state_glfw.window, pe_framebuffer_size_callback_glfw);
 }
 
-void pe_window_set_cursor_position_callback(peWindowCursorPositionCallback *cb) {
-    PE_ASSERT(pe_glfw.initialized);
-    pe_glfw.cursor_position_callback = cb;
-    glfwSetCursorPosCallback(pe_glfw.window, pe_cursor_position_callback_glfw);
+void pe_window_set_key_callback_glfw(peWindowKeyCallback *cb) {
+    window_state_glfw.key_callback = cb;
+    glfwSetKeyCallback(window_state_glfw.window, pe_window_key_callback_glfw);
+}
+
+void pe_window_set_cursor_position_callback_glfw(peWindowCursorPositionCallback *cb) {
+    window_state_glfw.cursor_position_callback = cb;
+    glfwSetCursorPosCallback(window_state_glfw.window, pe_cursor_position_callback_glfw);
 }
 
 bool pe_window_should_quit_glfw(void) {
-    return glfwWindowShouldClose(pe_glfw.window);
+    return glfwWindowShouldClose(window_state_glfw.window);
 }
 
 void pe_window_poll_events_glfw(void) {
     glfwPollEvents();
 }
+
+#if defined(_WIN32)
+HWND pe_window_get_win32_window_glfw(void) {
+    return glfwGetWin32Window(window_state_glfw.window);
+}
+#endif
+
+#if defined(__linux__)
+void *pe_window_get_proc_address_glfw(const char *name) {
+    return glfwGetProcAddress(name);
+}
+
+void pe_window_swap_buffers_glfw(bool vsync) {
+	int interval = (vsync ? 1 : 0);
+	glfwSwapInterval(interval);
+	glfwSwapBuffers(window_state_glfw.window);
+}
+#endif

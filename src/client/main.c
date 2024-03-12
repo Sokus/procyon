@@ -8,6 +8,7 @@
 #include "platform/pe_time.h"
 #include "platform/pe_net.h"
 #include "platform/pe_platform.h"
+#include "platform/pe_window.h"
 #include "graphics/pe_graphics.h"
 #include "graphics/pe_model.h"
 #include "platform/pe_input.h"
@@ -48,7 +49,8 @@ void pe_client_init(peArena *temp_arena, peSocket *socket) {
     client.server_address = pe_address4(127, 0, 0, 1, SERVER_PORT);
 
     pe_platform_init();
-    pe_graphics_init(temp_arena, 960, 540, "Procyon");
+    pe_window_init(960, 540, "Procyon");
+    pe_graphics_init(temp_arena, 960, 540);
     pe_input_init();
 
 #if !defined(PSP)
@@ -71,7 +73,7 @@ static float look_angle = 0.0f;
 
 void pe_client_update(peArena *temp_arena) {
     PE_TRACE_FUNCTION_BEGIN();
-    pe_platform_poll_events();
+    pe_window_poll_events();
     pe_input_update();
 
     peTraceMark entity_logic_tm = PE_TRACE_MARK_BEGIN("entity logic");
@@ -177,7 +179,11 @@ void pe_client_update(peArena *temp_arena) {
 }
 
 bool pe_client_should_quit(void) {
-    return pe_platform_should_quit();
+    bool should_quit = (
+        pe_platform_should_quit() ||
+        pe_window_should_quit()
+    );
+    return should_quit;
 }
 
 void pe_client_process_message(peMessage message, peAddress sender) {
@@ -312,6 +318,7 @@ int main(int argc, char* argv[]) {
     }
 
     pe_graphics_shutdown();
+    pe_window_shutdown();
 
     pe_socket_destroy(socket);
     pe_net_shutdown();

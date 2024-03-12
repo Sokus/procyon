@@ -3,6 +3,7 @@
 #include "core/pe_core.h"
 #include "pe_math.h"
 #include "platform/pe_platform.h"
+#include "platform/pe_window.h"
 #include "utility/pe_trace.h"
 
 #if defined(_WIN32)
@@ -10,7 +11,6 @@
     #include <windows.h>
 
 	#include "pe_graphics_win32.h"
-	#include "platform/pe_window_glfw.h"
 #elif defined(PSP)
 	#include "pe_graphics_psp.h"
 
@@ -18,11 +18,7 @@
     #include <pspgu.h>
 	#include <pspgum.h>
 #elif defined(__linux__)
-    #include "platform/pe_window_glfw.h"
 	#include "pe_graphics_linux.h"
-
-	#define GLFW_INCLUDE_NONE
-	#include "GLFW/glfw3.h"
 
 	#include "glad/glad.h"
 #endif
@@ -33,13 +29,14 @@
 
 static peTexture default_texture;
 
-void pe_graphics_init(peArena *temp_arena, int window_width, int window_height, const char *window_name) {
+void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) {
 #if defined(_WIN32)
-    pe_glfw_init(temp_arena, window_width, window_height, window_name);
+	HWND hwnd = pe_window_get_win32_window();
+	pe_graphics_init_win32(hwnd, window_width, window_height);
 #elif defined(PSP)
     pe_graphics_init_psp();
 #elif defined(__linux__)
-	pe_glfw_init(temp_arena, window_width, window_height, window_name);
+	pe_graphics_init_linux(temp_arena, window_width, window_height);
 #endif
 
 #if defined(_WIN32) || defined(__linux__)
@@ -52,9 +49,7 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height, 
 }
 
 void pe_graphics_shutdown(void) {
-#if defined(_WIN32) || defined(__linux__)
-	pe_glfw_shutdown();
-#elif defined(PSP)
+#if defined(PSP)
 	pe_graphics_shutdown_psp();
 #endif
 }
@@ -80,9 +75,7 @@ void pe_graphics_frame_end(bool vsync) {
     }
     sceGuSwapBuffers();
 #elif defined(__linux__)
-	int interval = (vsync ? 1 : 0);
-	glfwSwapInterval(interval);
-	glfwSwapBuffers(pe_glfw.window);
+	pe_window_swap_buffers(vsync);
 #endif
 	PE_TRACE_FUNCTION_END();
 }

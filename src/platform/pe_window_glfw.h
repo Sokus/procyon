@@ -1,8 +1,7 @@
 #ifndef PE_WINDOW_GLFW_H_HEADER_GUARD
 #define PE_WINDOW_GLFW_H_HEADER_GUARD
 
-#include <stdbool.h>
-
+#include "pe_window.h"
 
 #if defined(_WIN32)
     #define WIN32_LEAN_AND_MEAN
@@ -11,34 +10,26 @@
     #include "glad/glad.h"
 #endif
 
-#define GLFW_INCLUDE_NONE
-#include "GLFW/glfw3.h"
-
-typedef void peWindowKeyCallback(int key, int scancode);
-typedef void peWindowCursorPositionCallback(double pos_x, double pos_y);
-
-typedef struct peGLFW {
-    bool initialized;
-    GLFWwindow *window;
-
-    peWindowKeyCallback *key_callback;
-    peWindowCursorPositionCallback *cursor_position_callback;
-} peGLFW;
-extern peGLFW pe_glfw;
-
+#include <stdbool.h>
 
 struct peArena;
-void pe_glfw_init(struct peArena *temp_arena, int window_width, int window_height, const char *window_name);
-void pe_glfw_shutdown(void);
+void pe_window_init_glfw(int window_width, int window_height, const char *window_name);
+void pe_window_shutdown_glfw(void);
 
-void pe_window_set_key_callback(peWindowKeyCallback *cb);
-void pe_window_set_cursor_position_callback(peWindowCursorPositionCallback *cb);
+void pe_window_set_framebuffer_size_callback_glfw(peWindowFramebufferSizeCallback *cb);
+void pe_window_set_key_callback_glfw(peWindowKeyCallback *cb);
+void pe_window_set_cursor_position_callback_glfw(peWindowCursorPositionCallback *cb);
 
 bool pe_window_should_quit_glfw(void);
 void pe_window_poll_events_glfw(void);
 
 #if defined(_WIN32)
-HWND pe_glfw_get_win32_window(void);
+HWND pe_window_get_win32_window_glfw(void);
+#endif
+
+#if defined(__linux__)
+void *pe_window_get_proc_address_glfw(const char *name);
+void pe_window_swap_buffers_glfw(bool vsync);
 #endif
 
 #endif // PE_WINDOW_GLFW_H_HEADER_GUARD

@@ -10,7 +10,7 @@ struct peArena;
 
 // GENERAL
 
-void pe_graphics_init(struct peArena *temp_arena, int window_width, int window_height, const char *window_name);
+void pe_graphics_init(struct peArena *temp_arena, int window_width, int window_height);
 void pe_graphics_shutdown(void);
 void pe_graphics_frame_begin(void);
 void pe_graphics_frame_end(bool vsync);

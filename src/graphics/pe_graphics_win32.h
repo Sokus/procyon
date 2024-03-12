@@ -8,8 +8,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#define GLFW_INCLUDE_NONE
-#include "GLFW/glfw3.h"
 #include "HandmadeMath.h"
 
 #include <stddef.h>

@@ -1,16 +1,16 @@
 #include "pe_platform.h"
+#include "core/pe_core.h"
 
 #include <stdbool.h>
 
-#if defined(_WIN32) || defined(__linux__)
-    #include "pe_window_glfw.h"
-#elif defined(PSP)
+#if defined(PSP)
     #include "pe_platform_psp.h"
 #endif
 
 static bool platform_initialized = false;
 
 void pe_platform_init(void) {
+    PE_ASSERT(!platform_initialized);
     bool success = true;
 #if defined(PSP)
     success &= pe_platform_init_psp();
@@ -19,6 +19,7 @@ void pe_platform_init(void) {
 }
 
 void pe_platform_shutdown(void) {
+    PE_ASSERT(platform_initialized);
 #if defined(PSP)
     pe_platform_shutdown_psp();
 #endif
@@ -26,15 +27,10 @@ void pe_platform_shutdown(void) {
 }
 
 bool pe_platform_should_quit(void) {
-#if defined(_WIN32) || defined(__linux__)
-    return pe_window_should_quit_glfw();
-#elif defined(PSP)
-    return pe_platform_should_quit_psp();
+    PE_ASSERT(platform_initialized);
+    bool result = false;
+#if defined(PSP)
+    result = pe_platform_should_quit_psp();
 #endif
-}
-
-void pe_platform_poll_events(void) {
-#if defined(_WIN32) || defined(__linux__)
-    pe_window_poll_events_glfw();
-#endif
+    return result;
 }
