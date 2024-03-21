@@ -8,6 +8,7 @@ typedef enum peKeyboardKey {
 	peKeyboardKey_Right,
 	peKeyboardKey_Left,
 	peKeyboardKey_Up,
+	peKeyboardKey_O, // temporary
 	peKeyboardKey_Count,
 } peKeyboardKey;
 

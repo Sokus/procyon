@@ -116,6 +116,7 @@ static int pe_input_key_map_glfw(peKeyboardKey key) {
 	    case peKeyboardKey_Right: return GLFW_KEY_D;
 	    case peKeyboardKey_Left: return GLFW_KEY_A;
 	    case peKeyboardKey_Up: return GLFW_KEY_W;
+        case peKeyboardKey_O: return GLFW_KEY_O;
         default: break;
     }
     return 0;

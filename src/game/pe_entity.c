@@ -128,3 +128,25 @@ bool pe_entity_property_get(peEntity *entity, peEntityProperty property) {
     return masked_properties != 0 ? true : false;
 }
 
+void pe_update_entities(float dt, peInput *inputs) {
+    for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
+        peEntity *entity = &entities[e];
+        if (!entity->active)
+            continue;
+
+        if (pe_entity_property_get(entity, peEntityProperty_ControlledByPlayer)) {
+            PE_ASSERT(entity->client_index >= 0 && entity->client_index < MAX_CLIENT_COUNT);
+
+            peInput *input = &inputs[entity->client_index];
+            entity->velocity.X = input->movement.X * 2.0f;
+            entity->velocity.Z = input->movement.Y * 2.0f;
+            entity->angle = input->angle;
+        }
+
+        // PHYSICS
+        if (entity->velocity.X != 0.0f || entity->velocity.Z != 0.0f) {
+            HMM_Vec3 position_delta = HMM_MulV3F(entity->velocity, dt);
+            entity->position = HMM_AddV3(entity->position, position_delta);
+        }
+    }
+}

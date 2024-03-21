@@ -120,9 +120,6 @@ endif()
 
 # COMPILE OTHER TARGETS:
 
-#add_executable(socket_test src/samples/psp_socket_tests.c)
-#target_link_libraries(socket_test shared)
-
 add_executable(tests src/samples/pe_tests.c)
 target_link_libraries(tests PRIVATE settings core platform graphics utility)
 

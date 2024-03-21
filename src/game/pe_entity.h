@@ -57,6 +57,8 @@ void pe_entity_property_set(peEntity *entity, peEntityProperty property);
 void pe_entity_property_unset(peEntity *entity, peEntityProperty property);
 bool pe_entity_property_get(peEntity *entity, peEntityProperty property);
 
+void pe_update_entities(float dt, peInput *inputs);
+
 
 
 #endif // PE_ENTITY_H

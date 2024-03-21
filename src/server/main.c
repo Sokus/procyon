@@ -20,7 +20,6 @@ typedef struct peClientData {
     uint64_t last_packet_send_time;
     uint64_t last_packet_receive_time;
     uint32_t entity_index;
-    peInput input;
 } peClientData;
 
 struct peServerState {
@@ -28,6 +27,7 @@ struct peServerState {
     int client_count;
     bool client_connected[MAX_CLIENT_COUNT];
     peAddress client_address[MAX_CLIENT_COUNT];
+    peInput client_input[MAX_CLIENT_COUNT];
     peClientData client_data[MAX_CLIENT_COUNT];
 } server = {0};
 
@@ -200,7 +200,7 @@ void pe_process_input_state_message(peInputStateMessage *msg, peAddress address,
     if (client_exists) {
         PE_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
         PE_ASSERT(pe_address_compare(address, server.client_address[client_index]));
-        server.client_data[client_index].input = msg->input;
+        server.client_input[client_index] = msg->input;
         server.client_data[client_index].last_packet_receive_time = pe_time_now();
     }
 }
@@ -298,28 +298,7 @@ int main(int argc, char *argv[]) {
 
         pe_check_for_time_out();
 
-        peEntity *entities = pe_get_entities();
-        for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
-            peEntity *entity = &entities[e];
-            if (!entity->active)
-                continue;
-
-            if (pe_entity_property_get(entity, peEntityProperty_ControlledByPlayer)) {
-                PE_ASSERT(entity->client_index >= 0 && entity->client_index < MAX_CLIENT_COUNT);
-                PE_ASSERT(server.client_connected[entity->client_index] || entity->marked_for_destruction);
-
-                peInput *input = &server.client_data[entity->client_index].input;
-                entity->velocity.X = input->movement.X * 2.0f;
-                entity->velocity.Z = input->movement.Y * 2.0f;
-                entity->angle = input->angle;
-            }
-
-            // PHYSICS
-            if (entity->velocity.X != 0.0f || entity->velocity.Z != 0.0f) {
-                HMM_Vec3 position_delta = HMM_MulV3F(entity->velocity, dt);
-                entity->position = HMM_AddV3(entity->position, position_delta);
-            }
-        }
+        pe_update_entities(dt, server.client_input);
         pe_cleanup_entities();
 
         pe_send_packets();
