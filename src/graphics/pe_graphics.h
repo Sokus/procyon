@@ -25,6 +25,12 @@ void pe_clear_background(union peColor color);
 
 HMM_Mat4 pe_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z);
 
+// DYNAMIC DRAW
+
+void pe_graphics_draw_point(HMM_Vec3 position, union peColor color);
+void pe_graphics_draw_line(HMM_Vec3 start_position, HMM_Vec3 end_position, union peColor color);
+void pe_graphics_draw_rectangle(float x, float y, float width, float height, union peColor color);
+
 // COLOR
 
 typedef union peColor {

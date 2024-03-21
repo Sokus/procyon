@@ -364,37 +364,6 @@ void pe_draw_mesh(Mesh mesh, HMM_Vec3 position, HMM_Vec3 rotation) {
 	sceGumPopMatrix();
 }
 
-void pe_draw_point(HMM_Vec3 position, peColor color) {
-	size_t vertices_size = sizeof(VertexP);
-	VertexP *vertex = sceGuGetMemory(vertices_size);
-	vertex->x = position.X;
-	vertex->y = position.Y;
-	vertex->z = position.Z;
-
-	sceKernelDcacheWritebackInvalidateRange(vertex, vertices_size);
-
-	sceGuColor(pe_color_to_8888(color));
-	sceGumDrawArray(GU_POINTS, GU_VERTEX_32BITF|GU_TRANSFORM_3D, 1, NULL, vertex);
-	sceGuColor(default_gu_color);
-}
-
-void pe_draw_line(HMM_Vec3 start_pos, HMM_Vec3 end_pos, peColor color) {
-	size_t vertices_size = 2*sizeof(VertexP);
-	VertexP *vertices = sceGuGetMemory(vertices_size);
-	vertices[0].x = start_pos.X;
-	vertices[0].y = start_pos.Y;
-	vertices[0].z = start_pos.Z;
-	vertices[1].x = end_pos.X;
-	vertices[1].y = end_pos.Y;
-	vertices[1].z = end_pos.Z;
-
-	sceKernelDcacheWritebackInvalidateRange(vertices, vertices_size);
-
-	sceGuColor(pe_color_to_8888(color));
-	sceGumDrawArray(GU_LINES, GU_VERTEX_32BITF|GU_TRANSFORM_3D, 2, NULL, vertices);
-	sceGuColor(default_gu_color);
-}
-
 void pe_draw_pixel(float x, float y, peColor color) {
 	size_t vertices_size = 1*sizeof(VertexP);
 	VertexP *vertices = sceGuGetMemory(vertices_size);
@@ -406,28 +375,6 @@ void pe_draw_pixel(float x, float y, peColor color) {
 
 	sceGuColor(pe_color_to_8888(color));
 	sceGumDrawArray(GU_POINTS, GU_VERTEX_32BITF|GU_TRANSFORM_2D, 1, NULL, vertices);
-	sceGuColor(default_gu_color);
-}
-
-typedef struct peRect {
-	float x;
-	float y;
-	float width;
-	float height;
-} peRect;
-
-void pe_draw_rect(peRect rect, peColor color) {
-	size_t vertices_size = 2*sizeof(VertexP);
-	VertexP *vertices = sceGuGetMemory(vertices_size);
-	vertices[0].x = rect.x;              vertices[0].y = rect.y;
-	vertices[1].x = rect.x + rect.width; vertices[1].y = rect.y + rect.height;
-	vertices[0].z = dynamic_2d_draw_depth;
-	vertices[1].z = dynamic_2d_draw_depth;
-
-	sceKernelDcacheWritebackInvalidateRange(vertices, vertices_size);
-
-	sceGuColor(pe_color_to_8888(color));
-	sceGumDrawArray(GU_SPRITES, GU_VERTEX_32BITF|GU_TRANSFORM_2D, 2, NULL, vertices);
 	sceGuColor(default_gu_color);
 }
 #endif
@@ -1187,6 +1134,7 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 
 	ScePspFMatrix4 bone_matrix[8];
 
+	int gu_texture_2d_status = sceGuGetStatus(GU_TEXTURE_2D);
 	for (int m = 0; m < model->num_mesh; m += 1) {
 		peTraceMark tm_draw_mesh = PE_TRACE_MARK_BEGIN("draw mesh");
 		peSubskeleton *subskeleton = &model->subskeleton[model->mesh_subskeleton[m]];
@@ -1221,6 +1169,7 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 	peTraceMark tm_diffuse_color = PE_TRACE_MARK_BEGIN("diffuse color");
 	sceGuColor(0xFFFFFFFF);
 	PE_TRACE_MARK_END(tm_diffuse_color);
+	sceGuSetStatus(GU_TEXTURE_2D, gu_texture_2d_status);
 	sceGumPopMatrix();
 #endif
 	pe_arena_temp_end(temp_arena_memory);

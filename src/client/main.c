@@ -284,6 +284,10 @@ int main(int argc, char* argv[]) {
         pe_graphics_frame_begin();
         pe_clear_background((peColor){ 20, 20, 20, 255 });
 
+        pe_graphics_draw_line(HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(1.0f, 0.0f, 0.0f), PE_COLOR_RED);
+        pe_graphics_draw_line(HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 1.0f, 0.0f), PE_COLOR_GREEN);
+        pe_graphics_draw_line(HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 0.0f, 1.0f), PE_COLOR_BLUE);
+
         for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
             peEntity *entity = &entities[e];
             if (!entity->active) continue;

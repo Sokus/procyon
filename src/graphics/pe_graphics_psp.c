@@ -1,6 +1,7 @@
 #include "pe_graphics.h"
 #include "pe_graphics_psp.h"
 #include "core/pe_core.h"
+#include "utility/pe_trace.h"
 
 #include <pspge.h>
 #include <pspgu.h>
@@ -8,11 +9,19 @@
 #include <pspgum.h>
 #include <pspkernel.h> // sceKernelDcacheWritebackInvalidateRange
 
+#include <stdint.h>
 
 static peArena edram_arena;
 static bool gu_initialized = false;
 
 unsigned int __attribute__((aligned(16))) list[262144];
+
+__attribute__((aligned(16))) uint8_t dynamic_draw_buffer[PE_MEGABYTES(1)];
+size_t dynamic_draw_buffer_used = 0;
+void *dynamic_draw_buffer_batch_address = dynamic_draw_buffer;
+int dynamic_draw_buffer_batch_primitive = GU_POINTS;
+int dynamic_draw_buffer_batch_transform = GU_TRANSFORM_3D;
+int dynamic_draw_buffer_batch_vertex_count = 0;
 
 static unsigned int bytes_per_pixel(unsigned int psm) {
 	switch (psm) {
@@ -146,4 +155,96 @@ peTexture pe_texture_create_psp(peArena *temp_arena, void *data, int width, int 
 		.format = format
 	};
     return texture;
+}
+
+typedef struct peVertex_ColPos {
+	uint32_t color;
+	float x, y, z;
+} peVertex_ColPos;
+
+static void pe_graphics_dynamic_draw_commit_batch(void) {
+	if (dynamic_draw_buffer_batch_vertex_count > 0) {
+		bool gu_mode_valid = (
+			dynamic_draw_buffer_batch_transform == GU_TRANSFORM_3D ||
+			dynamic_draw_buffer_batch_transform == GU_TRANSFORM_2D
+		);
+		PE_ASSERT(gu_mode_valid);
+		int vtype = GU_COLOR_8888 | GU_VERTEX_32BITF | dynamic_draw_buffer_batch_transform;
+		sceGumDrawArray(
+			dynamic_draw_buffer_batch_primitive,
+			GU_COLOR_8888 | GU_VERTEX_32BITF | dynamic_draw_buffer_batch_transform,
+			dynamic_draw_buffer_batch_vertex_count,
+			NULL,
+			dynamic_draw_buffer_batch_address
+		);
+		dynamic_draw_buffer_batch_address = dynamic_draw_buffer + dynamic_draw_buffer_used;
+		dynamic_draw_buffer_batch_vertex_count = 0;
+	}
+}
+
+static void pe_graphics_dynamic_draw_set_primitive(int gu_primitive) {
+	if (gu_primitive != dynamic_draw_buffer_batch_primitive) {
+		pe_graphics_dynamic_draw_commit_batch();
+	}
+	dynamic_draw_buffer_batch_primitive = gu_primitive;
+}
+
+static void pe_graphics_dynamic_draw_set_transform(int gu_transform) {
+	if (gu_transform != dynamic_draw_buffer_batch_transform) {
+		pe_graphics_dynamic_draw_commit_batch();
+	}
+	dynamic_draw_buffer_batch_transform = gu_transform;
+}
+
+void pe_graphics_draw_point(HMM_Vec3 position, peColor color) {
+	struct peVertexCP {
+		uint32_t color;
+		float x, y, z;
+	};
+	int vertex_count = 1;
+	size_t vertex_size = vertex_count*sizeof(struct peVertexCP);
+	struct peVertexCP *vertex = sceGuGetMemory(vertex_size);
+	vertex[0].color = pe_color_to_8888(color);
+	vertex[0].x = position.X;
+	vertex[0].y = position.Y;
+	vertex[0].z = position.Z;
+	sceKernelDcacheWritebackRange(vertex, vertex_size);
+	sceGumDrawArray(GU_POINTS, GU_COLOR_8888|GU_VERTEX_32BITF|GU_TRANSFORM_3D, vertex_count, NULL, vertex);
+}
+
+void pe_graphics_draw_line(HMM_Vec3 start_position, HMM_Vec3 end_position, peColor color) {
+	struct peVertexCP {
+		uint32_t color;
+		float x, y, z;
+	};
+	int vertex_count = 2;
+	size_t vertex_size = vertex_count*sizeof(struct peVertexCP);
+	struct peVertexCP *vertex = sceGuGetMemory(vertex_size);
+	vertex[0].color = pe_color_to_8888(color);
+	vertex[0].x = start_position.X;
+	vertex[0].y = start_position.Y;
+	vertex[0].z = start_position.Z;
+	vertex[1].color = pe_color_to_8888(color);
+	vertex[1].x = end_position.X;
+	vertex[1].y = end_position.Y;
+	vertex[1].z = end_position.Z;
+	sceKernelDcacheWritebackRange(vertex, vertex_size);
+	sceGumDrawArray(GU_LINES, GU_COLOR_8888|GU_VERTEX_32BITF|GU_TRANSFORM_3D, vertex_count, NULL, vertex);
+}
+
+void pe_graphics_draw_rectangle(float x, float y, float width, float height, peColor color) {
+	int vertex_count = 2;
+	size_t vertex_size = vertex_count * sizeof(peVertex_ColPos);
+	peVertex_ColPos *vertex = sceGuGetMemory(vertex_size);
+	vertex[0].color = pe_color_to_8888(color);
+	vertex[0].x = x;
+	vertex[0].y = y;
+	vertex[0].z = 65536.0f;
+	vertex[1].color = pe_color_to_8888(color);
+	vertex[1].x = x + width;
+	vertex[1].y = y + height;
+	vertex[1].z = 65536.0f;
+
+	sceKernelDcacheWritebackRange(vertex, vertex_size);
+	sceGumDrawArray(GU_SPRITES, GU_COLOR_8888|GU_VERTEX_32BITF|GU_TRANSFORM_2D, vertex_count, NULL, vertex);
 }
