@@ -1,4 +1,5 @@
 .vscode
+.focus
 *build
 
 *.p3d
