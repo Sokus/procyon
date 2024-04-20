@@ -1,10 +1,14 @@
 #!/usr/bin/env powershell
 
+param (
+    [string]$BuildType = "Release"
+)
+
 $repository_root = $(Resolve-Path "${PSScriptRoot}/..")
 
 $cmake_exit_code = 0
 Push-Location $repository_root
-wsl.exe --distribution Ubuntu export PSPDEV=~/pspdev`; export PATH=`$PATH:`$PSPDEV/bin`; psp-cmake -B psp_build
+wsl.exe --distribution Ubuntu export PSPDEV=~/pspdev`; export PATH=`$PATH:`$PSPDEV/bin`; psp-cmake -DCMAKE_BUILD_TYPE="${BuildType}" -B psp_build
 $cmake_configure_exit_code = $LASTEXITCODE
 Pop-Location
 

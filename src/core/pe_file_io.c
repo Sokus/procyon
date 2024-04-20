@@ -31,8 +31,7 @@ bool pe_file_open(const char *file_path, peFileHandle *result) {
         };
         sceIoChangeAsyncPriority(sce_fd, 16);
     }
-#endif
-#if defined(_WIN32)
+#elif defined(_WIN32)
     HANDLE handle_win32 = CreateFileA(
         file_path,
         GENERIC_WRITE | FILE_APPEND_DATA,
@@ -48,6 +47,8 @@ bool pe_file_open(const char *file_path, peFileHandle *result) {
             .handle_win32 = handle_win32
         };
     }
+#else
+    PE_UNIMPLEMENTED();
 #endif
     return success;
 }
@@ -57,9 +58,10 @@ bool pe_file_close(peFileHandle file) {
 #if defined(__PSP__)
     int sce_rc = sceIoClose(file.fd_psp);
     success = (sce_rc >= 0);
-#endif
-#if defined(_WIN32)
+#elif defined(_WIN32)
     success = CloseHandle(file.handle_win32);
+#else
+    PE_UNIMPLEMENTED();
 #endif
     return success;
 }
@@ -71,9 +73,11 @@ bool pe_file_write_async(peFileHandle file, void *data, size_t data_size) {
     if (sce_rc >= 0) {
         success = true;
     }
-#endif
-#if defined(_WIN32)
+#elif defined(_WIN32)
+    // TODO: Actually do async writing
     success = WriteFile(file.handle_win32, data, data_size, NULL, NULL);
+#else
+    PE_UNIMPLEMENTED();
 #endif
     return success;
 }
@@ -88,10 +92,13 @@ bool pe_file_poll(peFileHandle file, bool *result) {
         case 1: success = true; *result = true; break;
         default: break;
     }
-#endif
-#if defined(_WIN32) || defined(__linux__)
+#elif defined(_WIN32)
+    // we don't have async writing yet so we can assume
+    // the operation is always done
     success = true;
     *result = false;
+#else
+    PE_UNIMPLEMENTED();
 #endif
     return success;
 }
@@ -104,9 +111,12 @@ bool pe_file_wait(peFileHandle file) {
     if (sce_rc >= 0) {
         success = true;
     }
-#endif
-#if defined(_WIN32) || defined(__linux__)
+#elif  defined(_WIN32)
+    // we don't have async writing yet so we can assume
+    // the operation is always done
     success = true;
+#else
+    PE_UNIMPLEMENTED();
 #endif
     return success;
 }

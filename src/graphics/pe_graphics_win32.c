@@ -459,10 +459,29 @@ HMM_Mat4 pe_perspective_win32(float fovy, float aspect_ratio, float near_z, floa
     return result;
 }
 
-void pe_graphics_draw_point(HMM_Vec3 position, union peColor color) {
+
+
+void pe_graphics_draw_point_3D(HMM_Vec3 position, peColor color) {
 	PE_UNIMPLEMENTED();
 }
 
-void pe_graphics_draw_line(HMM_Vec3 start_position, HMM_Vec3 end_position, peColor color) {
+void pe_graphics_draw_line_3D(HMM_Vec3 start_position, HMM_Vec3 end_position, peColor color) {
     PE_UNIMPLEMENTED();
 }
+
+void pe_graphics_draw_pixel_vec(HMM_Vec2 position, peColor color) {
+    PE_UNIMPLEMENTED();
+}
+
+void pe_graphics_draw_pixel(int x, int y, peColor color) {
+    PE_UNIMPLEMENTED();
+}
+
+void pe_graphics_draw_line(HMM_Vec2 start_position, HMM_Vec2 end_position, peColor color) {
+    PE_UNIMPLEMENTED();
+}
+
+void pe_graphics_draw_rectangle(float x, float y, float width, float height, peColor color) {
+    PE_UNIMPLEMENTED();
+}
+

@@ -27,7 +27,7 @@
 
 #include <stdbool.h>
 
-static peTexture default_texture;
+peTexture default_texture;
 
 void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) {
 #if defined(_WIN32)
@@ -37,8 +37,8 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
     pe_graphics_init_psp();
 #elif defined(__linux__)
 	pe_graphics_init_linux(temp_arena, window_width, window_height);
-#endif
 
+#endif
 #if defined(_WIN32) || defined(__linux__)
 	// init default texture
 	{
@@ -75,41 +75,36 @@ void pe_graphics_frame_end(bool vsync) {
     }
     sceGuSwapBuffers();
 #elif defined(__linux__)
+    pe_graphics_dynamic_draw_end_batch();
+    pe_graphics_dynamic_draw_flush();
 	pe_window_swap_buffers(vsync);
 #endif
 	PE_TRACE_FUNCTION_END();
 }
 
-void pe_graphics_projection_perspective(float fovy, float aspect_ratio, float near_z, float far_z) {
+void pe_graphics_matrix_projection(HMM_Mat4 *matrix) {
 #if defined(_WIN32)
     peShaderConstant_Projection *projection = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_projection_buffer);
-	projection->matrix = pe_matrix_perspective(fovy, aspect_ratio, near_z, far_z);
+	projection->matrix = *matrix;
 	pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_projection_buffer);
 #elif defined(__linux__)
-	HMM_Mat4 matrix_perspective = pe_matrix_perspective(fovy, aspect_ratio, near_z, far_z);
-	pe_shader_set_mat4(pe_opengl.shader_program, "matrix_projection", &matrix_perspective);
+	pe_shader_set_mat4(pe_opengl.shader_program, "matrix_projection", matrix);
 #elif defined(PSP)
 	sceGumMatrixMode(GU_PROJECTION);
-	sceGumLoadIdentity();
-	sceGumPerspective(fovy, aspect_ratio, near_z, far_z);
+	sceGumLoadMatrix((void*)matrix);
 #endif
 }
 
-void pe_graphics_view_lookat(HMM_Vec3 eye, HMM_Vec3 target, HMM_Vec3 up) {
+void pe_graphics_matrix_view(HMM_Mat4 *matrix) {
 #if defined(_WIN32)
     peShaderConstant_View *constant_view = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_view_buffer);
-    constant_view->matrix = HMM_LookAt_RH(eye, target, up);
+    constant_view->matrix = *matrix;
     pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_view_buffer);
 #elif defined(__linux__)
-	HMM_Mat4 matrix_view = HMM_LookAt_RH(eye, target, up);
-    pe_shader_set_mat4(pe_opengl.shader_program, "matrix_view", &matrix_view);
+    pe_shader_set_mat4(pe_opengl.shader_program, "matrix_view", matrix);
 #elif defined(PSP)
 	sceGumMatrixMode(GU_VIEW);
-	sceGumLoadIdentity();
-	ScePspFVector3 sce_eye = { .x = eye.X, .y = eye.Y, .z = eye.Z };
-	ScePspFVector3 sce_target = { .x = target.X, .y = target.Y, .z = target.Z };
-	ScePspFVector3 sce_up = { .x = up.X, .y = up.Y, .z = up.Z };
-	sceGumLookAt(&sce_eye, &sce_target, &sce_up);
+    sceGumLoadMatrix((void*)matrix);
 #endif
 }
 
@@ -162,6 +157,15 @@ HMM_Mat4 pe_matrix_perspective(float fovy, float aspect_ratio, float near_z, flo
 	return pe_perspective_win32(fovy, aspect_ratio, near_z, far_z);
 #else
 	return HMM_Perspective_RH_NO(fovy * HMM_DegToRad, aspect_ratio, near_z, far_z);
+#endif
+}
+
+HMM_Mat4 pe_matrix_orthographic(float left, float right, float bottom, float top, float near_z, float far_z) {
+#if defined(_WIN32)
+    PE_UNIMPLEMENTED();
+    return HMM_M4D(1.0f);
+#else
+    return HMM_Orthographic_RH_NO(left, right, bottom, top, near_z, far_z);
 #endif
 }
 
@@ -232,9 +236,19 @@ void pe_texture_bind_default(void) {
 #endif
 }
 
+void pe_texture_disable(void) {
+#if defined(__linux__)
+    glBindTexture(GL_TEXTURE_2D, 0);
+#else
+    PE_UNIMPLEMENTED();
+#endif
+}
+
 void pe_camera_update(peCamera camera) {
-    pe_graphics_projection_perspective(camera.fovy, (float)pe_screen_width()/(float)pe_screen_height(), 1.0f, 1000.0f);
-    pe_graphics_view_lookat(camera.position, camera.target, camera.up);
+    HMM_Mat4 matrix_perspective = pe_matrix_perspective(camera.fovy, (float)pe_screen_width()/(float)pe_screen_height(), 1.0f, 1000.0f);
+    pe_graphics_matrix_projection(&matrix_perspective);
+    HMM_Mat4 matrix_lookat = HMM_LookAt_RH(camera.position, camera.target, camera.up);
+    pe_graphics_matrix_view(&matrix_lookat);
 }
 
 peRay pe_get_mouse_ray(HMM_Vec2 mouse, peCamera camera) {

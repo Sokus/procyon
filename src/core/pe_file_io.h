@@ -15,9 +15,10 @@
 typedef struct peFileHandle {
 #if defined(__PSP__)
     SceUID fd_psp;
-#endif
-#if defined(_WIN32)
+#elif defined(_WIN32)
     HANDLE handle_win32;
+#else
+    int dummy;
 #endif
 } peFileHandle;
 

@@ -196,7 +196,7 @@ static void pe_graphics_dynamic_draw_set_transform(int gu_transform) {
 	dynamic_draw_buffer_batch_transform = gu_transform;
 }
 
-void pe_graphics_draw_point(HMM_Vec3 position, peColor color) {
+void pe_graphics_draw_point_3D(HMM_Vec3 position, peColor color) {
 	struct peVertexCP {
 		uint32_t color;
 		float x, y, z;
@@ -212,7 +212,7 @@ void pe_graphics_draw_point(HMM_Vec3 position, peColor color) {
 	sceGumDrawArray(GU_POINTS, GU_COLOR_8888|GU_VERTEX_32BITF|GU_TRANSFORM_3D, vertex_count, NULL, vertex);
 }
 
-void pe_graphics_draw_line(HMM_Vec3 start_position, HMM_Vec3 end_position, peColor color) {
+void pe_graphics_draw_line_3D(HMM_Vec3 start_position, HMM_Vec3 end_position, peColor color) {
 	struct peVertexCP {
 		uint32_t color;
 		float x, y, z;

@@ -1,4 +1,5 @@
 #include "pe_net.h"
+#include "utility/pe_trace.h"
 #include "core/pe_core.h"
 
 #include <stdbool.h>
@@ -90,6 +91,8 @@ bool pe_net_init(void) {
 // to an Access Point on PSP in case the connection was lost
 void pe_net_update(void) {
 #if defined(PSP)
+    PE_TRACE_FUNCTION_BEGIN();
+
 	u64 apclt_get_state_cooldown_ms = 100;
 	u64 apctl_connect_cooldown_ms = 5000;
 
@@ -115,6 +118,8 @@ void pe_net_update(void) {
 			sceRtcTickAddMicroseconds(&next_apctl_connect_tick, &current_tick, 1000ULL*apctl_connect_cooldown_ms);
 		}
 	}
+	
+	PE_TRACE_FUNCTION_END();
 #endif
 }
 

@@ -7,7 +7,9 @@
 void pe_assert_handler(char *prefix, char *condition, char *file, int line, char *msg, ...) {
     char buf[512] = {0};
     int buf_off = 0;
-    buf_off += snprintf(&buf[buf_off], PE_COUNT_OF(buf)-buf_off-1, "%s(%d): %s: ", file, line, prefix);
+    buf_off += snprintf(&buf[buf_off], PE_COUNT_OF(buf)-buf_off-1, "%s(%d): %s", file, line, prefix);
+    if (condition || msg)
+        buf_off += snprintf(&buf[buf_off], PE_COUNT_OF(buf)-buf_off-1, ": ");
 	if (condition)
         buf_off += snprintf(&buf[buf_off], PE_COUNT_OF(buf)-buf_off-1, "`%s` ", condition);
 	if (msg) {

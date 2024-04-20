@@ -17,10 +17,10 @@ build
 psp_build
 linux_build
 
-glfw
-glad-gl-4.2-core
-HandmadeMath
-psp-stb
+ext/glfw
+ext/glad-gl-4.2-core
+ext/HandmadeMath
+ext/psp-stb
 
 [[build commands]]
 build_working_dir:                 ${project_dir}

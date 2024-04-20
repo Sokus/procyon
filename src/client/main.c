@@ -54,6 +54,7 @@ bool pe_client_should_quit(void) {
 }
 
 void pe_client_process_message(peMessage message) {
+    PE_TRACE_FUNCTION_BEGIN();
     switch (message.type) {
         case peMessageType_ConnectionDenied: {
             fprintf(stdout, "connection request denied (reason = %d)\n", message.connection_denied->reason);
@@ -85,6 +86,7 @@ void pe_client_process_message(peMessage message) {
         default:
             break;
     }
+    PE_TRACE_FUNCTION_END();
 }
 
 void pe_receive_packets(peArena *temp_arena, peSocket socket) {
@@ -242,9 +244,13 @@ int main(int argc, char* argv[]) {
         entity->client_index = 0;
         entity->mesh = peEntityMesh_Cube;
     }
-
+    
+    // TODO: Fix Your Timestep!
     float dt = 1.0f/60.0f;
+    
     while(!pe_client_should_quit()) {
+        uint64_t loop_start = pe_time_now();
+        
         pe_window_poll_events();
         pe_input_update();
 
@@ -252,8 +258,11 @@ int main(int argc, char* argv[]) {
             pe_net_update();
             pe_receive_packets(&temp_arena, client.socket);
         } else {
-            if (pe_input_key_pressed(peKeyboardKey_O)) {
                 client.server_address = pe_address4(127, 0, 0, 1, SERVER_PORT);
+            if (
+                pe_input_key_pressed(peKeyboardKey_O)
+                || pe_input_gamepad_pressed(peGamepadButton_ActionUp)
+            ) {
                 multiplayer = true;
             }
         }
@@ -271,8 +280,6 @@ int main(int argc, char* argv[]) {
         };
         PE_TRACE_MARK_END(entity_logic_tm);
 
-        pe_camera_update(client.camera);
-
         peInput input = pe_get_input(client.camera);
         if (multiplayer) {
             pe_send_packets(&temp_arena, input);
@@ -284,18 +291,41 @@ int main(int argc, char* argv[]) {
         pe_graphics_frame_begin();
         pe_clear_background((peColor){ 20, 20, 20, 255 });
 
-        pe_graphics_draw_line(HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(1.0f, 0.0f, 0.0f), PE_COLOR_RED);
-        pe_graphics_draw_line(HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 1.0f, 0.0f), PE_COLOR_GREEN);
-        pe_graphics_draw_line(HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 0.0f, 1.0f), PE_COLOR_BLUE);
-
-        for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
-            peEntity *entity = &entities[e];
-            if (!entity->active) continue;
-
-            pe_model_draw(&client.model, &temp_arena, entity->position, HMM_V3(0.0f, entity->angle, 0.0f));
+        pe_graphics_draw_rectangle(5.0f, 5.0f, 100.0f, 100.0f, PE_COLOR_WHITE);
+   
+        pe_graphics_draw_point_int(3, 2, PE_COLOR_BLUE);
+    
+        for (int i = 0; i < 160; i += 1) {
+            float position_x = 5.0f * (float)i;
+            pe_graphics_draw_line(HMM_V2(position_x, 0.0f), HMM_V2(position_x+4.0f, 4.0f), PE_COLOR_RED);
         }
+        
+        pe_graphics_draw_texture(&client.model.material[0].diffuse_map, 100.0f, 100.0f, PE_COLOR_WHITE);
 
-        pe_graphics_frame_end(true);
+        pe_graphics_mode_3d_begin(client.camera);
+        {
+            pe_graphics_draw_line_3D(HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.25f, 0.0f, 0.0f), PE_COLOR_RED);
+            pe_graphics_draw_line_3D(HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 0.25f, 0.0f), PE_COLOR_GREEN);
+            pe_graphics_draw_line_3D(HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 0.0f, 0.25f), PE_COLOR_BLUE);
+            
+            for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
+                peEntity *entity = &entities[e];
+                if (!entity->active) continue;
+
+                pe_graphics_update_matrix();    
+                pe_model_draw(&client.model, &temp_arena, entity->position, HMM_V3(0.0f, entity->angle, 0.0f));
+            }
+        }
+        pe_graphics_mode_3d_end();
+        
+        bool vsync = true;
+        pe_graphics_frame_end(vsync);
+        uint64_t loop_time = pe_time_since(loop_start);
+        double loop_time_sec = pe_time_sec(loop_time);
+        if (vsync && loop_time_sec < dt) {
+            unsigned long sleep_time = (unsigned long)((dt - loop_time_sec) * 1000.0f);
+            pe_time_sleep(sleep_time);
+        }
 
         pe_arena_clear(&temp_arena);
     }

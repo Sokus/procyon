@@ -2,15 +2,19 @@
 uniform mat4 matrix_projection;
 uniform mat4 matrix_view;
 uniform mat4 matrix_model;
+
+uniform bool do_lighting;
 uniform vec3 light_vector;
+
 uniform bool has_skeleton;
 uniform mat4 matrix_bone[256];
 
 layout (location = 0) in vec3 in_position;
 layout (location = 1) in vec3 in_normal;
 layout (location = 2) in vec2 in_tex_coord;
-layout (location = 3) in uvec4 in_bone_index;
-layout (location = 4) in vec4 in_bone_weight;
+layout (location = 3) in vec4 in_color;
+layout (location = 4) in uvec4 in_bone_index;
+layout (location = 5) in vec4 in_bone_weight;
 
 out vec3 frag_color;
 out vec2 tex_coord;
@@ -37,9 +41,12 @@ void main() {
 
     vec3 model_space_normal = mat3(matrix_model) * skinned_normal;
 
-    float light = clamp(dot(normalize(-light_vector), model_space_normal), 0.0, 1.0) * 0.8 + 0.2;
-
-    frag_color = vec3(light, light, light);
+    float light_strength = 1.0;
+    if (do_lighting) {
+        light_strength = clamp(dot(normalize(-light_vector), model_space_normal), 0.0, 1.0) * 0.8 + 0.2;
+    }
+    
+    frag_color = vec3(in_color) * vec3(light_strength);
     tex_coord = in_tex_coord;
 
     gl_Position = matrix_projection * matrix_view * matrix_model * skinned_position;
