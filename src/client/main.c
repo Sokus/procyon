@@ -312,7 +312,6 @@ int main(int argc, char* argv[]) {
                 peEntity *entity = &entities[e];
                 if (!entity->active) continue;
 
-                pe_graphics_update_matrix();    
                 pe_model_draw(&client.model, &temp_arena, entity->position, HMM_V3(0.0f, entity->angle, 0.0f));
             }
         }

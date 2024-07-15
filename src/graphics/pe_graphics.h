@@ -14,8 +14,6 @@ void pe_graphics_init(struct peArena *temp_arena, int window_width, int window_h
 void pe_graphics_shutdown(void);
 void pe_graphics_frame_begin(void);
 void pe_graphics_frame_end(bool vsync);
-void pe_graphics_matrix_projection(HMM_Mat4 *matrix);
-void pe_graphics_matrix_view(HMM_Mat4 *matrix);
 
 struct peCamera;
 void pe_graphics_mode_3d_begin(struct peCamera camera);
@@ -26,6 +24,24 @@ int pe_screen_height(void);
 
 union peColor;
 void pe_clear_background(union peColor color);
+
+// MATRICES
+
+typedef enum peMatrixMode {
+    peMatrixMode_Projection,
+    peMatrixMode_View,
+    peMatrixMode_Model,
+    peMatrixMode_Count
+} peMatrixMode;
+
+void pe_graphics_matrix_mode(peMatrixMode mode);
+void pe_graphics_matrix_set(HMM_Mat4 *matrix);
+void pe_graphics_matrix_identity(void);
+void pe_graphics_matrix_update(void);
+
+// TODO: remove in favor of matrix modes
+void pe_graphics_matrix_projection(HMM_Mat4 *matrix);
+void pe_graphics_matrix_view(HMM_Mat4 *matrix);
 
 HMM_Mat4 pe_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z);
 HMM_Mat4 pe_matrix_orthographic(float left, float right, float bottom, float top, float near_z, float far_z);
@@ -41,9 +57,6 @@ void pe_graphics_draw_texture(struct peTexture *texture, float x, float y, union
 
 void pe_graphics_draw_point_3D(HMM_Vec3 position, union peColor color);
 void pe_graphics_draw_line_3D(HMM_Vec3 start_position, HMM_Vec3 end_position, union peColor color);
-
-
-void pe_graphics_update_matrix(void);
 
 // COLOR
 

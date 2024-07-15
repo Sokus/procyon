@@ -27,7 +27,6 @@ void pe_shader_get_bool(GLuint shader_program, const GLchar *name, bool *value);
 void pe_shader_set_bool(GLuint shader_program, const GLchar *name, bool value);
 struct peTexture;
 struct peTexture pe_texture_create_linux(void *data, int width, int height, int channels);
-void pe_dynamic_draw_init(void);
 void pe_graphics_dynamic_draw_flush(void);
 void pe_graphics_dynamic_draw_end_batch(void);
 
