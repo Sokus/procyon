@@ -22,6 +22,14 @@ add_library(core STATIC
     src/core/pe_random.c
 )
 
+# MATH LIBRARY:
+
+add_library(math INTERFACE)
+target_link_libraries(math INTERFACE handmade-math)
+if(PSP)
+    target_link_libraries(math INTERFACE pspgum_vfpu pspvfpu)
+endif()
+
 # PLATFORM LIBRARY
 
 add_library(platform STATIC
