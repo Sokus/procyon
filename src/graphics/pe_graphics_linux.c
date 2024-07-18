@@ -3,6 +3,7 @@
 
 #include "core/pe_core.h"
 #include "core/pe_file_io.h"
+#include "math/p_math.h"
 #include "platform/pe_window.h"
 
 #include "glad/glad.h"
@@ -27,7 +28,7 @@ struct peGraphics {
     peGraphicsMode mode;
     peMatrixMode matrix_mode;
     
-    HMM_Mat4 matrix[peGraphicsMode_Count][peMatrixMode_Count];
+    pMat4 matrix[peGraphicsMode_Count][peMatrixMode_Count];
     bool matrix_dirty[peGraphicsMode_Count][peMatrixMode_Count];
     bool matrix_model_is_identity[peGraphicsMode_Count];
 } graphics = {0};
@@ -152,7 +153,7 @@ void pe_framebuffer_size_callback_linux(int width, int height) {
     
     PE_ASSERT(graphics.mode == peGraphicsMode_2D);
     graphics.matrix_mode = peMatrixMode_Projection;
-    HMM_Mat4 matrix_orthographic = pe_matrix_orthographic(
+    pMat4 matrix_orthographic = pe_matrix_orthographic(
         0, (float)width,
         (float)height, 0,
         0.0f, 1000.0f
@@ -196,7 +197,7 @@ void pe_graphics_init_linux(peArena *temp_arena, int window_width, int window_he
         pe_shader_set_bool(pe_opengl.shader_program, "do_lighting", true);
         // I don't expect the light vector to be relevant
         // anytime soon so lets just set it here
-        pe_shader_set_vec3(pe_opengl.shader_program, "light_vector", HMM_V3(0.5f, -1.0f, 0.5f));
+        pe_shader_set_vec3(pe_opengl.shader_program, "light_vector", p_vec3(0.5f, -1.0f, 0.5f));
     }
 
     {
@@ -205,7 +206,7 @@ void pe_graphics_init_linux(peArena *temp_arena, int window_width, int window_he
         
         for (int gm = 0; gm < peGraphicsMode_Count; gm += 1) {            
             for (int mm = 0; mm < peMatrixMode_Count; mm += 1) {
-                graphics.matrix[gm][mm] = HMM_M4D(1.0f);    
+                graphics.matrix[gm][mm] = p_mat4_i();    
                 graphics.matrix_dirty[gm][mm] = true;
             }
             graphics.matrix_model_is_identity[gm] = true;
@@ -233,11 +234,11 @@ void pe_graphics_mode_3d_begin(peCamera camera) {
     
     pe_graphics_matrix_mode(peMatrixMode_Projection);
     float aspect_ratio = (float)pe_screen_width()/(float)pe_screen_height();
-    HMM_Mat4 matrix_perspective = pe_matrix_perspective(camera.fovy, aspect_ratio, 1.0f, 1000.0f);
+    pMat4 matrix_perspective = pe_matrix_perspective(camera.fovy, aspect_ratio, 1.0f, 1000.0f);
     pe_graphics_matrix_set(&matrix_perspective);
     
     pe_graphics_matrix_mode(peMatrixMode_View);
-    HMM_Mat4 matrix_view = HMM_LookAt_RH(camera.position, camera.target, camera.up);
+    pMat4 matrix_view = p_look_at_rh(camera.position, camera.target, camera.up);
     pe_graphics_matrix_set(&matrix_view);
     
     pe_graphics_matrix_mode(peMatrixMode_Model);
@@ -254,7 +255,6 @@ void pe_graphics_mode_3d_end(void) {
     PE_ASSERT(graphics.mode == peGraphicsMode_3D);
     graphics.mode = peGraphicsMode_2D;
     
-    HMM_Mat4 matrix_identity = HMM_M4D(1.0f);
     pe_graphics_matrix_mode(peMatrixMode_View);
     pe_graphics_matrix_identity();
     pe_graphics_matrix_mode(peMatrixMode_Model);
@@ -272,8 +272,8 @@ void pe_graphics_matrix_mode(peMatrixMode mode) {
     graphics.matrix_mode = mode;
 }
 
-void pe_graphics_matrix_set(HMM_Mat4 *matrix) {
-    memcpy(&graphics.matrix[graphics.mode][graphics.matrix_mode], matrix, sizeof(HMM_Mat4));
+void pe_graphics_matrix_set(pMat4 *matrix) {
+    memcpy(&graphics.matrix[graphics.mode][graphics.matrix_mode], matrix, sizeof(pMat4));
     graphics.matrix_dirty[graphics.mode][graphics.matrix_mode] = true;
     if (graphics.matrix_mode == peMatrixMode_Model) {
         graphics.matrix_model_is_identity[graphics.mode] = false;
@@ -281,7 +281,7 @@ void pe_graphics_matrix_set(HMM_Mat4 *matrix) {
 }
 
 void pe_graphics_matrix_identity(void) {
-    graphics.matrix[graphics.mode][graphics.matrix_mode] = HMM_M4D(1.0f);
+    graphics.matrix[graphics.mode][graphics.matrix_mode] = p_mat4_i();
     graphics.matrix_dirty[graphics.mode][graphics.matrix_mode] = true;
     if (graphics.matrix_mode == peMatrixMode_Model) {
         graphics.matrix_model_is_identity[graphics.mode] = true;    
@@ -296,29 +296,29 @@ void pe_graphics_matrix_update(void) {
     };
     for (int matrix_mode = 0; matrix_mode < peMatrixMode_Count; matrix_mode += 1) {
         if (graphics.matrix_dirty[graphics.mode][matrix_mode]) {
-            HMM_Mat4 *matrix = &graphics.matrix[graphics.mode][matrix_mode];  
+            pMat4 *matrix = &graphics.matrix[graphics.mode][matrix_mode];  
             pe_shader_set_mat4(pe_opengl.shader_program, uniform_names[matrix_mode], matrix);
             graphics.matrix_dirty[graphics.mode][matrix_mode] = false;
         }
     }
 }
 
-void pe_shader_set_vec3(GLuint shader_program, const GLchar *name, HMM_Vec3 value) {
+void pe_shader_set_vec3(GLuint shader_program, const GLchar *name, pVec3 value) {
     GLint uniform_location = glGetUniformLocation(shader_program, name);
-    glUniform3fv(uniform_location, 1, value.Elements);
+    glUniform3fv(uniform_location, 1, value.elements);
 }
 
-void pe_shader_get_mat4(GLuint shader_program, const GLchar *name, HMM_Mat4 *value) {
+void pe_shader_get_mat4(GLuint shader_program, const GLchar *name, pMat4 *value) {
     GLint uniform_location = glGetUniformLocation(shader_program, name);
     glGetUniformfv(shader_program, uniform_location, (void*)value);
 }
 
-void pe_shader_set_mat4(GLuint shader_program, const GLchar *name, HMM_Mat4 *value) {
+void pe_shader_set_mat4(GLuint shader_program, const GLchar *name, pMat4 *value) {
     GLint uniform_location = glGetUniformLocation(shader_program, name);
     glUniformMatrix4fv(uniform_location, 1, GL_FALSE, (void*)value);
 }
 
-void pe_shader_set_mat4_array(GLuint shader_program, const GLchar *name, HMM_Mat4 *values, GLsizei count) {
+void pe_shader_set_mat4_array(GLuint shader_program, const GLchar *name, pMat4 *values, GLsizei count) {
     GLint uniform_location = glGetUniformLocation(shader_program, name);
     glUniformMatrix4fv(uniform_location, count, GL_FALSE, (void*)values);
 }
@@ -362,9 +362,9 @@ peTexture pe_texture_create_linux(void *data, int width, int height, int channel
 }
 
 typedef struct peDynamicDrawVertex {
-    HMM_Vec3 position;
-    HMM_Vec3 normal;
-    HMM_Vec2 texcoord;
+    pVec3 position;
+    pVec3 normal;
+    pVec2 texcoord;
     uint32_t color;
 } peDynamicDrawVertex;
 
@@ -381,8 +381,8 @@ typedef struct peDynamicDrawBatch {
 struct peDynamicDrawState {
     GLenum primitive;
     peTexture *texture;
-    HMM_Vec3 normal;
-    HMM_Vec2 texcoord;
+    pVec3 normal;
+    pVec2 texcoord;
     peColor color;
 
     peDynamicDrawVertex vertex[PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT];
@@ -422,7 +422,7 @@ void pe_graphics_dynamic_draw_flush(void) {
     pe_graphics_dynamic_draw_end_batch();
     if (dynamic_draw.vertex_used > 0) {
         peMatrixMode old_matrix_mode = graphics.matrix_mode;
-        HMM_Mat4 old_matrix_model = graphics.matrix[graphics.mode][peMatrixMode_Model];
+        pMat4 old_matrix_model = graphics.matrix[graphics.mode][peMatrixMode_Model];
         bool old_matrix_model_is_identity = graphics.matrix_model_is_identity[graphics.mode];
         bool old_do_lighting;
         pe_shader_get_bool(pe_opengl.shader_program, "do_lighting", &old_do_lighting);
@@ -486,11 +486,11 @@ static void pe_graphics_dynamic_draw_set_texture(peTexture *texture) {
     }
 }
 
-static void pe_graphics_dynamic_draw_set_normal(HMM_Vec3 normal) {
+static void pe_graphics_dynamic_draw_set_normal(pVec3 normal) {
     dynamic_draw.normal = normal;
 }
 
-static void pe_graphics_dynamic_draw_set_texcoord(HMM_Vec2 texcoord) {
+static void pe_graphics_dynamic_draw_set_texcoord(pVec2 texcoord) {
     dynamic_draw.texcoord = texcoord;
 }
 
@@ -508,8 +508,8 @@ static void pe_graphics_dynamic_draw_set_primitive(GLenum primitive) {
 static void pe_graphics_dynamic_draw_begin_primitive_textured(GLenum primitive, peTexture *texture) {
     pe_graphics_dynamic_draw_set_primitive(primitive);
     pe_graphics_dynamic_draw_set_texture(texture);
-    pe_graphics_dynamic_draw_set_normal(HMM_V3(0.0f, 0.0f, 0.0f));
-    pe_graphics_dynamic_draw_set_texcoord(HMM_V2(0.0f, 0.0f));
+    pe_graphics_dynamic_draw_set_normal((pVec3){ 0.0f });
+    pe_graphics_dynamic_draw_set_texcoord((pVec2){ 0.0f });
     pe_graphics_dynamic_draw_set_color(PE_COLOR_WHITE);
 }
 
@@ -539,12 +539,12 @@ static bool pe_graphics_dynamic_draw_vertex_reserve(int count) {
     return flushed;
 }
 
-static void pe_graphics_dynamic_draw_push_vec3(HMM_Vec3 position) {
+static void pe_graphics_dynamic_draw_push_vec3(pVec3 position) {
     if (!graphics.matrix_model_is_identity[graphics.mode]) {
-        HMM_Mat4 *matrix = &graphics.matrix[graphics.mode][peMatrixMode_Model]; 
-        HMM_Vec4 position_vec4 = HMM_V4V(position, 1.0f);
-        HMM_Vec4 transformed_position = HMM_MulM4V4(*matrix, position_vec4);
-        position = transformed_position.XYZ;
+        pMat4 *matrix = &graphics.matrix[graphics.mode][peMatrixMode_Model]; 
+        pVec4 position_vec4 = p_vec4v(position, 1.0f);
+        pVec4 transformed_position = p_mat4_mul_vec4(*matrix, position_vec4);
+        position = transformed_position.xyz;
     }
     GLenum batch_primitive = dynamic_draw.batch[dynamic_draw.batch_current].primitive;
     int batch_vertex_count = dynamic_draw.batch[dynamic_draw.batch_current].vertex_count;
@@ -560,23 +560,23 @@ static void pe_graphics_dynamic_draw_push_vec3(HMM_Vec3 position) {
     dynamic_draw.vertex_used += 1;
 }
 
-static void pe_graphics_dynamic_draw_push_vec2(HMM_Vec2 position) {
-    HMM_Vec3 vec3 = HMM_V3(position.X, position.Y, 0.0f);
+static void pe_graphics_dynamic_draw_push_vec2(pVec2 position) {
+    pVec3 vec3 = p_vec3(position.x, position.y, 0.0f);
     pe_graphics_dynamic_draw_push_vec3(vec3);
 }
 
-void pe_graphics_draw_point(HMM_Vec2 position, peColor color) {
+void pe_graphics_draw_point(pVec2 position, peColor color) {
     pe_graphics_dynamic_draw_begin_primitive(GL_POINTS);
     pe_graphics_dynamic_draw_set_color(color);
     pe_graphics_dynamic_draw_push_vec2(position);
 }
 
 void pe_graphics_draw_point_int(int pos_x, int pos_y, peColor color) {
-    HMM_Vec2 position = HMM_V2((float)pos_x, (float)pos_y);
+    pVec2 position = p_vec2((float)pos_x, (float)pos_y);
     pe_graphics_draw_point(position, color);    
 }
 
-void pe_graphics_draw_line(HMM_Vec2 start_position, HMM_Vec2 end_position, peColor color) {
+void pe_graphics_draw_line(pVec2 start_position, pVec2 end_position, peColor color) {
     pe_graphics_dynamic_draw_begin_primitive(GL_LINES);
     pe_graphics_dynamic_draw_set_color(color);
     pe_graphics_dynamic_draw_push_vec2(start_position);
@@ -587,11 +587,11 @@ void pe_graphics_draw_rectangle(float x, float y, float width, float height, peC
     pe_graphics_dynamic_draw_begin_primitive(GL_TRIANGLES);
     pe_graphics_dynamic_draw_set_color(color);
 
-    HMM_Vec2 positions[4] = {
-        HMM_V2(x, y), // top left
-        HMM_V2(x + width, y), // top right
-        HMM_V2(x, y + height), // bottom left
-        HMM_V2(x + width, y + height) // bottom_right
+    pVec2 positions[4] = {
+        p_vec2(x, y), // top left
+        p_vec2(x + width, y), // top right
+        p_vec2(x, y + height), // bottom left
+        p_vec2(x + width, y + height) // bottom_right
     };
     int indices[6] = { 0, 2, 3, 0, 3, 1 };
 
@@ -605,17 +605,17 @@ void pe_graphics_draw_texture(peTexture *texture, float x, float y, peColor tint
     pe_graphics_dynamic_draw_begin_primitive_textured(GL_TRIANGLES, texture);    
     pe_graphics_dynamic_draw_set_color(tint);
 
-    HMM_Vec2 positions[4] = {
-        HMM_V2(x, y), // top left
-        HMM_V2(x + texture->width, y), // top right
-        HMM_V2(x, y + texture->height), // bottom left
-        HMM_V2(x + texture->width, y + texture->height) // bottom_right
+    pVec2 positions[4] = {
+        p_vec2(x, y), // top left
+        p_vec2(x + texture->width, y), // top right
+        p_vec2(x, y + texture->height), // bottom left
+        p_vec2(x + texture->width, y + texture->height) // bottom_right
     };
-    HMM_Vec2 texcoords[4] = {
-        HMM_V2(0.0f, 0.0f), // top left
-        HMM_V2(1.0f, 0.0f), // top right
-        HMM_V2(0.0f, 1.0f), // bottom left
-        HMM_V2(1.0f, 1.0f), // bottom right
+    pVec2 texcoords[4] = {
+        p_vec2(0.0f, 0.0f), // top left
+        p_vec2(1.0f, 0.0f), // top right
+        p_vec2(0.0f, 1.0f), // bottom left
+        p_vec2(1.0f, 1.0f), // bottom right
     };
     int indices[6] = { 0, 2, 3, 0, 3, 1 };
     
@@ -625,13 +625,13 @@ void pe_graphics_draw_texture(peTexture *texture, float x, float y, peColor tint
     }
 }
 
-void pe_graphics_draw_point_3D(HMM_Vec3 position, peColor color) {
+void pe_graphics_draw_point_3D(pVec3 position, peColor color) {
     pe_graphics_dynamic_draw_begin_primitive(GL_POINTS);
     pe_graphics_dynamic_draw_set_color(color);
     pe_graphics_dynamic_draw_push_vec3(position);
 }
 
-void pe_graphics_draw_line_3D(HMM_Vec3 start_position, HMM_Vec3 end_position, peColor color) {
+void pe_graphics_draw_line_3D(pVec3 start_position, pVec3 end_position, peColor color) {
     pe_graphics_dynamic_draw_begin_primitive(GL_LINES);
     pe_graphics_dynamic_draw_set_color(color);
     pe_graphics_dynamic_draw_push_vec3(start_position);

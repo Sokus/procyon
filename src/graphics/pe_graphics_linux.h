@@ -17,12 +17,12 @@ void pe_framebuffer_size_callback_linux(int width, int height);
 struct peArena;
 void pe_graphics_init_linux(struct peArena *temp_arena, int window_width, int window_height);
 
-union HMM_Vec3;
-union HMM_Mat4;
-void pe_shader_set_vec3(GLuint shader_program, const GLchar *name, union HMM_Vec3 value);
-void pe_shader_get_mat4(GLuint shader_program, const GLchar *name, union HMM_Mat4 *value);
-void pe_shader_set_mat4(GLuint shader_program, const GLchar *name, union HMM_Mat4 *value);
-void pe_shader_set_mat4_array(GLuint shader_program, const GLchar *name, union HMM_Mat4 *values, GLsizei count);
+union pVec3;
+union pMat4;
+void pe_shader_set_vec3(GLuint shader_program, const GLchar *name, union pVec3 value);
+void pe_shader_get_mat4(GLuint shader_program, const GLchar *name, union pMat4 *value);
+void pe_shader_set_mat4(GLuint shader_program, const GLchar *name, union pMat4 *value);
+void pe_shader_set_mat4_array(GLuint shader_program, const GLchar *name, union pMat4 *values, GLsizei count);
 void pe_shader_get_bool(GLuint shader_program, const GLchar *name, bool *value);
 void pe_shader_set_bool(GLuint shader_program, const GLchar *name, bool value);
 struct peTexture;

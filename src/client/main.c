@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "core/pe_core.h"
+#include "math/p_math.h"
 #include "graphics/pe_math.h"
 #include "platform/pe_time.h"
 #include "platform/pe_net.h"
@@ -32,7 +33,7 @@ typedef enum peClientNetworkState {
 
 struct peClientState {
     peCamera camera;
-    HMM_Vec3 camera_offset;
+    pVec3 camera_offset;
     peModel model;
 
     peSocket socket;
@@ -159,18 +160,18 @@ void pe_send_packets(peArena *temp_arena, peInput input) {
 }
 
 peInput pe_get_input(peCamera camera) {
-    HMM_Vec2 gamepad_input = {
-        .X = pe_input_gamepad_axis(peGamepadAxis_LeftX),
-        .Y = pe_input_gamepad_axis(peGamepadAxis_LeftY)
+    pVec2 gamepad_input = {
+        .x = pe_input_gamepad_axis(peGamepadAxis_LeftX),
+        .y = pe_input_gamepad_axis(peGamepadAxis_LeftY)
     };
 
     bool right_is_down = pe_input_key_is_down(peKeyboardKey_Right);
     bool left_is_down = pe_input_key_is_down(peKeyboardKey_Left);
     bool down_is_down = pe_input_key_is_down(peKeyboardKey_Down);
     bool up_is_down = pe_input_key_is_down(peKeyboardKey_Up);
-    HMM_Vec2 keyboard_input = {
-        .X = (float)right_is_down - (float)left_is_down,
-        .Y = (float)down_is_down - (float)up_is_down
+    pVec2 keyboard_input = {
+        .x = (float)right_is_down - (float)left_is_down,
+        .y = (float)down_is_down - (float)up_is_down
     };
 
     static float look_angle = 0.0f;
@@ -178,20 +179,20 @@ peInput pe_get_input(peCamera camera) {
 #if defined(_WIN32) || defined(__linux__)
         float pos_x, pos_y;
         pe_input_mouse_positon(&pos_x, &pos_y);
-        peRay ray = pe_get_mouse_ray(HMM_V2(pos_x, pos_y), client.camera);
+        peRay ray = pe_get_mouse_ray(p_vec2(pos_x, pos_y), client.camera);
 
-        HMM_Vec3 collision_point;
-        if (pe_collision_ray_plane(ray, (HMM_Vec3){.Y = 1.0f}, 0.0f, &collision_point)) {
-            HMM_Vec3 relative_collision_point = HMM_SubV3(client.camera.target, collision_point);
-            look_angle = atan2f(relative_collision_point.X, relative_collision_point.Z);
+        pVec3 collision_point;
+        if (pe_collision_ray_plane(ray, (pVec3){.y = 1.0f}, 0.0f, &collision_point)) {
+            pVec3 relative_collision_point = p_vec3_sub(client.camera.target, collision_point);
+            look_angle = atan2f(relative_collision_point.x, relative_collision_point.z);
         }
 #endif
     }
 
     peInput result = {
-        .movement = HMM_V2(
-            PE_CLAMP(gamepad_input.X + keyboard_input.X, -1.0f, 1.0f),
-            PE_CLAMP(gamepad_input.Y + keyboard_input.Y, -1.0f, 1.0f)
+        .movement = p_vec2(
+            PE_CLAMP(gamepad_input.x + keyboard_input.x, -1.0f, 1.0f),
+            PE_CLAMP(gamepad_input.y + keyboard_input.y, -1.0f, 1.0f)
         ),
         .angle = look_angle
     };
@@ -231,8 +232,8 @@ int main(int argc, char* argv[]) {
         .up = {0.0f, 1.0f, 0.0f},
         .fovy = 55.0f,
     };
-    client.camera_offset = HMM_V3(0.0f, 1.4f, 2.0f);
-    client.camera.position = HMM_AddV3(client.camera.target, client.camera_offset);
+    client.camera_offset = p_vec3(0.0f, 1.4f, 2.0f);
+    client.camera.position = p_vec3_add(client.camera.target, client.camera_offset);
 
     bool multiplayer = false;
     if (!multiplayer) {
@@ -274,8 +275,8 @@ int main(int argc, char* argv[]) {
             if (!entity->active) continue;
 
             if (pe_entity_property_get(entity, peEntityProperty_OwnedByPlayer) && entity->client_index == client.client_index) {
-                client.camera.target = HMM_AddV3(entity->position, HMM_V3(0.0f, 0.7f, 0.0f));
-                client.camera.position = HMM_AddV3(client.camera.target, client.camera_offset);
+                client.camera.target = p_vec3_add(entity->position, p_vec3(0.0f, 0.7f, 0.0f));
+                client.camera.position = p_vec3_add(client.camera.target, client.camera_offset);
             }
         };
         PE_TRACE_MARK_END(entity_logic_tm);
@@ -287,32 +288,37 @@ int main(int argc, char* argv[]) {
             client.client_input[0] = input;
             pe_update_entities(dt, client.client_input);
         }
+        
+        
+#if !defined(__linux__)
+        pe_camera_update(client.camera);
+#endif
 
         pe_graphics_frame_begin();
         pe_clear_background((peColor){ 20, 20, 20, 255 });
 
         pe_graphics_draw_rectangle(5.0f, 5.0f, 100.0f, 100.0f, PE_COLOR_WHITE);
    
-        pe_graphics_draw_point_int(3, 2, PE_COLOR_BLUE);
+        // pe_graphics_draw_point_int(3, 2, PE_COLOR_BLUE);
     
         for (int i = 0; i < 160; i += 1) {
             float position_x = 5.0f * (float)i;
-            pe_graphics_draw_line(HMM_V2(position_x, 0.0f), HMM_V2(position_x+4.0f, 4.0f), PE_COLOR_RED);
+            // pe_graphics_draw_line(p_vec2(position_x, 0.0f), p_vec2(position_x+4.0f, 4.0f), PE_COLOR_RED);
         }
         
-        pe_graphics_draw_texture(&client.model.material[0].diffuse_map, 100.0f, 100.0f, PE_COLOR_WHITE);
+        // pe_graphics_draw_texture(&client.model.material[0].diffuse_map, 100.0f, 100.0f, PE_COLOR_WHITE);
 
         pe_graphics_mode_3d_begin(client.camera);
         {
-            pe_graphics_draw_line_3D(HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.25f, 0.0f, 0.0f), PE_COLOR_RED);
-            pe_graphics_draw_line_3D(HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 0.25f, 0.0f), PE_COLOR_GREEN);
-            pe_graphics_draw_line_3D(HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 0.0f, 0.25f), PE_COLOR_BLUE);
+            pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.25f, 0.0f, 0.0f), PE_COLOR_RED);
+            pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.0f, 0.25f, 0.0f), PE_COLOR_GREEN);
+            pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.0f, 0.0f, 0.25f), PE_COLOR_BLUE);
             
             for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
                 peEntity *entity = &entities[e];
                 if (!entity->active) continue;
 
-                pe_model_draw(&client.model, &temp_arena, entity->position, HMM_V3(0.0f, entity->angle, 0.0f));
+                pe_model_draw(&client.model, &temp_arena, entity->position, p_vec3(0.0f, entity->angle, 0.0f));
             }
         }
         pe_graphics_mode_3d_end();

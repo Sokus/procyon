@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "math/p_math.h"
+
 #include "HandmadeMath.h"
 
 #define MAX_ENTITY_COUNT 32
@@ -27,8 +29,8 @@ typedef struct peEntity {
     bool marked_for_destruction;
     uint32_t properties;
 
-    HMM_Vec3 position;
-    HMM_Vec3 velocity;
+    pVec3 position;
+    pVec3 velocity;
     float angle;
 
     int client_index; // property: OwnedByPlayer
@@ -37,13 +39,13 @@ typedef struct peEntity {
 } peEntity;
 
 typedef struct peInput {
-    HMM_Vec2 movement;
+    pVec2 movement;
     float angle;
 } peInput;
 
 struct peBitStream;
-enum peSerializationError pe_serialize_vec2(struct peBitStream *bs, HMM_Vec2 *value);
-enum peSerializationError pe_serialize_vec3(struct peBitStream *bs, HMM_Vec3 *value);
+enum peSerializationError pe_serialize_vec2(struct peBitStream *bs, pVec2 *value);
+enum peSerializationError pe_serialize_vec3(struct peBitStream *bs, pVec3 *value);
 enum peSerializationError pe_serialize_input(struct peBitStream *bs, peInput *input);
 enum peSerializationError pe_serialize_entity(struct peBitStream *bs, peEntity *entity);
 void pe_allocate_entities(void);

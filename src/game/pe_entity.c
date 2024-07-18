@@ -12,18 +12,18 @@ static peEntity *entities = NULL;
 uint16_t *free_indices = NULL;
 int free_indices_count = 0;
 
-peSerializationError pe_serialize_vec2(peBitStream *bs, HMM_Vec2 *value) {
+peSerializationError pe_serialize_vec2(peBitStream *bs, pVec2 *value) {
     peSerializationError err = peSerializationError_None;
-    err = pe_serialize_float(bs, &value->X); if (err) return err;
-    err = pe_serialize_float(bs, &value->Y); if (err) return err;
+    err = pe_serialize_float(bs, &value->x); if (err) return err;
+    err = pe_serialize_float(bs, &value->y); if (err) return err;
     return err;
 }
 
-peSerializationError pe_serialize_vec3(peBitStream *bs, HMM_Vec3 *value) {
+peSerializationError pe_serialize_vec3(peBitStream *bs, pVec3 *value) {
     peSerializationError err = peSerializationError_None;
-    err = pe_serialize_float(bs, &value->X); if (err) return err;
-    err = pe_serialize_float(bs, &value->Y); if (err) return err;
-    err = pe_serialize_float(bs, &value->Z); if (err) return err;
+    err = pe_serialize_float(bs, &value->x); if (err) return err;
+    err = pe_serialize_float(bs, &value->y); if (err) return err;
+    err = pe_serialize_float(bs, &value->z); if (err) return err;
     return err;
 }
 
@@ -138,15 +138,15 @@ void pe_update_entities(float dt, peInput *inputs) {
             PE_ASSERT(entity->client_index >= 0 && entity->client_index < MAX_CLIENT_COUNT);
 
             peInput *input = &inputs[entity->client_index];
-            entity->velocity.X = input->movement.X * 2.0f;
-            entity->velocity.Z = input->movement.Y * 2.0f;
+            entity->velocity.x = input->movement.x * 2.0f;
+            entity->velocity.z = input->movement.y * 2.0f;
             entity->angle = input->angle;
         }
 
         // PHYSICS
-        if (entity->velocity.X != 0.0f || entity->velocity.Z != 0.0f) {
-            HMM_Vec3 position_delta = HMM_MulV3F(entity->velocity, dt);
-            entity->position = HMM_AddV3(entity->position, position_delta);
+        if (entity->velocity.x != 0.0f || entity->velocity.z != 0.0f) {
+            pVec3 position_delta = p_vec3_mul_f(entity->velocity, dt);
+            entity->position = p_vec3_add(entity->position, position_delta);
         }
     }
 }

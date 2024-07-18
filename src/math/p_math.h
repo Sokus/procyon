@@ -485,6 +485,29 @@ static inline pMat4 p_mat4_i(void) {
     return result;
 }
 
+static inline pMat4 p_mat4_transpose(pMat4 matrix)
+{
+    pMat4 result;
+#if defined(__PSP__)
+    result = matrix;
+    result.elements[0][1] = matrix.elements[1][0];
+    result.elements[0][2] = matrix.elements[2][0];
+    result.elements[0][3] = matrix.elements[3][0];
+    result.elements[1][0] = matrix.elements[0][1];
+    result.elements[1][2] = matrix.elements[2][1];
+    result.elements[1][3] = matrix.elements[3][1];
+    result.elements[2][1] = matrix.elements[1][2];
+    result.elements[2][0] = matrix.elements[0][2];
+    result.elements[2][3] = matrix.elements[3][2];
+    result.elements[3][1] = matrix.elements[1][3];
+    result.elements[3][2] = matrix.elements[2][3];
+    result.elements[3][0] = matrix.elements[0][3];
+#else
+    result._hmm = HMM_TransposeM4(matrix._hmm);
+#endif
+    return result;
+}
+
 static inline pMat4 p_mat4_mul(pMat4 left, pMat4 right) {
     pMat4 result;
 #if defined(__PSP__)
@@ -523,6 +546,28 @@ static inline pVec4 p_mat4_mul_vec4(pMat4 m, pVec4 v) {
     result._hmm = HMM_MulM4V4(m._hmm, v._hmm);
 #endif
     return result;
+}
+
+static inline pMat4 p_mat4_inv_general(pMat4 matrix) 
+{
+    pVec3 C01 = p_cross(matrix.columns[0].xyz, matrix.columns[1].xyz);
+    pVec3 C23 = p_cross(matrix.columns[2].xyz, matrix.columns[3].xyz);
+    pVec3 B10 = p_vec3_sub(p_vec3_mul_f(matrix.columns[0].xyz, matrix.columns[1].w), p_vec3_mul_f(matrix.columns[1].xyz, matrix.columns[0].w));
+    pVec3 B32 = p_vec3_sub(p_vec3_mul_f(matrix.columns[2].xyz, matrix.columns[3].w), p_vec3_mul_f(matrix.columns[3].xyz, matrix.columns[2].w));
+    
+    float InvDeterminant = 1.0f / (p_vec3_dot(C01, B32) + p_vec3_dot(C23, B10));
+    C01 = p_vec3_mul_f(C01, InvDeterminant);
+    C23 = p_vec3_mul_f(C23, InvDeterminant);
+    B10 = p_vec3_mul_f(B10, InvDeterminant);
+    B32 = p_vec3_mul_f(B32, InvDeterminant);
+
+    pMat4 result;
+    result.columns[0] = p_vec4v(p_vec3_add(p_cross(matrix.columns[1].xyz, B32), p_vec3_mul_f(C23, matrix.columns[1].w)), -p_vec3_dot(matrix.columns[1].xyz, C23));
+    result.columns[1] = p_vec4v(p_vec3_sub(p_cross(B32, matrix.columns[0].xyz), p_vec3_mul_f(C23, matrix.columns[0].w)), +p_vec3_dot(matrix.columns[0].xyz, C23));
+    result.columns[2] = p_vec4v(p_vec3_add(p_cross(matrix.columns[3].xyz, B10), p_vec3_mul_f(C01, matrix.columns[3].w)), -p_vec3_dot(matrix.columns[3].xyz, C01));
+    result.columns[3] = p_vec4v(p_vec3_sub(p_cross(B10, matrix.columns[2].xyz), p_vec3_mul_f(C01, matrix.columns[2].w)), +p_vec3_dot(matrix.columns[2].xyz, C01));
+        
+    return p_mat4_transpose(result);
 }
 
 // COMMON GRAPHICS TRANSFORMATIONS
@@ -596,9 +641,9 @@ static inline pMat4 p_rotate_xyz(pVec3 rotations) {
 #if defined(__PSP__)
     gumRotateXYZ(&result._sce, &rotations._sce);
 #else
-    pMat4 rotate_x = p_rotate_rh(rotations.x, p_vec3(1.0f, 0.0f, 0.0f);
-    pMat4 rotate_y = p_rotate_rh(rotations.y, p_vec3(0.0f, 1.0f, 0.0f);
-    pMat4 rotate_z = p_rotate_rh(rotations.z, p_vec3(0.0f, 0.0f, 1.0f);
+    pMat4 rotate_x = p_rotate_rh(rotations.x, p_vec3(1.0f, 0.0f, 0.0f));
+    pMat4 rotate_y = p_rotate_rh(rotations.y, p_vec3(0.0f, 1.0f, 0.0f));
+    pMat4 rotate_z = p_rotate_rh(rotations.z, p_vec3(0.0f, 0.0f, 1.0f));
     pMat4 rotate_yx = p_mat4_mul(rotate_y, rotate_x);
     result = p_mat4_mul(rotate_z, rotate_yx);
 #endif    

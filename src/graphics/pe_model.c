@@ -381,11 +381,11 @@ void pe_draw_pixel(float x, float y, peColor color) {
 
 peAnimationJoint pe_concatenate_animation_joints(peAnimationJoint parent, peAnimationJoint child) {
 	peAnimationJoint result;
-	result.scale = HMM_MulV3(child.scale, parent.scale);
-	result.rotation = HMM_MulQ(parent.rotation, child.rotation);
-	HMM_Mat4 parent_rotation_matrix = HMM_QToM4(parent.rotation);
-	HMM_Vec3 child_scaled_position = HMM_MulV3(child.translation, parent.scale);
-	result.translation = HMM_AddV3(HMM_MulM4V4(parent_rotation_matrix, HMM_V4V(child_scaled_position, 1.0f)).XYZ, parent.translation);
+	result.scale = p_vec3_mul(child.scale, parent.scale);
+	result.rotation = p_quat_mul(parent.rotation, child.rotation);
+	pMat4 parent_rotation_matrix = p_quat_to_mat4(parent.rotation);
+	pVec3 child_scaled_position = p_vec3_mul(child.translation, parent.scale);
+	result.translation = p_vec3_add(p_mat4_mul_vec4(parent_rotation_matrix, p_vec4v(child_scaled_position, 1.0f)).xyz, parent.translation);
 	return result;
 }
 
@@ -396,7 +396,7 @@ void pe_model_alloc(peModel *model, peArena *arena, p3dStaticInfo *p3d_static_in
     size_t vertex_offset_size = p3d_static_info->num_meshes * sizeof(int);
     size_t material_size = p3d_static_info->num_meshes * sizeof(peMaterial);
     size_t bone_parent_index_size = p3d_static_info->num_bones * sizeof(int);
-    size_t bone_inverse_model_space_pose_matrix_size = p3d_static_info->num_bones * sizeof(HMM_Mat4);
+    size_t bone_inverse_model_space_pose_matrix_size = p3d_static_info->num_bones * sizeof(pMat4);
     size_t animation_size = p3d_static_info->num_animations * sizeof(peAnimation);
 
     model->num_index = pe_arena_alloc(arena, num_index_size);
@@ -423,7 +423,7 @@ void pe_model_alloc_psp(peModel *model, peArena *arena, pp3dStaticInfo *pp3d_sta
 	size_t subskeleton_size = pp3d_static_info->num_subskeletons * sizeof(peSubskeleton);
 	size_t animation_size = pp3d_static_info->num_animations * sizeof(peAnimation);
 	size_t bone_parent_index_size = pp3d_static_info->num_bones * sizeof(uint16_t);
-	size_t bone_inverse_model_space_pose_matrix_size = pp3d_static_info->num_bones * sizeof(HMM_Mat4);
+	size_t bone_inverse_model_space_pose_matrix_size = pp3d_static_info->num_bones * sizeof(pMat4);
 	size_t mesh_size = pp3d_static_info->num_meshes * sizeof(peMesh);
 	size_t mesh_material_size = pp3d_static_info->num_meshes * sizeof(int);
 	size_t mesh_subskeleton_size = pp3d_static_info->num_meshes * sizeof(int);
@@ -675,7 +675,7 @@ static peModel pe_model_load_psp(peArena *temp_arena, const char *file_path) {
 
 	memcpy(model.bone_parent_index, pp3d.bone_parent_index, pp3d.static_info->num_bones * sizeof(uint16_t));
 
-	memcpy(model.bone_inverse_model_space_pose_matrix, pp3d.inverse_model_space_pose_matrix, pp3d.static_info->num_bones * sizeof(HMM_Mat4));
+	memcpy(model.bone_inverse_model_space_pose_matrix, pp3d.inverse_model_space_pose_matrix, pp3d.static_info->num_bones * sizeof(pMat4));
 
 	int pp3d_animation_joint_offset = 0;
 	for (int a = 0; a < pp3d.static_info->num_animations; a += 1) {
@@ -889,9 +889,9 @@ peModel pe_model_load(peArena *temp_arena, char *file_path) {
             for (int j = 0; j < p3d.static_info->num_bones; j += 1) {
                 peAnimationJoint *pe_animation_joint = &model.animation[a].frames[f * p3d.static_info->num_bones + j];
                 p3dAnimationJoint *p3d_animation_joint_ptr = p3d.animation_joint + p3d_animation_joint_offset;
-                memcpy(pe_animation_joint->translation.Elements, &p3d_animation_joint_ptr->position, 3*sizeof(float));
-                memcpy(pe_animation_joint->rotation.Elements, &p3d_animation_joint_ptr->rotation, 4*sizeof(float));
-                memcpy(pe_animation_joint->scale.Elements, &p3d_animation_joint_ptr->scale, 3*sizeof(float));
+                memcpy(pe_animation_joint->translation.elements, &p3d_animation_joint_ptr->position, 3*sizeof(float));
+                memcpy(pe_animation_joint->rotation.elements, &p3d_animation_joint_ptr->rotation, 4*sizeof(float));
+                memcpy(pe_animation_joint->scale.elements, &p3d_animation_joint_ptr->scale, 3*sizeof(float));
 
                 p3d_animation_joint_offset += 1;
             }
@@ -958,7 +958,7 @@ int frame_index = 0;
 uint64_t last_frame_time;
 bool last_frame_time_initialized = false;
 
-void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_Vec3 rotation) {
+void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 rotation) {
 	PE_TRACE_FUNCTION_BEGIN();
     peArenaTemp temp_arena_memory = pe_arena_temp_begin(temp_arena);
 	if (!last_frame_time_initialized) {
@@ -1046,13 +1046,13 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
     }
 #endif
 #if defined(__linux__)
-    HMM_Mat4 rotate_x = HMM_Rotate_RH(rotation.X, (HMM_Vec3){1.0f, 0.0f, 0.0f});
-    HMM_Mat4 rotate_y = HMM_Rotate_RH(rotation.Y, (HMM_Vec3){0.0f, 1.0f, 0.0f});
-    HMM_Mat4 rotate_z = HMM_Rotate_RH(rotation.Z, (HMM_Vec3){0.0f, 0.0f, 1.0f});
-    HMM_Mat4 translate = HMM_Translate(position);
-    HMM_Mat4 model_matrix = HMM_MulM4(HMM_MulM4(HMM_MulM4(translate, rotate_z), rotate_y), rotate_x);
+    pMat4 rotate_x = p_rotate_rh(rotation.x, (pVec3){1.0f, 0.0f, 0.0f});
+    pMat4 rotate_y = p_rotate_rh(rotation.y, (pVec3){0.0f, 1.0f, 0.0f});
+    pMat4 rotate_z = p_rotate_rh(rotation.z, (pVec3){0.0f, 0.0f, 1.0f});
+    pMat4 translate = p_translate(position);
+    pMat4 model_matrix = p_mat4_mul(p_mat4_mul(p_mat4_mul(translate, rotate_z), rotate_y), rotate_x);
     
-    HMM_Mat4 old_model_matrix;
+    pMat4 old_model_matrix;
     pe_shader_get_mat4(pe_opengl.shader_program, "matrix_model", &old_model_matrix);
 	pe_shader_set_mat4(pe_opengl.shader_program, "matrix_model", &model_matrix);
 
@@ -1069,14 +1069,14 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
         }
 
 
-		HMM_Mat4 *final_bone_matrix = pe_arena_alloc(temp_arena, model->num_bone * sizeof(HMM_Mat4));
+		pMat4 *final_bone_matrix = pe_arena_alloc(temp_arena, model->num_bone * sizeof(pMat4));
         for (int b = 0; b < model->num_bone; b += 1) {
             peAnimationJoint *animation_joint = &model_space_joints[b];
-			HMM_Mat4 translation = HMM_Translate(animation_joint->translation);
-			HMM_Mat4 rotation = HMM_QToM4(animation_joint->rotation);
-			HMM_Mat4 scale = HMM_Scale(animation_joint->scale);
-			HMM_Mat4 transform = HMM_MulM4(translation, HMM_MulM4(scale, rotation));
-            final_bone_matrix[b] = HMM_MulM4(transform, model->bone_inverse_model_space_pose_matrix[b]);
+			pMat4 translation = p_translate(animation_joint->translation);
+			pMat4 rotation = p_quat_to_mat4(animation_joint->rotation);
+			pMat4 scale = p_scale(animation_joint->scale);
+			pMat4 transform = p_mat4_mul(translation, p_mat4_mul(scale, rotation));
+            final_bone_matrix[b] = p_mat4_mul(transform, model->bone_inverse_model_space_pose_matrix[b]);
         }
 
 		pe_shader_set_bool(pe_opengl.shader_program, "has_skeleton", true);
@@ -1126,18 +1126,18 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 	PE_TRACE_MARK_END(tm_concat_anim_joints);
 
 	peTraceMark tm_calc_matrices = PE_TRACE_MARK_BEGIN("calculate matrices");
-	HMM_Mat4 *final_bone_matrix = pe_arena_alloc(temp_arena, model->num_bone * sizeof(HMM_Mat4));
+	pMat4 *final_bone_matrix = pe_arena_alloc(temp_arena, model->num_bone * sizeof(pMat4));
 	PE_ASSERT(final_bone_matrix != NULL);
 	for (int b = 0; b < model->num_bone; b += 1) {
 		peAnimationJoint *animation_joint = &model_space_joints[b];
-		HMM_Mat4 translation = HMM_Translate(animation_joint->translation);
-		HMM_Mat4 rotation = HMM_QToM4(animation_joint->rotation);
-		HMM_Mat4 scale = HMM_Scale(animation_joint->scale);
-		HMM_Mat4 transform = HMM_MulM4(translation, HMM_MulM4(scale, rotation));
+		pMat4 translation = p_translate(animation_joint->translation);
+		pMat4 rotation = p_quat_to_mat4(animation_joint->rotation);
+		pMat4 scale = p_scale(animation_joint->scale);
+		pMat4 transform = p_mat4_mul(translation, p_mat4_mul(scale, rotation));
 
-		HMM_Mat4 *inverse_model_space = &model->bone_inverse_model_space_pose_matrix[b];
+		pMat4 *inverse_model_space = &model->bone_inverse_model_space_pose_matrix[b];
 
-		final_bone_matrix[b] = HMM_MulM4(transform, *inverse_model_space);
+		final_bone_matrix[b] = p_mat4_mul(transform, *inverse_model_space);
 	}
 	PE_TRACE_MARK_END(tm_calc_matrices);
 
@@ -1149,7 +1149,7 @@ void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_V
 		peSubskeleton *subskeleton = &model->subskeleton[model->mesh_subskeleton[m]];
 		peTraceMark tm_assign_matrices = PE_TRACE_MARK_BEGIN("assign matrices");
 		for (int b = 0; b < subskeleton->num_bones; b += 1) {
-			sceGuBoneMatrix(b, (void*)&final_bone_matrix[subskeleton->bone_indices[b]]);
+			sceGuBoneMatrix(b, &final_bone_matrix[subskeleton->bone_indices[b]]._sce);
 			//sceGuMorphWeight(b, 1.0f);
 		}
 		PE_TRACE_MARK_END(tm_assign_matrices);

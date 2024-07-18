@@ -43,8 +43,8 @@ int main(int argc, char *argv[]) {
         .up = {0.0f, 1.0f, 0.0f},
         .fovy = 55.0f,
     };
-    HMM_Vec3 camera_offset = HMM_V3(0.0f, 5.0f, 10.0f);
-    camera.position = HMM_AddV3(camera.target, camera_offset);
+    pVec3 camera_offset = p_vec3(0.0f, 5.0f, 10.0f);
+    camera.position = p_vec3_add(camera.target, camera_offset);
 
     float average_frame_duration = 0.0f;
 
@@ -81,8 +81,8 @@ int main(int argc, char *argv[]) {
                 for (int x = 0; x < models_to_draw_x; x += 1) {
                     float position_x = draw_x_range.Elements[0] + ((float)x * diff_x);
                     float position_z = draw_z_range.Elements[0] + ((float)z * diff_z);
-                    HMM_Vec3 position = HMM_V3(position_x, 0.0f, position_z);
-                    pe_model_draw(&model, &temp_arena, position, HMM_V3(0.0f, 0.0f, 0.0f));
+                    pVec3 position = p_vec3(position_x, 0.0f, position_z);
+                    pe_model_draw(&model, &temp_arena, position, p_vec3(0.0f, 0.0f, 0.0f));
                 }
             }
         }

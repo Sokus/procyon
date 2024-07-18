@@ -440,7 +440,7 @@ HMM_Mat4 pe_mat4_perspective(float w, float h, float n, float f) {
 }
 */
 
-HMM_Mat4 pe_perspective_win32(float fovy, float aspect_ratio, float near_z, float far_z) {
+pMath4 pe_perspective_win32(float fovy, float aspect_ratio, float near_z, float far_z) {
     // See https://github.com/microsoft/DirectXMath/blob/bec07458c994bd7553638e4d499e17cfedd07831/Inc/DirectXMathMatrix.inl#L2540
 
     float sin_fov, cos_fov;
@@ -450,7 +450,7 @@ HMM_Mat4 pe_perspective_win32(float fovy, float aspect_ratio, float near_z, floa
     float width = height / aspect_ratio;
     float f_range = far_z / (near_z - far_z);
 
-    HMM_Mat4 result = {
+    pMat4 result = {
         width, 0.0f,   0.0f,    0.0f,
         0.0f,  height, 0.0f,    0.0f,
         0.0f,  0.0f,   f_range, f_range * near_z,

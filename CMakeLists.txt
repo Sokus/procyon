@@ -72,10 +72,10 @@ add_library(graphics STATIC
     src/graphics/pe_math.c
 )
 target_link_libraries(graphics PRIVATE
-    settings core
+    settings core math
     psp-stb
 )
-target_link_libraries(graphics PUBLIC handmade-math)
+target_link_libraries(graphics PUBLIC handmade-math math)
 if(WIN32)
     target_sources(graphics PRIVATE
         src/graphics/pe_graphics_win32.c
@@ -107,7 +107,7 @@ add_library(game STATIC
     src/game/pe_entity.c
     src/game/pe_protocol.c
 )
-target_link_libraries(game PRIVATE settings core)
+target_link_libraries(game PRIVATE settings core math)
 target_link_libraries(game PUBLIC handmade-math)
 
 # COMPILE CLIENT:
@@ -116,7 +116,7 @@ add_executable(client
     src/client/main.c
 )
 target_link_libraries(client PRIVATE
-    settings core platform graphics utility game
+    settings core math platform graphics utility game
 )
 
 # COMPILE SERVER:

@@ -16,12 +16,6 @@ static bool gu_initialized = false;
 
 unsigned int __attribute__((aligned(16))) list[262144];
 
-__attribute__((aligned(16))) uint8_t dynamic_draw_buffer[PE_MEGABYTES(1)];
-size_t dynamic_draw_buffer_used = 0;
-void *dynamic_draw_buffer_batch_address = dynamic_draw_buffer;
-int dynamic_draw_buffer_batch_primitive = GU_POINTS;
-int dynamic_draw_buffer_batch_transform = GU_TRANSFORM_3D;
-int dynamic_draw_buffer_batch_vertex_count = 0;
 
 static unsigned int bytes_per_pixel(unsigned int psm) {
 	switch (psm) {
@@ -157,6 +151,14 @@ peTexture pe_texture_create_psp(peArena *temp_arena, void *data, int width, int 
     return texture;
 }
 
+__attribute__((aligned(16))) uint8_t dynamic_draw_buffer[PE_MEGABYTES(1)];
+size_t dynamic_draw_buffer_used = 0;
+void *dynamic_draw_buffer_batch_address = dynamic_draw_buffer;
+int dynamic_draw_buffer_batch_primitive = GU_POINTS;
+int dynamic_draw_buffer_batch_transform = GU_TRANSFORM_3D;
+int dynamic_draw_buffer_batch_vertex_count = 0;
+
+
 typedef struct peVertex_ColPos {
 	uint32_t color;
 	float x, y, z;
@@ -196,7 +198,7 @@ static void pe_graphics_dynamic_draw_set_transform(int gu_transform) {
 	dynamic_draw_buffer_batch_transform = gu_transform;
 }
 
-void pe_graphics_draw_point_3D(HMM_Vec3 position, peColor color) {
+void pe_graphics_draw_point_3D(pVec3 position, peColor color) {
 	struct peVertexCP {
 		uint32_t color;
 		float x, y, z;
@@ -205,14 +207,14 @@ void pe_graphics_draw_point_3D(HMM_Vec3 position, peColor color) {
 	size_t vertex_size = vertex_count*sizeof(struct peVertexCP);
 	struct peVertexCP *vertex = sceGuGetMemory(vertex_size);
 	vertex[0].color = pe_color_to_8888(color);
-	vertex[0].x = position.X;
-	vertex[0].y = position.Y;
-	vertex[0].z = position.Z;
+	vertex[0].x = position.x;
+	vertex[0].y = position.y;
+	vertex[0].z = position.z;
 	sceKernelDcacheWritebackRange(vertex, vertex_size);
 	sceGumDrawArray(GU_POINTS, GU_COLOR_8888|GU_VERTEX_32BITF|GU_TRANSFORM_3D, vertex_count, NULL, vertex);
 }
 
-void pe_graphics_draw_line_3D(HMM_Vec3 start_position, HMM_Vec3 end_position, peColor color) {
+void pe_graphics_draw_line_3D(pVec3 start_position, pVec3 end_position, peColor color) {
 	struct peVertexCP {
 		uint32_t color;
 		float x, y, z;
@@ -221,13 +223,13 @@ void pe_graphics_draw_line_3D(HMM_Vec3 start_position, HMM_Vec3 end_position, pe
 	size_t vertex_size = vertex_count*sizeof(struct peVertexCP);
 	struct peVertexCP *vertex = sceGuGetMemory(vertex_size);
 	vertex[0].color = pe_color_to_8888(color);
-	vertex[0].x = start_position.X;
-	vertex[0].y = start_position.Y;
-	vertex[0].z = start_position.Z;
+	vertex[0].x = start_position.x;
+	vertex[0].y = start_position.y;
+	vertex[0].z = start_position.z;
 	vertex[1].color = pe_color_to_8888(color);
-	vertex[1].x = end_position.X;
-	vertex[1].y = end_position.Y;
-	vertex[1].z = end_position.Z;
+	vertex[1].x = end_position.x;
+	vertex[1].y = end_position.y;
+	vertex[1].z = end_position.z;
 	sceKernelDcacheWritebackRange(vertex, vertex_size);
 	sceGumDrawArray(GU_LINES, GU_COLOR_8888|GU_VERTEX_32BITF|GU_TRANSFORM_3D, vertex_count, NULL, vertex);
 }

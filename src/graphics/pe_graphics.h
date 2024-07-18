@@ -1,10 +1,12 @@
 #ifndef PE_GRAPHICS_H
 #define PE_GRAPHICS_H
 
-#include "HandmadeMath.h"
-
 #include <stdint.h>
 #include <stdbool.h>
+
+#include "math/p_math.h"
+
+#include "HandmadeMath.h"
 
 struct peArena;
 
@@ -35,28 +37,28 @@ typedef enum peMatrixMode {
 } peMatrixMode;
 
 void pe_graphics_matrix_mode(peMatrixMode mode);
-void pe_graphics_matrix_set(HMM_Mat4 *matrix);
+void pe_graphics_matrix_set(pMat4 *matrix);
 void pe_graphics_matrix_identity(void);
 void pe_graphics_matrix_update(void);
 
 // TODO: remove in favor of matrix modes
-void pe_graphics_matrix_projection(HMM_Mat4 *matrix);
-void pe_graphics_matrix_view(HMM_Mat4 *matrix);
+void pe_graphics_matrix_projection(pMat4 *matrix);
+void pe_graphics_matrix_view(pMat4 *matrix);
 
-HMM_Mat4 pe_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z);
-HMM_Mat4 pe_matrix_orthographic(float left, float right, float bottom, float top, float near_z, float far_z);
+pMat4 pe_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z);
+pMat4 pe_matrix_orthographic(float left, float right, float bottom, float top, float near_z, float far_z);
 
 // DYNAMIC DRAW
 
 struct peTexture;
-void pe_graphics_draw_point(HMM_Vec2 position, union peColor color);
+void pe_graphics_draw_point(pVec2 position, union peColor color);
 void pe_graphics_draw_point_int(int pos_x, int pos_y, union peColor color);
-void pe_graphics_draw_line(HMM_Vec2 start_position, HMM_Vec2 end_position, union peColor color);
+void pe_graphics_draw_line(pVec2 start_position, pVec2 end_position, union peColor color);
 void pe_graphics_draw_rectangle(float x, float y, float width, float height, union peColor color);
 void pe_graphics_draw_texture(struct peTexture *texture, float x, float y, union peColor tint);
 
-void pe_graphics_draw_point_3D(HMM_Vec3 position, union peColor color);
-void pe_graphics_draw_line_3D(HMM_Vec3 start_position, HMM_Vec3 end_position, union peColor color);
+void pe_graphics_draw_point_3D(pVec3 position, union peColor color);
+void pe_graphics_draw_line_3D(pVec3 start_position, pVec3 end_position, union peColor color);
 
 // COLOR
 
@@ -65,8 +67,7 @@ typedef union peColor {
     struct { uint32_t rgba; };
 } peColor;
 
-union HMM_Vec4;
-union HMM_Vec4 pe_color_to_vec4(peColor color);
+pVec4 pe_color_to_vec4(peColor color);
 uint16_t pe_color_to_5650(peColor color);
 uint32_t pe_color_to_8888(peColor color);
 
@@ -107,15 +108,15 @@ void pe_texture_disable(void);
 // CAMERA
 
 typedef struct peCamera {
-    HMM_Vec3 position;
-    HMM_Vec3 target;
-    HMM_Vec3 up;
+    pVec3 position;
+    pVec3 target;
+    pVec3 up;
     float fovy;
 } peCamera;
 
 void pe_camera_update(peCamera camera);
 struct peRay;
-struct peRay pe_get_mouse_ray(HMM_Vec2 mouse, peCamera camera);
+struct peRay pe_get_mouse_ray(pVec2 mouse, peCamera camera);
 
 
 #endif // PE_GRAPHICS_H

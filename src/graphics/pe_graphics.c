@@ -82,29 +82,29 @@ void pe_graphics_frame_end(bool vsync) {
 	PE_TRACE_FUNCTION_END();
 }
 
-void pe_graphics_matrix_projection(HMM_Mat4 *matrix) {
+void pe_graphics_matrix_projection(pMat4 *matrix) {
 #if defined(_WIN32)
     peShaderConstant_Projection *projection = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_projection_buffer);
-	projection->matrix = *matrix;
+	projection->matrix = (*matrix)._hmm;
 	pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_projection_buffer);
 #elif defined(__linux__)
 	pe_shader_set_mat4(pe_opengl.shader_program, "matrix_projection", matrix);
 #elif defined(PSP)
 	sceGumMatrixMode(GU_PROJECTION);
-	sceGumLoadMatrix((void*)matrix);
+	sceGumLoadMatrix(&matrix->_sce);
 #endif
 }
 
-void pe_graphics_matrix_view(HMM_Mat4 *matrix) {
+void pe_graphics_matrix_view(pMat4 *matrix) {
 #if defined(_WIN32)
     peShaderConstant_View *constant_view = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_view_buffer);
-    constant_view->matrix = *matrix;
+    constant_view->matrix = (*matrix)._hmm;
     pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_view_buffer);
 #elif defined(__linux__)
     pe_shader_set_mat4(pe_opengl.shader_program, "matrix_view", matrix);
 #elif defined(PSP)
 	sceGumMatrixMode(GU_VIEW);
-    sceGumLoadMatrix((void*)matrix);
+    sceGumLoadMatrix(&matrix->_sce);
 #endif
 }
 
@@ -152,29 +152,29 @@ void pe_clear_background(peColor color) {
 #endif
 }
 
-HMM_Mat4 pe_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z) {
+pMat4 pe_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z) {
 #if defined(_WIN32)
 	return pe_perspective_win32(fovy, aspect_ratio, near_z, far_z);
 #else
-	return HMM_Perspective_RH_NO(fovy * HMM_DegToRad, aspect_ratio, near_z, far_z);
+	return p_perspective_rh_no(fovy * P_DEG2RAD, aspect_ratio, near_z, far_z);
 #endif
 }
 
-HMM_Mat4 pe_matrix_orthographic(float left, float right, float bottom, float top, float near_z, float far_z) {
+pMat4 pe_matrix_orthographic(float left, float right, float bottom, float top, float near_z, float far_z) {
 #if defined(_WIN32)
     PE_UNIMPLEMENTED();
-    return HMM_M4D(1.0f);
+    return p_mat4_i();
 #else
-    return HMM_Orthographic_RH_NO(left, right, bottom, top, near_z, far_z);
+    return p_orthographic_rh_no(left, right, bottom, top, near_z, far_z);
 #endif
 }
 
-HMM_Vec4 pe_color_to_vec4(peColor color) {
-    HMM_Vec4 vec4 = {
-        .R = (float)color.r / 255.0f,
-        .G = (float)color.g / 255.0f,
-        .B = (float)color.b / 255.0f,
-        .A = (float)color.a / 255.0f,
+pVec4 pe_color_to_vec4(peColor color) {
+    pVec4 vec4 = {
+        .r = (float)color.r / 255.0f,
+        .g = (float)color.g / 255.0f,
+        .b = (float)color.b / 255.0f,
+        .a = (float)color.a / 255.0f,
     };
     return vec4;
 }
@@ -245,21 +245,21 @@ void pe_texture_disable(void) {
 }
 
 void pe_camera_update(peCamera camera) {
-    HMM_Mat4 matrix_perspective = pe_matrix_perspective(camera.fovy, (float)pe_screen_width()/(float)pe_screen_height(), 1.0f, 1000.0f);
+    pMat4 matrix_perspective = pe_matrix_perspective(camera.fovy, (float)pe_screen_width()/(float)pe_screen_height(), 1.0f, 1000.0f);
     pe_graphics_matrix_projection(&matrix_perspective);
-    HMM_Mat4 matrix_lookat = HMM_LookAt_RH(camera.position, camera.target, camera.up);
+    pMat4 matrix_lookat = p_look_at_rh(camera.position, camera.target, camera.up);
     pe_graphics_matrix_view(&matrix_lookat);
 }
 
-peRay pe_get_mouse_ray(HMM_Vec2 mouse, peCamera camera) {
+peRay pe_get_mouse_ray(pVec2 mouse, peCamera camera) {
     float window_width_float = (float)pe_screen_width();
     float window_height_float = (float)pe_screen_height();
-    HMM_Mat4 projection = pe_matrix_perspective(55.0f, window_width_float/window_height_float, 1.0f, 1000.0f);
-    HMM_Mat4 view = HMM_LookAt_RH(camera.position, camera.target, camera.up);
+    pMat4 projection = pe_matrix_perspective(55.0f, window_width_float/window_height_float, 1.0f, 1000.0f);
+    pMat4 view = p_look_at_rh(camera.position, camera.target, camera.up);
 
-    HMM_Vec3 near_point = pe_unproject_vec3(HMM_V3(mouse.X, mouse.Y, 0.0f), 0.0f, 0.0f, window_width_float, window_height_float, 0.0f, 1.0f, projection, view);
-    HMM_Vec3 far_point = pe_unproject_vec3(HMM_V3(mouse.X, mouse.Y, 1.0f), 0.0f, 0.0f, window_width_float, window_height_float, 0.0f, 1.0f, projection, view);
-    HMM_Vec3 direction = HMM_NormV3(HMM_SubV3(far_point, near_point));
+    pVec3 near_point = pe_unproject_vec3(p_vec3(mouse.x, mouse.y, 0.0f), 0.0f, 0.0f, window_width_float, window_height_float, 0.0f, 1.0f, projection, view);
+    pVec3 far_point = pe_unproject_vec3(p_vec3(mouse.x, mouse.y, 1.0f), 0.0f, 0.0f, window_width_float, window_height_float, 0.0f, 1.0f, projection, view);
+    pVec3 direction = p_vec3_norm(p_vec3_sub(far_point, near_point));
     peRay ray = {
         .position = camera.position,
         .direction = direction,

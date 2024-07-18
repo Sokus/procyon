@@ -2,6 +2,7 @@
 #define PE_MODEL_H
 
 #include "core/pe_core.h"
+#include "math/p_math.h"
 #include "pe_graphics.h"
 
 #include "HandmadeMath.h"
@@ -45,9 +46,9 @@ typedef struct peMesh {
 } peMesh;
 
 typedef struct peAnimationJoint {
-    HMM_Vec3 translation;
-    HMM_Quat rotation;
-    HMM_Vec3 scale;
+    pVec3 translation;
+    pQuat rotation;
+    pVec3 scale;
 } peAnimationJoint;
 
 peAnimationJoint pe_concatenate_animation_joints(peAnimationJoint parent, peAnimationJoint child);
@@ -74,7 +75,7 @@ typedef struct peModel {
     int num_animations;
 
     peMaterial *material;
-    HMM_Mat4 *bone_inverse_model_space_pose_matrix;
+    pMat4 *bone_inverse_model_space_pose_matrix;
     peAnimation *animation;
 
 #if defined(_WIN32) || defined(__linux__)
@@ -117,7 +118,7 @@ struct p3dAnimation;
 
 void pe_model_alloc(peModel *model, peArena *arena, struct p3dStaticInfo *p3d_static_info, struct p3dAnimation *p3d_animation);
 peModel pe_model_load(peArena *temp_arena, char *file_path);
-void pe_model_draw(peModel *model, peArena *temp_arena, HMM_Vec3 position, HMM_Vec3 rotation);
+void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 rotation);
 
 
 

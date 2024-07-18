@@ -1,55 +1,56 @@
 #include "pe_math.h"
+#include "math/p_math.h"
 
 #include "HandmadeMath.h"
 
 #include <stdbool.h>
 #include <float.h>
 
-HMM_Vec3 pe_unproject_vec3(
-    HMM_Vec3 v,
+pVec3 pe_unproject_vec3(
+    pVec3 v,
     float viewport_x, float viewport_y,
     float viewport_width, float viewport_height,
     float viewport_min_z, float viewport_max_z,
-    HMM_Mat4 projection,
-    HMM_Mat4 view
+    pMat4 projection,
+    pMat4 view
 ) {
     // https://github.com/microsoft/DirectXMath/blob/bec07458c994bd7553638e4d499e17cfedd07831/Extensions/DirectXMathFMA4.h#L229
-    HMM_Vec4 d = HMM_V4(-1.0f, 1.0f, 0.0f, 0.0f);
+    pVec4 d = p_vec4(-1.0f, 1.0f, 0.0f, 0.0f);
 
-    HMM_Vec4 scale = HMM_V4(viewport_width * 0.5f, -viewport_height * 0.5f, viewport_max_z - viewport_min_z, 1.0f);
-    scale = HMM_V4(1.0f/scale.X, 1.0f/scale.Y, 1.0f/scale.Z, 1.0f/scale.W);
+    pVec4 scale = p_vec4(viewport_width * 0.5f, -viewport_height * 0.5f, viewport_max_z - viewport_min_z, 1.0f);
+    scale = p_vec4(1.0f/scale.x, 1.0f/scale.y, 1.0f/scale.z, 1.0f/scale.w);
 
-    HMM_Vec4 offset = HMM_V4(-viewport_x, -viewport_y, -viewport_min_z, 0.0f);
-    offset = HMM_AddV4(HMM_MulV4(scale, offset), d);
+    pVec4 offset = p_vec4(-viewport_x, -viewport_y, -viewport_min_z, 0.0f);
+    offset = p_vec4_add(p_vec4_mul(scale, offset), d);
 
-    HMM_Mat4 transform = HMM_MulM4(projection, view);
-    transform = HMM_InvGeneralM4(transform);
+    pMat4 transform = p_mat4_mul(projection, view);
+    transform = p_mat4_inv_general(transform);
 
-    HMM_Vec4 result = HMM_AddV4(HMM_MulV4(HMM_V4(v.X, v.Y, v.Z, 1.0f), scale), offset);
-    result = HMM_MulM4V4(transform, result);
+    pVec4 result = p_vec4_add(p_vec4_mul(p_vec4(v.x, v.y, v.z, 1.0f), scale), offset);
+    result = p_mat4_mul_vec4(transform, result);
 
-    if (result.W < FLT_EPSILON) {
-        result.W = FLT_EPSILON;
+    if (result.w < FLT_EPSILON) {
+        result.w = FLT_EPSILON;
     }
 
-    result = HMM_DivV4F(result, result.W);
+    result = p_vec4_div_f(result, result.w);
 
-    return result.XYZ;
+    return result.xyz;
 }
 
-bool pe_collision_ray_plane(peRay ray, HMM_Vec3 plane_normal, float plane_d, HMM_Vec3 *collision_point) {
+bool pe_collision_ray_plane(peRay ray, pVec3 plane_normal, float plane_d, pVec3 *collision_point) {
     // https://www.cs.princeton.edu/courses/archive/fall00/cs426/lectures/raycast/sld017.htm
 
-    float dot_product = HMM_DotV3(ray.direction, plane_normal);
+    float dot_product = p_vec3_dot(ray.direction, plane_normal);
     if (dot_product == 0.0f) {
         return false;
     }
 
-    float t = -(HMM_DotV3(ray.position, plane_normal) + plane_d) / dot_product;
+    float t = -(p_vec3_dot(ray.position, plane_normal) + plane_d) / dot_product;
     if (t < 0.0f) {
         return false;
     }
 
-    *collision_point = HMM_AddV3(ray.position, HMM_MulV3F(ray.direction, t));
+    *collision_point = p_vec3_add(ray.position, p_vec3_mul_f(ray.direction, t));
     return true;
 }
