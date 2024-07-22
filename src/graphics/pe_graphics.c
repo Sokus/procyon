@@ -66,6 +66,7 @@ void pe_graphics_frame_end(bool vsync) {
     UINT sync_interval = (vsync ? 1 : 0);
     IDXGISwapChain1_Present(pe_d3d.swapchain, sync_interval, 0);
 #elif defined(PSP)
+    pe_graphics_dynamic_draw_flush();
     sceGuFinish();
 	peTraceMark tm_sync = PE_TRACE_MARK_BEGIN("sceGuSync");
     sceGuSync(0, 0);
@@ -223,7 +224,7 @@ void pe_texture_bind(peTexture texture) {
 	sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
 	//sceGuTexFilter(GU_LINEAR,GU_LINEAR);
 	sceGuTexFilter(GU_NEAREST,GU_NEAREST);
-	sceGuTexScale(1.0f,1.0f);
+    sceGuTexScale(1.0f,1.0f);
 	sceGuTexOffset(0.0f,0.0f);
 #endif
 }

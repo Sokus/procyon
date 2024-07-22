@@ -245,13 +245,13 @@ int main(int argc, char* argv[]) {
         entity->client_index = 0;
         entity->mesh = peEntityMesh_Cube;
     }
-    
+
     // TODO: Fix Your Timestep!
     float dt = 1.0f/60.0f;
-    
+
     while(!pe_client_should_quit()) {
         uint64_t loop_start = pe_time_now();
-        
+
         pe_window_poll_events();
         pe_input_update();
 
@@ -288,9 +288,9 @@ int main(int argc, char* argv[]) {
             client.client_input[0] = input;
             pe_update_entities(dt, client.client_input);
         }
-        
-        
-#if !defined(__linux__)
+
+
+#if !defined(__linux__) && !defined(__PSP__)
         pe_camera_update(client.camera);
 #endif
 
@@ -313,7 +313,7 @@ int main(int argc, char* argv[]) {
             pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.25f, 0.0f, 0.0f), PE_COLOR_RED);
             pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.0f, 0.25f, 0.0f), PE_COLOR_GREEN);
             pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.0f, 0.0f, 0.25f), PE_COLOR_BLUE);
-            
+
             for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
                 peEntity *entity = &entities[e];
                 if (!entity->active) continue;
@@ -322,7 +322,7 @@ int main(int argc, char* argv[]) {
             }
         }
         pe_graphics_mode_3d_end();
-        
+
         bool vsync = true;
         pe_graphics_frame_end(vsync);
         uint64_t loop_time = pe_time_since(loop_start);

@@ -27,7 +27,7 @@ typedef enum peGraphicsMode {
 struct peGraphics {
     peGraphicsMode mode;
     peMatrixMode matrix_mode;
-    
+
     pMat4 matrix[peGraphicsMode_Count][peMatrixMode_Count];
     bool matrix_dirty[peGraphicsMode_Count][peMatrixMode_Count];
     bool matrix_model_is_identity[peGraphicsMode_Count];
@@ -150,7 +150,7 @@ void pe_framebuffer_size_callback_linux(int width, int height) {
     glViewport(0, 0, width, height);
     pe_opengl.framebuffer_width = width;
     pe_opengl.framebuffer_height = height;
-    
+
     PE_ASSERT(graphics.mode == peGraphicsMode_2D);
     graphics.matrix_mode = peMatrixMode_Projection;
     pMat4 matrix_orthographic = pe_matrix_orthographic(
@@ -180,7 +180,7 @@ void pe_graphics_init_linux(peArena *temp_arena, int window_width, int window_he
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);    
+    glFrontFace(GL_CCW);
 
     // init shader_program
     {
@@ -203,23 +203,23 @@ void pe_graphics_init_linux(peArena *temp_arena, int window_width, int window_he
     {
         graphics.mode = peGraphicsMode_2D;
         graphics.matrix_mode = peMatrixMode_Projection;
-        
-        for (int gm = 0; gm < peGraphicsMode_Count; gm += 1) {            
+
+        for (int gm = 0; gm < peGraphicsMode_Count; gm += 1) {
             for (int mm = 0; mm < peMatrixMode_Count; mm += 1) {
-                graphics.matrix[gm][mm] = p_mat4_i();    
+                graphics.matrix[gm][mm] = p_mat4_i();
                 graphics.matrix_dirty[gm][mm] = true;
             }
             graphics.matrix_model_is_identity[gm] = true;
         }
-        
+
         graphics.matrix[peGraphicsMode_2D][peMatrixMode_Projection] = pe_matrix_orthographic(
             0, (float)pe_screen_width(),
             (float)pe_screen_height(), 0,
             0.0f, 1000.0f
         );
-        
+
         pe_graphics_matrix_update();
-    }    
+    }
 
     pe_window_set_framebuffer_size_callback(&pe_framebuffer_size_callback_linux);
 
@@ -228,41 +228,41 @@ void pe_graphics_init_linux(peArena *temp_arena, int window_width, int window_he
 
 void pe_graphics_mode_3d_begin(peCamera camera) {
     pe_graphics_dynamic_draw_flush();
-    
+
     PE_ASSERT(graphics.mode == peGraphicsMode_2D);
     graphics.mode = peGraphicsMode_3D;
-    
+
     pe_graphics_matrix_mode(peMatrixMode_Projection);
     float aspect_ratio = (float)pe_screen_width()/(float)pe_screen_height();
     pMat4 matrix_perspective = pe_matrix_perspective(camera.fovy, aspect_ratio, 1.0f, 1000.0f);
     pe_graphics_matrix_set(&matrix_perspective);
-    
+
     pe_graphics_matrix_mode(peMatrixMode_View);
     pMat4 matrix_view = p_look_at_rh(camera.position, camera.target, camera.up);
     pe_graphics_matrix_set(&matrix_view);
-    
+
     pe_graphics_matrix_mode(peMatrixMode_Model);
     pe_graphics_matrix_identity();
 
     pe_graphics_matrix_update();
-    
+
     glEnable(GL_DEPTH_TEST);
 }
 
 void pe_graphics_mode_3d_end(void) {
     pe_graphics_dynamic_draw_flush();
-    
+
     PE_ASSERT(graphics.mode == peGraphicsMode_3D);
     graphics.mode = peGraphicsMode_2D;
-    
+
     pe_graphics_matrix_mode(peMatrixMode_View);
     pe_graphics_matrix_identity();
     pe_graphics_matrix_mode(peMatrixMode_Model);
     pe_graphics_matrix_identity();
     graphics.matrix_dirty[peGraphicsMode_2D][peMatrixMode_Projection] = true;
-    
+
     pe_graphics_matrix_update();
-    
+
     glDisable(GL_DEPTH_TEST);
 }
 
@@ -284,7 +284,7 @@ void pe_graphics_matrix_identity(void) {
     graphics.matrix[graphics.mode][graphics.matrix_mode] = p_mat4_i();
     graphics.matrix_dirty[graphics.mode][graphics.matrix_mode] = true;
     if (graphics.matrix_mode == peMatrixMode_Model) {
-        graphics.matrix_model_is_identity[graphics.mode] = true;    
+        graphics.matrix_model_is_identity[graphics.mode] = true;
     }
 }
 
@@ -296,7 +296,7 @@ void pe_graphics_matrix_update(void) {
     };
     for (int matrix_mode = 0; matrix_mode < peMatrixMode_Count; matrix_mode += 1) {
         if (graphics.matrix_dirty[graphics.mode][matrix_mode]) {
-            pMat4 *matrix = &graphics.matrix[graphics.mode][matrix_mode];  
+            pMat4 *matrix = &graphics.matrix[graphics.mode][matrix_mode];
             pe_shader_set_mat4(pe_opengl.shader_program, uniform_names[matrix_mode], matrix);
             graphics.matrix_dirty[graphics.mode][matrix_mode] = false;
         }
@@ -353,7 +353,7 @@ peTexture pe_texture_create_linux(void *data, int width, int height, int channel
     glGenerateMipmap(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    peTexture texture = { 
+    peTexture texture = {
         .texture_object = texture_object,
         .width = width,
         .height = height
@@ -387,10 +387,10 @@ struct peDynamicDrawState {
 
     peDynamicDrawVertex vertex[PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT];
     int vertex_used;
-    
+
     peDynamicDrawBatch batch[PE_MAX_DYNAMIC_DRAW_BATCH_COUNT];
     int batch_current;
-    
+
     GLuint vertex_array_object;
     GLuint vertex_buffer_object;
 } dynamic_draw = {0};
@@ -398,23 +398,23 @@ struct peDynamicDrawState {
 static void pe_dynamic_draw_init(void) {
     glGenVertexArrays(1, &dynamic_draw.vertex_array_object);
     glBindVertexArray(dynamic_draw.vertex_array_object);
-    
+
     glGenBuffers(1, &dynamic_draw.vertex_buffer_object);
     glBindBuffer(GL_ARRAY_BUFFER, dynamic_draw.vertex_buffer_object);
     glBufferData(GL_ARRAY_BUFFER, sizeof(dynamic_draw.vertex), NULL, GL_DYNAMIC_DRAW);
-    
+
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(peDynamicDrawVertex), (void*)offsetof(peDynamicDrawVertex, position));
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(peDynamicDrawVertex), (void*)offsetof(peDynamicDrawVertex, normal));
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(peDynamicDrawVertex), (void*)offsetof(peDynamicDrawVertex, texcoord));
     glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(peDynamicDrawVertex), (void*)offsetof(peDynamicDrawVertex, color));
-    
+
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
     glEnableVertexAttribArray(3);
     glDisableVertexAttribArray(4); // NOTE: we don't enable bone related
     glDisableVertexAttribArray(5); //       attributes for dynamic drawing
-	
+
     glBindVertexArray(0);
 }
 
@@ -426,36 +426,36 @@ void pe_graphics_dynamic_draw_flush(void) {
         bool old_matrix_model_is_identity = graphics.matrix_model_is_identity[graphics.mode];
         bool old_do_lighting;
         pe_shader_get_bool(pe_opengl.shader_program, "do_lighting", &old_do_lighting);
-        
+
         pe_graphics_matrix_mode(peMatrixMode_Model);
         pe_graphics_matrix_identity();
         pe_graphics_matrix_update();
         pe_shader_set_bool(pe_opengl.shader_program, "do_lighting", false);
         pe_shader_set_bool(pe_opengl.shader_program, "has_skeleton", false);
-        
+
         glBindVertexArray(dynamic_draw.vertex_array_object);
         glBindBuffer(GL_ARRAY_BUFFER, dynamic_draw.vertex_buffer_object);
         glBufferSubData(GL_ARRAY_BUFFER, 0, (size_t)dynamic_draw.vertex_used*sizeof(peDynamicDrawVertex), dynamic_draw.vertex);
-                
+
         for (int b = 0; b < dynamic_draw.batch_current; b += 1) {
             pe_texture_bind(*dynamic_draw.batch[b].texture);
-        
+
             glDrawArrays(
                 dynamic_draw.batch[b].primitive,
                 dynamic_draw.batch[b].vertex_offset,
                 dynamic_draw.batch[b].vertex_count
             );
         }
-                
+
         glBindVertexArray(0);
-        
+
         pe_graphics_matrix_set(&old_matrix_model);
         pe_graphics_matrix_update();
         pe_graphics_matrix_mode(old_matrix_mode);
         graphics.matrix_model_is_identity[graphics.mode] = old_matrix_model_is_identity;
         pe_shader_set_bool(pe_opengl.shader_program, "do_lighting", old_do_lighting);
     }
-    
+
     dynamic_draw.vertex_used = 0;
     dynamic_draw.batch_current = 0;
     dynamic_draw.batch[0].vertex_count = 0;
@@ -541,7 +541,7 @@ static bool pe_graphics_dynamic_draw_vertex_reserve(int count) {
 
 static void pe_graphics_dynamic_draw_push_vec3(pVec3 position) {
     if (!graphics.matrix_model_is_identity[graphics.mode]) {
-        pMat4 *matrix = &graphics.matrix[graphics.mode][peMatrixMode_Model]; 
+        pMat4 *matrix = &graphics.matrix[graphics.mode][peMatrixMode_Model];
         pVec4 position_vec4 = p_vec4v(position, 1.0f);
         pVec4 transformed_position = p_mat4_mul_vec4(*matrix, position_vec4);
         position = transformed_position.xyz;
@@ -573,7 +573,7 @@ void pe_graphics_draw_point(pVec2 position, peColor color) {
 
 void pe_graphics_draw_point_int(int pos_x, int pos_y, peColor color) {
     pVec2 position = p_vec2((float)pos_x, (float)pos_y);
-    pe_graphics_draw_point(position, color);    
+    pe_graphics_draw_point(position, color);
 }
 
 void pe_graphics_draw_line(pVec2 start_position, pVec2 end_position, peColor color) {
@@ -602,7 +602,7 @@ void pe_graphics_draw_rectangle(float x, float y, float width, float height, peC
 
 void pe_graphics_draw_texture(peTexture *texture, float x, float y, peColor tint) {
     PE_ASSERT(texture != NULL);
-    pe_graphics_dynamic_draw_begin_primitive_textured(GL_TRIANGLES, texture);    
+    pe_graphics_dynamic_draw_begin_primitive_textured(GL_TRIANGLES, texture);
     pe_graphics_dynamic_draw_set_color(tint);
 
     pVec2 positions[4] = {
@@ -613,12 +613,12 @@ void pe_graphics_draw_texture(peTexture *texture, float x, float y, peColor tint
     };
     pVec2 texcoords[4] = {
         p_vec2(0.0f, 0.0f), // top left
-        p_vec2(1.0f, 0.0f), // top right
-        p_vec2(0.0f, 1.0f), // bottom left
-        p_vec2(1.0f, 1.0f), // bottom right
+        p_vec2(256.0f, 0.0f), // top right
+        p_vec2(0.0f, 256.0f), // bottom left
+        p_vec2(256.0f, 256.0f), // bottom right
     };
     int indices[6] = { 0, 2, 3, 0, 3, 1 };
-    
+
     for (int i = 0; i < 6; i += 1) {
         pe_graphics_dynamic_draw_set_texcoord(texcoords[indices[i]]);
         pe_graphics_dynamic_draw_push_vec2(positions[indices[i]]);
