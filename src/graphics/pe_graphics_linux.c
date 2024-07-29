@@ -613,9 +613,9 @@ void pe_graphics_draw_texture(peTexture *texture, float x, float y, peColor tint
     };
     pVec2 texcoords[4] = {
         p_vec2(0.0f, 0.0f), // top left
-        p_vec2(256.0f, 0.0f), // top right
-        p_vec2(0.0f, 256.0f), // bottom left
-        p_vec2(256.0f, 256.0f), // bottom right
+        p_vec2(1.0f, 0.0f), // top right
+        p_vec2(0.0f, 1.0f), // bottom left
+        p_vec2(1.0f, 1.0f), // bottom right
     };
     int indices[6] = { 0, 2, 3, 0, 3, 1 };
 
