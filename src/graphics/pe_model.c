@@ -972,12 +972,12 @@ void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 ro
 	}
 
 #if defined(_WIN32)
-    HMM_Mat4 rotate_x = HMM_Rotate_RH(rotation.X, (HMM_Vec3){1.0f, 0.0f, 0.0f});
-    HMM_Mat4 rotate_y = HMM_Rotate_RH(rotation.Y, (HMM_Vec3){0.0f, 1.0f, 0.0f});
-    HMM_Mat4 rotate_z = HMM_Rotate_RH(rotation.Z, (HMM_Vec3){0.0f, 0.0f, 1.0f});
-    HMM_Mat4 translate = HMM_Translate(position);
+    pMat4 rotate_x = p_rotate_rh(rotation.x, (pVec3){1.0f, 0.0f, 0.0f});
+    pMat4 rotate_y = p_rotate_rh(rotation.y, (pVec3){0.0f, 1.0f, 0.0f});
+    pMat4 rotate_z = p_rotate_rh(rotation.z, (pVec3){0.0f, 0.0f, 1.0f});
+    pMat4 translate = p_translate(position);
 
-    HMM_Mat4 model_matrix = HMM_MulM4(HMM_MulM4(HMM_MulM4(translate, rotate_z), rotate_y), rotate_x);
+    pMat4 model_matrix = p_mat4_mul(p_mat4_mul(p_mat4_mul(translate, rotate_z), rotate_y), rotate_x);
     peShaderConstant_Model *constant_model = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_model_buffer);
     constant_model->matrix = model_matrix;
     pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_model_buffer);
@@ -1020,12 +1020,12 @@ void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 ro
         constant_skeleton->has_skeleton = true;
         for (int b = 0; b < model->num_bone; b += 1) {
             peAnimationJoint *animation_joint = &model_space_joints[b];
-			HMM_Mat4 translation = HMM_Translate(animation_joint->translation);
-			HMM_Mat4 rotation = HMM_QToM4(animation_joint->rotation);
-			HMM_Mat4 scale = HMM_Scale(animation_joint->scale);
-			HMM_Mat4 transform = HMM_MulM4(translation, HMM_MulM4(scale, rotation));
+			pMat4 translation = p_translate(animation_joint->translation);
+			pMat4 rotation = p_quat_to_mat4(animation_joint->rotation);
+			pMat4 scale = p_scale(animation_joint->scale);
+			pMat4 transform = p_mat4_mul(translation, p_mat4_mul(scale, rotation));
 
-            HMM_Mat4 final_bone_matrix = HMM_MulM4(transform, model->bone_inverse_model_space_pose_matrix[b]);
+            pMat4 final_bone_matrix = p_mat4_mul(transform, model->bone_inverse_model_space_pose_matrix[b]);
             constant_skeleton->matrix_bone[b] = final_bone_matrix;
         }
         pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_skeleton_buffer);
@@ -1051,7 +1051,7 @@ void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 ro
     pMat4 rotate_z = p_rotate_rh(rotation.z, (pVec3){0.0f, 0.0f, 1.0f});
     pMat4 translate = p_translate(position);
     pMat4 model_matrix = p_mat4_mul(p_mat4_mul(p_mat4_mul(translate, rotate_z), rotate_y), rotate_x);
-    
+
     pMat4 old_model_matrix;
     pe_shader_get_mat4(pe_opengl.shader_program, "matrix_model", &old_model_matrix);
 	pe_shader_set_mat4(pe_opengl.shader_program, "matrix_model", &model_matrix);
@@ -1096,9 +1096,9 @@ void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 ro
 			(void*)(model->index_offset[m]*sizeof(uint32_t)), model->vertex_offset[m]
 		);
 	}
-	
+
 	pe_shader_set_mat4(pe_opengl.shader_program, "matrix_model", &old_model_matrix);
-	
+
 	glBindVertexArray(0);
 #endif
 #if defined(PSP)

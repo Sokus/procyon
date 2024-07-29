@@ -485,8 +485,7 @@ static inline pMat4 p_mat4_i(void) {
     return result;
 }
 
-static inline pMat4 p_mat4_transpose(pMat4 matrix)
-{
+static inline pMat4 p_mat4_transpose(pMat4 matrix) {
     pMat4 result;
 #if defined(__PSP__)
     result = matrix;
@@ -548,13 +547,12 @@ static inline pVec4 p_mat4_mul_vec4(pMat4 m, pVec4 v) {
     return result;
 }
 
-static inline pMat4 p_mat4_inv_general(pMat4 matrix) 
-{
+static inline pMat4 p_mat4_inv_general(pMat4 matrix) {
     pVec3 C01 = p_cross(matrix.columns[0].xyz, matrix.columns[1].xyz);
     pVec3 C23 = p_cross(matrix.columns[2].xyz, matrix.columns[3].xyz);
     pVec3 B10 = p_vec3_sub(p_vec3_mul_f(matrix.columns[0].xyz, matrix.columns[1].w), p_vec3_mul_f(matrix.columns[1].xyz, matrix.columns[0].w));
     pVec3 B32 = p_vec3_sub(p_vec3_mul_f(matrix.columns[2].xyz, matrix.columns[3].w), p_vec3_mul_f(matrix.columns[3].xyz, matrix.columns[2].w));
-    
+
     float InvDeterminant = 1.0f / (p_vec3_dot(C01, B32) + p_vec3_dot(C23, B10));
     C01 = p_vec3_mul_f(C01, InvDeterminant);
     C23 = p_vec3_mul_f(C23, InvDeterminant);
@@ -566,38 +564,38 @@ static inline pMat4 p_mat4_inv_general(pMat4 matrix)
     result.columns[1] = p_vec4v(p_vec3_sub(p_cross(B32, matrix.columns[0].xyz), p_vec3_mul_f(C23, matrix.columns[0].w)), +p_vec3_dot(matrix.columns[0].xyz, C23));
     result.columns[2] = p_vec4v(p_vec3_add(p_cross(matrix.columns[3].xyz, B10), p_vec3_mul_f(C01, matrix.columns[3].w)), -p_vec3_dot(matrix.columns[3].xyz, C01));
     result.columns[3] = p_vec4v(p_vec3_sub(p_cross(B10, matrix.columns[2].xyz), p_vec3_mul_f(C01, matrix.columns[2].w)), +p_vec3_dot(matrix.columns[2].xyz, C01));
-        
+
     return p_mat4_transpose(result);
 }
 
 // COMMON GRAPHICS TRANSFORMATIONS
 
-static inline pMat4 p_orthographic_rh_no(float left, float right, float bottom, float top, float near, float far) {    
+static inline pMat4 p_orthographic_rh_no(float left, float right, float bottom, float top, float p_near, float p_far) {
     pMat4 result = {0};
 
     result.elements[0][0] = 2.0f / (right - left);
     result.elements[1][1] = 2.0f / (top - bottom);
-    result.elements[2][2] = 2.0f / (near - far);
+    result.elements[2][2] = 2.0f / (p_near - p_far);
     result.elements[3][3] = 1.0f;
 
     result.elements[3][0] = (left + right) / (left - right);
     result.elements[3][1] = (bottom + top) / (bottom - top);
-    result.elements[3][2] = (near + far) / (near - far);
+    result.elements[3][2] = (p_near + p_far) / (p_near - p_far);
 
     return result;
 }
 
-static inline pMat4 p_perspective_rh_no(float fov, float aspect_ratio, float near, float far) {
+static inline pMat4 p_perspective_rh_no(float fov, float aspect_ratio, float p_near, float p_far) {
     pMat4 result = {0};
 
     float cotangent = 1.0f / p_tanf(fov / 2.0f);
     result.elements[0][0] = cotangent / aspect_ratio;
     result.elements[1][1] = cotangent;
-    result.elements[2][3] = -1.0f;  
+    result.elements[2][3] = -1.0f;
 
-    result.elements[2][2] = (near + far) / (near - far);
-    result.elements[3][2] = (2.0f * near * far) / (near - far);
-    
+    result.elements[2][2] = (p_near + p_far) / (p_near - p_far);
+    result.elements[3][2] = (2.0f * p_near * p_far) / (p_near - p_far);
+
     return result;
 }
 
@@ -616,11 +614,11 @@ static inline pMat4 p_translate(pVec3 translation) {
 static inline pMat4 p_rotate_rh(float r, pVec3 axis) {
     pMat4 result = p_mat4_i();
     axis = p_vec3_norm(axis);
-    
+
     float sin_theta = p_sinf(r);
     float cos_theta = p_cosf(r);
     float cos_value = 1.0f - cos_theta;
-    
+
     result.elements[0][0] = (axis.x * axis.x * cos_value) + cos_theta;
     result.elements[0][1] = (axis.x * axis.y * cos_value) + (axis.z * sin_theta);
     result.elements[0][2] = (axis.x * axis.z * cos_value) - (axis.y * sin_theta);
@@ -646,7 +644,7 @@ static inline pMat4 p_rotate_xyz(pVec3 rotations) {
     pMat4 rotate_z = p_rotate_rh(rotations.z, p_vec3(0.0f, 0.0f, 1.0f));
     pMat4 rotate_yx = p_mat4_mul(rotate_y, rotate_x);
     result = p_mat4_mul(rotate_z, rotate_yx);
-#endif    
+#endif
     return result;
 }
 
@@ -723,7 +721,7 @@ static inline pQuat p_quat_mul(pQuat left, pQuat right) {
     result.y += right.elements[3] * +left.elements[1];
     result.z += right.elements[0] * -left.elements[1];
     result.w += right.elements[1] * -left.elements[1];
-    
+
     result.x += right.elements[1] * -left.elements[2];
     result.y += right.elements[0] * +left.elements[2];
     result.z += right.elements[3] * +left.elements[2];

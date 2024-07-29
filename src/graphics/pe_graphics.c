@@ -86,7 +86,7 @@ void pe_graphics_frame_end(bool vsync) {
 void pe_graphics_matrix_projection(pMat4 *matrix) {
 #if defined(_WIN32)
     peShaderConstant_Projection *projection = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_projection_buffer);
-	projection->matrix = (*matrix)._hmm;
+	projection->matrix = *matrix;
 	pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_projection_buffer);
 #elif defined(__linux__)
 	pe_shader_set_mat4(pe_opengl.shader_program, "matrix_projection", matrix);
@@ -99,7 +99,7 @@ void pe_graphics_matrix_projection(pMat4 *matrix) {
 void pe_graphics_matrix_view(pMat4 *matrix) {
 #if defined(_WIN32)
     peShaderConstant_View *constant_view = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_view_buffer);
-    constant_view->matrix = (*matrix)._hmm;
+    constant_view->matrix = *matrix;
     pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_view_buffer);
 #elif defined(__linux__)
     pe_shader_set_mat4(pe_opengl.shader_program, "matrix_view", matrix);

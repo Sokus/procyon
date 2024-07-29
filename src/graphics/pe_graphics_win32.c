@@ -255,7 +255,7 @@ void pe_graphics_init_win32(HWND hwnd, int window_width, int window_height) {
         // I don't expect the light vector to be relevant
         // anytime soon so lets just set it here
         peShaderConstant_Light *constant_light = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_light_buffer);
-        constant_light->vector = (HMM_Vec3){ 1.0f, -1.0f, 1.0f };
+        constant_light->vec = (pVec3){ 1.0f, -1.0f, 1.0f };
         pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_light_buffer);
     }
 
@@ -396,21 +396,21 @@ static void pe_scalar_sin_cos(float *out_sin, float *out_cos, float value) {
     // See https://github.com/microsoft/DirectXMath/blob/22e6d747994600e00834faff5fc2a95ab60f1790/Inc/DirectXMathMisc.inl#L2305
 
     // Map Value to y in [-pi,pi], x = 2*pi*quotient + remainder.
-    float quotient = 1.0f/(2.0f * HMM_PI32) * value;
+    float quotient = 1.0f/(2.0f * P_PI32) * value;
     if (value >= 0.0f) {
         quotient = (float)((int)(quotient + 0.5f));
     } else {
         quotient = (float)((int)(quotient - 0.5f));
     }
-    float y = value - 2.0f*HMM_PI32 * quotient;
+    float y = value - 2.0f*P_PI32 * quotient;
 
     // Map y to [-pi/2,pi/2] with sin(y) = sin(Value).
     float sign;
-    if (y > HMM_PI32/2.0f) {
-        y = HMM_PI32 - y;
+    if (y > P_PI32/2.0f) {
+        y = P_PI32 - y;
         sign = -1.0f;
-    } else if (y < -HMM_PI32/2.0f) {
-        y = -HMM_PI32 - y;
+    } else if (y < -P_PI32/2.0f) {
+        y = -P_PI32 - y;
         sign = -1.0f;
     } else {
         sign = +1.0f;
@@ -440,11 +440,11 @@ HMM_Mat4 pe_mat4_perspective(float w, float h, float n, float f) {
 }
 */
 
-pMath4 pe_perspective_win32(float fovy, float aspect_ratio, float near_z, float far_z) {
+pMat4 pe_perspective_win32(float fovy, float aspect_ratio, float near_z, float far_z) {
     // See https://github.com/microsoft/DirectXMath/blob/bec07458c994bd7553638e4d499e17cfedd07831/Inc/DirectXMathMatrix.inl#L2540
 
     float sin_fov, cos_fov;
-    pe_scalar_sin_cos(&sin_fov, &cos_fov, 0.5f*fovy*HMM_DegToRad);
+    pe_scalar_sin_cos(&sin_fov, &cos_fov, 0.5f*fovy*P_DEG2RAD);
 
     float height = cos_fov / sin_fov;
     float width = height / aspect_ratio;
@@ -461,15 +461,15 @@ pMath4 pe_perspective_win32(float fovy, float aspect_ratio, float near_z, float 
 
 
 
-void pe_graphics_draw_point_3D(HMM_Vec3 position, peColor color) {
+void pe_graphics_draw_point_3D(pVec3 position, peColor color) {
 	PE_UNIMPLEMENTED();
 }
 
-void pe_graphics_draw_line_3D(HMM_Vec3 start_position, HMM_Vec3 end_position, peColor color) {
+void pe_graphics_draw_line_3D(pVec3 start_position, pVec3 end_position, peColor color) {
     PE_UNIMPLEMENTED();
 }
 
-void pe_graphics_draw_pixel_vec(HMM_Vec2 position, peColor color) {
+void pe_graphics_draw_pixel_vec(pVec2 position, peColor color) {
     PE_UNIMPLEMENTED();
 }
 
@@ -477,7 +477,7 @@ void pe_graphics_draw_pixel(int x, int y, peColor color) {
     PE_UNIMPLEMENTED();
 }
 
-void pe_graphics_draw_line(HMM_Vec2 start_position, HMM_Vec2 end_position, peColor color) {
+void pe_graphics_draw_line(pVec2 start_position, pVec2 end_position, peColor color) {
     PE_UNIMPLEMENTED();
 }
 

@@ -57,28 +57,28 @@ struct peTexture pe_texture_create_win32(void *data, UINT width, UINT height, in
 //
 
 typedef __declspec(align(16)) struct peShaderConstant_Projection {
-    HMM_Mat4 matrix;
+    pMat4 matrix;
 } peShaderConstant_Projection;
 
 typedef __declspec(align(16)) struct peShaderConstant_View {
-    HMM_Mat4 matrix;
+    pMat4 matrix;
 } peShaderConstant_View;
 
 typedef __declspec(align(16)) struct peShaderConstant_Model {
-    HMM_Mat4 matrix;
+    pMat4 matrix;
 } peShaderConstant_Model;
 
 typedef __declspec(align(16)) struct peShaderConstant_Light {
-    HMM_Vec3 vector;
+    pVec3 vec;
 } peShaderConstant_Light;
 
 typedef __declspec(align(16)) struct peShaderConstant_Material {
-    HMM_Vec4 diffuse_color;
+    pVec4 diffuse_color;
 } peShaderConstant_Material;
 
 typedef __declspec(align(16)) struct peShaderConstant_Skeleton {
     bool has_skeleton;
-    HMM_Mat4 matrix_bone[256];
+    pMat4 matrix_bone[256];
 } peShaderConstant_Skeleton;
 
 void pe_shader_constant_buffer_init(ID3D11Device *device, size_t size, ID3D11Buffer **buffer);
