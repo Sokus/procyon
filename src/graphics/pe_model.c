@@ -181,7 +181,7 @@ void pe_draw_mesh(peMesh *mesh, peMaterial material, HMM_Vec3 position, HMM_Vec3
         2 * sizeof(float), // texcoords
         sizeof(uint32_t),
     };
-    uint32_t vertex_buffer_offsets[] = { 0, 0, 0, 0};
+    uint32_t vertex_buffer_offsets[] = { 0, 0, 0, 0 };
 
     ID3D11DeviceContext_IASetPrimitiveTopology(pe_d3d.context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     ID3D11DeviceContext_IASetVertexBuffers(pe_d3d.context, 0, PE_COUNT_OF(vertex_buffers),
@@ -900,13 +900,13 @@ peModel pe_model_load(peArena *temp_arena, char *file_path) {
 
 	size_t p3d_index_size = p3d.static_info->num_index * sizeof(*p3d.index);
 #if defined(_WIN32)
-    model.pos_buffer = pe_d3d11_create_buffer(pos_buffer, (UINT)pos_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    model.norm_buffer = pe_d3d11_create_buffer(nor_buffer, (UINT)nor_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    model.tex_buffer = pe_d3d11_create_buffer(tex_buffer, (UINT)tex_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    model.color_buffer = pe_d3d11_create_buffer(col_buffer, (UINT)col_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    model.bone_index_buffer = pe_d3d11_create_buffer(bone_index_buffer, (UINT)bone_index_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    model.bone_weight_buffer = pe_d3d11_create_buffer(bone_weight_buffer, (UINT)bone_weight_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    model.index_buffer = pe_d3d11_create_buffer(p3d.index, (UINT)p3d_index_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER);
+    model.pos_buffer = pe_d3d11_create_buffer(pos_buffer, (UINT)pos_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0);
+    model.norm_buffer = pe_d3d11_create_buffer(nor_buffer, (UINT)nor_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0);
+    model.tex_buffer = pe_d3d11_create_buffer(tex_buffer, (UINT)tex_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0);
+    model.color_buffer = pe_d3d11_create_buffer(col_buffer, (UINT)col_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0);
+    model.bone_index_buffer = pe_d3d11_create_buffer(bone_index_buffer, (UINT)bone_index_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0);
+    model.bone_weight_buffer = pe_d3d11_create_buffer(bone_weight_buffer, (UINT)bone_weight_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0);
+    model.index_buffer = pe_d3d11_create_buffer(p3d.index, (UINT)p3d_index_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER, 0);
 #endif
 #if defined(__linux__)
 	size_t total_size = pos_buffer_size + nor_buffer_size + tex_buffer_size + col_buffer_size + bone_index_buffer_size + bone_weight_buffer_size;
@@ -978,9 +978,14 @@ void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 ro
     pMat4 translate = p_translate(position);
 
     pMat4 model_matrix = p_mat4_mul(p_mat4_mul(p_mat4_mul(translate, rotate_z), rotate_y), rotate_x);
-    peShaderConstant_Model *constant_model = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_model_buffer);
-    constant_model->matrix = model_matrix;
+    peShaderConstant_Matrix *constant_model = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_model_buffer);
+    constant_model->value = model_matrix;
     pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_model_buffer);
+
+    peShaderConstant_Light *constant_light = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_light_buffer);
+    constant_light->do_lighting = true;
+    constant_light->light_vector = PE_LIGHT_VECTOR_DEFAULT;
+    pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_light_buffer);
 
     ID3D11Buffer *buffs[] = {
         model->pos_buffer,

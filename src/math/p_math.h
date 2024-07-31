@@ -585,6 +585,21 @@ static inline pMat4 p_orthographic_rh_no(float left, float right, float bottom, 
     return result;
 }
 
+static inline pMat4 p_orthographic_rh_zo(float left, float right, float bottom, float top, float p_near, float p_far) {
+    pMat4 result = {0};
+
+    result.elements[0][0] = 2.0f / (right - left);
+    result.elements[1][1] = 2.0f / (top - bottom);
+    result.elements[2][2] = 1.0f / (p_near - p_far);
+    result.elements[3][3] = 1.0f;
+
+    result.elements[3][0] = (left + right) / (left - right);
+    result.elements[3][1] = (bottom + top) / (bottom - top);
+    result.elements[3][2] = (p_near) / (p_near - p_far);
+
+    return result;
+}
+
 static inline pMat4 p_perspective_rh_no(float fov, float aspect_ratio, float p_near, float p_far) {
     pMat4 result = {0};
 
@@ -595,6 +610,21 @@ static inline pMat4 p_perspective_rh_no(float fov, float aspect_ratio, float p_n
 
     result.elements[2][2] = (p_near + p_far) / (p_near - p_far);
     result.elements[3][2] = (2.0f * p_near * p_far) / (p_near - p_far);
+
+    return result;
+}
+
+static inline pMat4 p_perspective_rh_zo(float fov, float aspect_ratio, float p_near, float p_far)
+{
+    pMat4 result = {0};
+
+    float cotangent = 1.0f / p_tanf(fov / 2.0f);
+    result.elements[0][0] = cotangent / aspect_ratio;
+    result.elements[1][1] = cotangent;
+    result.elements[2][3] = -1.0f;
+
+    result.elements[2][2] = (p_far) / (p_near - p_far);
+    result.elements[3][2] = (p_near * p_far) / (p_near - p_far);
 
     return result;
 }

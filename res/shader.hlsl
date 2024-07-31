@@ -11,7 +11,8 @@ cbuffer constant_model : register(b2) {
 }
 
 cbuffer constant_light : register(b3) {
-    float3 lightvector;
+    bool do_lighting;
+    float3 light_vector;
 }
 
 cbuffer constant_material : register(b4) {
@@ -27,7 +28,7 @@ struct vs_in {
     float3 position : POS;
     float3 normal : NOR;
     float2 texcoord : TEX;
-    float3 color : COL;
+    float4 color : COL;
     uint bone_index[4] : BONEINDEX;
     float bone_weight[4] : BONEWEIGHT;
 };
@@ -42,7 +43,10 @@ Texture2D    mytexture : register(t0);
 SamplerState mysampler : register(s0);
 
 vs_out vs_main(vs_in input) {
-    float light = clamp(dot(normalize(-lightvector), mul(matrix_model, input.normal)), 0.0f, 1.0f) * 0.8f + 0.2f;
+    float brightness = 1.0f;
+    if (do_lighting) {
+        brightness = clamp(dot(normalize(-light_vector), mul(matrix_model, input.normal)), 0.0f, 1.0f) * 0.8f + 0.2f;
+    }
 
     float4 skinned_position = float4(0.0f, 0.0f, 0.0f, 0.0f);
     if (has_skeleton) {
@@ -61,7 +65,8 @@ vs_out vs_main(vs_in input) {
     vs_out output;
     output.position = mul(projection, skinned_position);
     output.texcoord = input.texcoord;
-    output.color    = diffuse_color * light;
+    float4 unlit_color = input.color * diffuse_color;
+    output.color    = float4(unlit_color.xyz * brightness, input.color.w);
     return output;
 }
 

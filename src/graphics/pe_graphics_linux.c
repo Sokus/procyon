@@ -8,7 +8,7 @@
 
 #include "glad/glad.h"
 
-#include "HandmadeMath.h"
+#include "HandmadeMath.h" // REMOVE THIS
 
 #include <stdio.h>
 #include <stddef.h>

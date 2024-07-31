@@ -63,8 +63,10 @@ void pe_graphics_frame_begin(void) {
 void pe_graphics_frame_end(bool vsync) {
 	PE_TRACE_FUNCTION_BEGIN();
 #if defined(_WIN32)
+    pe_graphics_dynamic_draw_flush();
     UINT sync_interval = (vsync ? 1 : 0);
     IDXGISwapChain1_Present(pe_d3d.swapchain, sync_interval, 0);
+    ID3D11DeviceContext_OMSetRenderTargets(pe_d3d.context, 1, &pe_d3d.render_target_view, pe_d3d.depth_stencil_view);
 #elif defined(PSP)
     pe_graphics_dynamic_draw_flush();
     sceGuFinish();
@@ -76,7 +78,6 @@ void pe_graphics_frame_end(bool vsync) {
     }
     sceGuSwapBuffers();
 #elif defined(__linux__)
-    pe_graphics_dynamic_draw_end_batch();
     pe_graphics_dynamic_draw_flush();
 	pe_window_swap_buffers(vsync);
 #endif
@@ -85,8 +86,8 @@ void pe_graphics_frame_end(bool vsync) {
 
 void pe_graphics_matrix_projection(pMat4 *matrix) {
 #if defined(_WIN32)
-    peShaderConstant_Projection *projection = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_projection_buffer);
-	projection->matrix = *matrix;
+    peShaderConstant_Matrix *constant_projection = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_projection_buffer);
+	constant_projection->value = *matrix;
 	pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_projection_buffer);
 #elif defined(__linux__)
 	pe_shader_set_mat4(pe_opengl.shader_program, "matrix_projection", matrix);
@@ -98,8 +99,8 @@ void pe_graphics_matrix_projection(pMat4 *matrix) {
 
 void pe_graphics_matrix_view(pMat4 *matrix) {
 #if defined(_WIN32)
-    peShaderConstant_View *constant_view = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_view_buffer);
-    constant_view->matrix = *matrix;
+    peShaderConstant_Matrix *constant_view = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_view_buffer);
+    constant_view->value = *matrix;
     pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_view_buffer);
 #elif defined(__linux__)
     pe_shader_set_mat4(pe_opengl.shader_program, "matrix_view", matrix);
@@ -131,13 +132,8 @@ int pe_screen_height(void) {
 
 void pe_clear_background(peColor color) {
 #if defined(_WIN32)
-    float r = (float)color.r / 255.0f;
-    float g = (float)color.g / 255.0f;
-    float b = (float)color.b / 255.0f;
-
-    // FIXME: render a sprite to get exact background color
-    FLOAT clear_color[4] = { powf(r, 2.0f), powf(g, 2.0f), powf(b, 2.0f), 1.0f };
-    ID3D11DeviceContext_ClearRenderTargetView(pe_d3d.context, pe_d3d.render_target_view, clear_color);
+    pVec4 color_converted_vec4 = pe_color_to_vec4(color);
+    ID3D11DeviceContext_ClearRenderTargetView(pe_d3d.context, pe_d3d.render_target_view, color_converted_vec4.elements);
     ID3D11DeviceContext_ClearDepthStencilView(pe_d3d.context, pe_d3d.depth_stencil_view, D3D11_CLEAR_DEPTH, 1, 0);
 #elif defined(PSP)
 	sceGuClearColor(pe_color_to_8888(color));
@@ -155,7 +151,7 @@ void pe_clear_background(peColor color) {
 
 pMat4 pe_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z) {
 #if defined(_WIN32)
-	return pe_perspective_win32(fovy, aspect_ratio, near_z, far_z);
+    return p_perspective_rh_zo(fovy * P_DEG2RAD, aspect_ratio, near_z, far_z);
 #else
 	return p_perspective_rh_no(fovy * P_DEG2RAD, aspect_ratio, near_z, far_z);
 #endif
@@ -163,8 +159,7 @@ pMat4 pe_matrix_perspective(float fovy, float aspect_ratio, float near_z, float 
 
 pMat4 pe_matrix_orthographic(float left, float right, float bottom, float top, float near_z, float far_z) {
 #if defined(_WIN32)
-    PE_UNIMPLEMENTED();
-    return p_mat4_i();
+    return p_orthographic_rh_zo(left, right, bottom, top, near_z, far_z);
 #else
     return p_orthographic_rh_no(left, right, bottom, top, near_z, far_z);
 #endif

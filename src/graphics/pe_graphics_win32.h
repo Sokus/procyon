@@ -29,11 +29,15 @@ typedef struct peDirect3D {
     ID3D11VertexShader *vertex_shader;
     ID3D11PixelShader *pixel_shader;
     ID3DBlob *vs_blob, *ps_blob;
+
     ID3D11InputLayout *input_layout;
 
     ID3D11RasterizerState *rasterizer_state;
     ID3D11SamplerState *sampler_state;
-    ID3D11DepthStencilState *depth_stencil_state;
+    ID3D11DepthStencilState *depth_stencil_state_enabled;
+    ID3D11DepthStencilState *depth_stencil_state_disabled;
+
+    ID3D11BlendState *blend_state;
 } peDirect3D;
 extern peDirect3D pe_d3d;
 
@@ -47,7 +51,7 @@ extern ID3D11Buffer *pe_shader_constant_skeleton_buffer;
 void pe_framebuffer_size_callback_win32(int width, int height);
 void pe_graphics_init_win32(HWND hwnd, int window_width, int window_height);
 
-ID3D11Buffer *pe_d3d11_create_buffer(void *data, UINT byte_width, D3D11_USAGE usage, UINT bind_flags);
+ID3D11Buffer *pe_d3d11_create_buffer(void *data, UINT byte_width, D3D11_USAGE usage, UINT bind_flags, D3D11_CPU_ACCESS_FLAG cpu_access_flags);
 
 struct peTexture;
 struct peTexture pe_texture_create_win32(void *data, UINT width, UINT height, int channels);
@@ -56,20 +60,13 @@ struct peTexture pe_texture_create_win32(void *data, UINT width, UINT height, in
 // SHADERS
 //
 
-typedef __declspec(align(16)) struct peShaderConstant_Projection {
-    pMat4 matrix;
-} peShaderConstant_Projection;
-
-typedef __declspec(align(16)) struct peShaderConstant_View {
-    pMat4 matrix;
-} peShaderConstant_View;
-
-typedef __declspec(align(16)) struct peShaderConstant_Model {
-    pMat4 matrix;
-} peShaderConstant_Model;
+typedef __declspec(align(16)) struct peShaderConstant_Matrix {
+    pMat4 value;
+} peShaderConstant_Matrix;
 
 typedef __declspec(align(16)) struct peShaderConstant_Light {
-    pVec3 vec;
+    bool do_lighting;
+    pVec3 light_vector;
 } peShaderConstant_Light;
 
 typedef __declspec(align(16)) struct peShaderConstant_Material {
@@ -87,6 +84,7 @@ void pe_shader_constant_end_map(ID3D11DeviceContext *context, ID3D11Buffer *buff
 bool pe_vertex_shader_create(ID3D11Device *device, wchar_t *wchar_file_name, ID3D11VertexShader **vertex_shader, ID3D10Blob **vertex_shader_blob);
 bool pe_pixel_shader_create(ID3D11Device *device, wchar_t *wchar_file_name, ID3D11PixelShader **pixel_shader, ID3D10Blob **pixel_shader_blob);
 
-pMat4 pe_perspective_win32(float fovy, float aspect_ratio, float near_z, float far_z);
+void pe_graphics_dynamic_draw_flush(void);
+void pe_graphics_dynamic_draw_end_batch(void);
 
 #endif // PE_GRAPHICS_WIN32_H_HEADER_GUARD

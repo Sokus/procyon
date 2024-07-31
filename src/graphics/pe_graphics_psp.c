@@ -78,6 +78,8 @@ void pe_graphics_init_psp(void) {
 	sceGuShadeModel(GU_SMOOTH);
 	sceGuEnable(GU_CULL_FACE);
 	sceGuEnable(GU_CLIP_PLANES);
+    sceGuEnable(GU_BLEND); // TODO: verify performance impact
+    sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0);
 	sceGuFinish();
 	sceGuSync(0, 0);
 

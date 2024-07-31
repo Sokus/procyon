@@ -12,6 +12,8 @@ struct peArena;
 
 // GENERAL
 
+#define PE_LIGHT_VECTOR_DEFAULT (pVec3){ 1.0f, -1.0f, 1.0f }
+
 void pe_graphics_init(struct peArena *temp_arena, int window_width, int window_height);
 void pe_graphics_shutdown(void);
 void pe_graphics_frame_begin(void);
@@ -83,6 +85,8 @@ uint32_t pe_color_to_8888(peColor color);
 typedef struct peTexture {
 #if defined(_WIN32)
 	void *texture_resource; // ID3D11ShaderResourceView
+	int width;
+	int height;
 #endif
 #if defined(__linux__)
 	unsigned int texture_object; // GLuint

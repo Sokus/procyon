@@ -289,15 +289,9 @@ int main(int argc, char* argv[]) {
             pe_update_entities(dt, client.client_input);
         }
 
-
-#if !defined(__linux__) && !defined(__PSP__)
-        pe_camera_update(client.camera);
-#endif
-
         pe_graphics_frame_begin();
         pe_clear_background((peColor){ 20, 20, 20, 255 });
 
-        pe_graphics_draw_rectangle(5.0f, 5.0f, 100.0f, 100.0f, PE_COLOR_WHITE);
    
         // pe_graphics_draw_point_int(3, 2, PE_COLOR_BLUE);
     
@@ -307,6 +301,8 @@ int main(int argc, char* argv[]) {
         }
         
         // pe_graphics_draw_texture(&client.model.material[0].diffuse_map, 100.0f, 100.0f, PE_COLOR_WHITE);
+        pe_graphics_draw_rectangle(5.0f, 5.0f, 100.0f, 100.0f, (peColor){ 0, 255, 0, 128 });
+        pe_graphics_draw_rectangle(55.0f, 55.0f, 100.0f, 100.0f, (peColor){ 0, 255, 0, 128 });
 
         pe_graphics_mode_3d_begin(client.camera);
         {
