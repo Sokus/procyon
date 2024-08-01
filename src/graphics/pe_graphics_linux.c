@@ -181,6 +181,9 @@ void pe_graphics_init_linux(peArena *temp_arena, int window_width, int window_he
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
+    glEnable(GL_BLEND);
+    glBlendEquation(GL_FUNC_ADD);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // init shader_program
     {
@@ -373,6 +376,7 @@ typedef struct peDynamicDrawBatch {
     int vertex_count;
     GLenum primitive;
     peTexture *texture;
+    bool do_lighting;
 } peDynamicDrawBatch;
 
 #define PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT 1024
@@ -384,6 +388,7 @@ struct peDynamicDrawState {
     pVec3 normal;
     pVec2 texcoord;
     peColor color;
+    bool do_lighting;
 
     peDynamicDrawVertex vertex[PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT];
     int vertex_used;
@@ -430,15 +435,21 @@ void pe_graphics_dynamic_draw_flush(void) {
         pe_graphics_matrix_mode(peMatrixMode_Model);
         pe_graphics_matrix_identity();
         pe_graphics_matrix_update();
-        pe_shader_set_bool(pe_opengl.shader_program, "do_lighting", false);
         pe_shader_set_bool(pe_opengl.shader_program, "has_skeleton", false);
 
         glBindVertexArray(dynamic_draw.vertex_array_object);
         glBindBuffer(GL_ARRAY_BUFFER, dynamic_draw.vertex_buffer_object);
         glBufferSubData(GL_ARRAY_BUFFER, 0, (size_t)dynamic_draw.vertex_used*sizeof(peDynamicDrawVertex), dynamic_draw.vertex);
 
+        bool previous_do_lighting;
         for (int b = 0; b < dynamic_draw.batch_current; b += 1) {
             pe_texture_bind(*dynamic_draw.batch[b].texture);
+
+            bool do_lighting = dynamic_draw.batch[b].do_lighting;
+            if (b == 0 || previous_do_lighting != do_lighting) {
+                pe_shader_set_bool(pe_opengl.shader_program, "do_lighting", do_lighting);
+                previous_do_lighting = do_lighting;
+            }
 
             glDrawArrays(
                 dynamic_draw.batch[b].primitive,
@@ -479,6 +490,13 @@ static void pe_graphics_dynamic_draw_new_batch(void) {
     dynamic_draw.batch[dynamic_draw.batch_current].vertex_count = 0;
 }
 
+static void pe_graphics_dynamic_draw_set_primitive(GLenum primitive) {
+    dynamic_draw.primitive = primitive;
+    if (dynamic_draw.batch[dynamic_draw.batch_current].primitive != primitive) {
+        pe_graphics_dynamic_draw_new_batch();
+    }
+}
+
 static void pe_graphics_dynamic_draw_set_texture(peTexture *texture) {
     dynamic_draw.texture = texture;
     if (dynamic_draw.batch[dynamic_draw.batch_current].texture != texture) {
@@ -498,9 +516,9 @@ static void pe_graphics_dynamic_draw_set_color(peColor color) {
     dynamic_draw.color = color;
 }
 
-static void pe_graphics_dynamic_draw_set_primitive(GLenum primitive) {
-    dynamic_draw.primitive = primitive;
-    if (dynamic_draw.batch[dynamic_draw.batch_current].primitive != primitive) {
+static void pe_graphics_dynamic_draw_do_lighting(bool do_lighting) {
+    dynamic_draw.do_lighting = do_lighting;
+    if (dynamic_draw.batch[dynamic_draw.batch_current].do_lighting != do_lighting) {
         pe_graphics_dynamic_draw_new_batch();
     }
 }
@@ -508,13 +526,15 @@ static void pe_graphics_dynamic_draw_set_primitive(GLenum primitive) {
 static void pe_graphics_dynamic_draw_begin_primitive_textured(GLenum primitive, peTexture *texture) {
     pe_graphics_dynamic_draw_set_primitive(primitive);
     pe_graphics_dynamic_draw_set_texture(texture);
-    pe_graphics_dynamic_draw_set_normal((pVec3){ 0.0f });
-    pe_graphics_dynamic_draw_set_texcoord((pVec2){ 0.0f });
     pe_graphics_dynamic_draw_set_color(PE_COLOR_WHITE);
+    pe_graphics_dynamic_draw_do_lighting(false);
 }
 
 static void pe_graphics_dynamic_draw_begin_primitive(GLenum primitive) {
-    pe_graphics_dynamic_draw_begin_primitive_textured(primitive, &default_texture);
+    pe_graphics_dynamic_draw_set_primitive(primitive);
+    pe_graphics_dynamic_draw_set_texture(&default_texture);
+    pe_graphics_dynamic_draw_set_color(PE_COLOR_WHITE);
+    pe_graphics_dynamic_draw_do_lighting(false);
 }
 
 static int pe_graphics_primitive_vertex_count(GLenum primitive) {

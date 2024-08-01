@@ -16,7 +16,7 @@ layout (location = 3) in vec4 in_color;
 layout (location = 4) in uvec4 in_bone_index;
 layout (location = 5) in vec4 in_bone_weight;
 
-out vec3 frag_color;
+out vec4 frag_color;
 out vec2 tex_coord;
 
 void main() {
@@ -45,8 +45,9 @@ void main() {
     if (do_lighting) {
         light_strength = clamp(dot(normalize(-light_vector), model_space_normal), 0.0, 1.0) * 0.8 + 0.2;
     }
-    
-    frag_color = vec3(in_color) * vec3(light_strength);
+
+    vec4 unlit_color = in_color;
+    frag_color = vec4(unlit_color.rgb * vec3(light_strength), unlit_color.a);
     tex_coord = in_tex_coord;
 
     gl_Position = matrix_projection * matrix_view * matrix_model * skinned_position;
@@ -58,15 +59,15 @@ void main() {
 #ifdef PE_FRAGMENT_SHADER
 uniform vec3 diffuse_color;
 
-in vec3 frag_color;
+in vec4 frag_color;
 in vec2 tex_coord;
 
-out vec3 out_color;
+out vec4 out_color;
 
 uniform sampler2D diffuse_map;
 
 void main() {
     vec4 diffuse_map_value = texture(diffuse_map, tex_coord);
-    out_color = vec3(diffuse_map_value) * frag_color;
+    out_color = diffuse_map_value * frag_color;
 }
 #endif // PE_FRAGMENT_SHADER
