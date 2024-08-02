@@ -11,9 +11,18 @@
 
 #if defined(_WIN32)
 	#include "pe_graphics_win32.h"
+
+    #define COBJMACROS
+    #include <d3d11.h>
+    #include <dxgi1_2.h>
+
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+
 #elif defined(__linux__)
 	#include "pe_graphics_linux.h"
 #elif defined(PSP)
+    #include "pe_graphics_psp.h"
     #include <pspkernel.h> // sceKernelDcacheWritebackInvalidateRange
     #include <pspgu.h>
     #include <pspgum.h>
@@ -828,7 +837,7 @@ peModel pe_model_load(peArena *temp_arena, char *file_path) {
 
 			int w, h, channels;
 			stbi_uc *stbi_data = stbi_load(diffuse_texture_path, &w, &h, &channels, STBI_rgb_alpha);
-			model.material[m].diffuse_map = pe_texture_create(temp_arena, stbi_data, w, h, channels);
+			model.material[m].diffuse_map = pe_texture_create(stbi_data, w, h, channels);
 			stbi_image_free(stbi_data);
 		}
     }
@@ -978,14 +987,14 @@ void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 ro
     pMat4 translate = p_translate(position);
 
     pMat4 model_matrix = p_mat4_mul(p_mat4_mul(p_mat4_mul(translate, rotate_z), rotate_y), rotate_x);
-    peShaderConstant_Matrix *constant_model = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_model_buffer);
+    peShaderConstant_Matrix *constant_model = pe_shader_constant_begin_map(pe_d3d.context, constant_buffers_d3d.model);
     constant_model->value = model_matrix;
-    pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_model_buffer);
+    pe_shader_constant_end_map(pe_d3d.context, constant_buffers_d3d.model);
 
-    peShaderConstant_Light *constant_light = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_light_buffer);
+    peShaderConstant_Light *constant_light = pe_shader_constant_begin_map(pe_d3d.context, constant_buffers_d3d.light);
     constant_light->do_lighting = true;
     constant_light->light_vector = PE_LIGHT_VECTOR_DEFAULT;
-    pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_light_buffer);
+    pe_shader_constant_end_map(pe_d3d.context, constant_buffers_d3d.light);
 
     ID3D11Buffer *buffs[] = {
         model->pos_buffer,
@@ -1021,7 +1030,7 @@ void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 ro
             }
         }
 
-        peShaderConstant_Skeleton *constant_skeleton = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_skeleton_buffer);
+        peShaderConstant_Skeleton *constant_skeleton = pe_shader_constant_begin_map(pe_d3d.context, constant_buffers_d3d.skeleton);
         constant_skeleton->has_skeleton = true;
         for (int b = 0; b < model->num_bone; b += 1) {
             peAnimationJoint *animation_joint = &model_space_joints[b];
@@ -1033,13 +1042,13 @@ void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 ro
             pMat4 final_bone_matrix = p_mat4_mul(transform, model->bone_inverse_model_space_pose_matrix[b]);
             constant_skeleton->matrix_bone[b] = final_bone_matrix;
         }
-        pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_skeleton_buffer);
+        pe_shader_constant_end_map(pe_d3d.context, constant_buffers_d3d.skeleton);
     }
 
     for (int m = 0; m < model->num_mesh; m += 1) {
-        peShaderConstant_Material *constant_material = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_material_buffer);
+        peShaderConstant_Material *constant_material = pe_shader_constant_begin_map(pe_d3d.context, constant_buffers_d3d.material);
         constant_material->diffuse_color = pe_color_to_vec4(model->material[m].diffuse_color);
-        pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_material_buffer);
+        pe_shader_constant_end_map(pe_d3d.context, constant_buffers_d3d.material);
 
 		if (model->material[m].has_diffuse_map) {
 			pe_texture_bind(model->material[m].diffuse_map);
@@ -1089,7 +1098,9 @@ void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 ro
     }
 
 	glBindVertexArray(model->vertex_array_object);
-	for (int m = 0; m < model->num_mesh; m += 1) {
+    for (int m = 0; m < model->num_mesh; m += 1) {
+        pe_shader_set_vec3(pe_opengl.shader_program, "diffuse_color", pe_color_to_vec4(model->material[m].diffuse_color).rgb);
+
 		if (model->material[m].has_diffuse_map) {
 			pe_texture_bind(model->material[m].diffuse_map);
 		} else {

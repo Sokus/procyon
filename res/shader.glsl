@@ -9,6 +9,8 @@ uniform vec3 light_vector;
 uniform bool has_skeleton;
 uniform mat4 matrix_bone[256];
 
+uniform vec3 diffuse_color;
+
 layout (location = 0) in vec3 in_position;
 layout (location = 1) in vec3 in_normal;
 layout (location = 2) in vec2 in_tex_coord;
@@ -46,7 +48,7 @@ void main() {
         light_strength = clamp(dot(normalize(-light_vector), model_space_normal), 0.0, 1.0) * 0.8 + 0.2;
     }
 
-    vec4 unlit_color = in_color;
+    vec4 unlit_color = in_color * vec4(diffuse_color, 1.0);
     frag_color = vec4(unlit_color.rgb * vec3(light_strength), unlit_color.a);
     tex_coord = in_tex_coord;
 
@@ -57,7 +59,6 @@ void main() {
 
 
 #ifdef PE_FRAGMENT_SHADER
-uniform vec3 diffuse_color;
 
 in vec4 frag_color;
 in vec2 tex_coord;

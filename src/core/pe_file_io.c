@@ -75,7 +75,7 @@ bool pe_file_write_async(peFileHandle file, void *data, size_t data_size) {
     }
 #elif defined(_WIN32)
     // TODO: Actually do async writing
-    success = WriteFile(file.handle_win32, data, data_size, NULL, NULL);
+    success = WriteFile(file.handle_win32, data, (DWORD)data_size, NULL, NULL);
 #else
     PE_UNIMPLEMENTED();
 #endif

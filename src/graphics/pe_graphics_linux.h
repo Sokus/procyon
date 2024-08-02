@@ -1,9 +1,12 @@
 #ifndef PE_GRAPHICS_LINUX_H_HEADER_GUARD
 #define PE_GRAPHICS_LINUX_H_HEADER_GUARD
 
-#include "glad/glad.h"
-
 #include <stdbool.h>
+
+typedef unsigned int GLuint;
+typedef unsigned int GLenum;
+typedef int GLsizei;
+typedef char GLchar;
 
 typedef struct peOpenGL {
     int framebuffer_width;
@@ -13,21 +16,34 @@ typedef struct peOpenGL {
 } peOpenGL;
 extern peOpenGL pe_opengl;
 
-void pe_framebuffer_size_callback_linux(int width, int height);
-struct peArena;
-void pe_graphics_init_linux(struct peArena *temp_arena, int window_width, int window_height);
+typedef struct peDynamicDrawStateOpenGL {
+    GLuint vertex_array_object;
+    GLuint vertex_buffer_object;
+} peDynamicDrawStateOpenGL;
+extern peDynamicDrawStateOpenGL dynamic_draw_opengl;
 
-union pVec3;
-union pMat4;
-void pe_shader_set_vec3(GLuint shader_program, const GLchar *name, union pVec3 value);
-void pe_shader_get_mat4(GLuint shader_program, const GLchar *name, union pMat4 *value);
-void pe_shader_set_mat4(GLuint shader_program, const GLchar *name, union pMat4 *value);
-void pe_shader_set_mat4_array(GLuint shader_program, const GLchar *name, union pMat4 *values, GLsizei count);
+void gl_debug_message_proc(
+    GLenum source, GLenum type, GLuint id, GLenum severity,
+    GLsizei length, const GLchar *message, const void *userParam
+);
+
+typedef struct peArena peArena;
+GLuint pe_shader_create_from_file(peArena *temp_arena, const char *source_file_path);
+
+void pe_framebuffer_size_callback_linux(int width, int height);
+
+typedef union pVec3 pVec3;
+typedef union pMat4 pMat4;
+void pe_shader_set_vec3(GLuint shader_program, const GLchar *name, pVec3 value);
+void pe_shader_get_mat4(GLuint shader_program, const GLchar *name, pMat4 *value);
+void pe_shader_set_mat4(GLuint shader_program, const GLchar *name, pMat4 *value);
+void pe_shader_set_mat4_array(GLuint shader_program, const GLchar *name, pMat4 *values, GLsizei count);
 void pe_shader_get_bool(GLuint shader_program, const GLchar *name, bool *value);
 void pe_shader_set_bool(GLuint shader_program, const GLchar *name, bool value);
-struct peTexture;
-struct peTexture pe_texture_create_linux(void *data, int width, int height, int channels);
-void pe_graphics_dynamic_draw_flush(void);
-void pe_graphics_dynamic_draw_end_batch(void);
+
+typedef struct peTexture peTexture;
+peTexture pe_texture_create(void *data, int width, int height, int channels);
+void pe_texture_bind(peTexture texture);
+void pe_texture_bind_default(void);
 
 #endif // PE_GRAPHICS_LINUX_H_HEADER_GUARD

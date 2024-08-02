@@ -2,167 +2,239 @@
 
 #include "core/pe_core.h"
 #include "pe_math.h"
-#include "platform/pe_platform.h"
-#include "platform/pe_window.h"
 #include "utility/pe_trace.h"
 
-#if defined(_WIN32)
-    #define WIN32_LEAN_AND_MEAN
-    #include <windows.h>
-
-	#include "pe_graphics_win32.h"
-#elif defined(PSP)
-	#include "pe_graphics_psp.h"
-
-    #include <pspdisplay.h> // sceDisplayWaitVblankStart
-    #include <pspgu.h>
-	#include <pspgum.h>
-#elif defined(__linux__)
-	#include "pe_graphics_linux.h"
-
-	#include "glad/glad.h"
-#endif
-
-#include "HandmadeMath.h"
-
 #include <stdbool.h>
+#include <string.h>
 
-peTexture default_texture;
+peGraphics pe_graphics = {0};
+peDynamicDrawState dynamic_draw = {0};
 
-void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) {
-#if defined(_WIN32)
-	HWND hwnd = pe_window_get_win32_window();
-	pe_graphics_init_win32(hwnd, window_width, window_height);
-#elif defined(PSP)
-    pe_graphics_init_psp();
-#elif defined(__linux__)
-	pe_graphics_init_linux(temp_arena, window_width, window_height);
-
-#endif
-#if defined(_WIN32) || defined(__linux__)
-	// init default texture
-	{
-		uint32_t texture_data[] = { 0xFFFFFFFF };
-		default_texture = pe_texture_create(temp_arena, texture_data, 1, 1, 4);
-	}
-#endif
-}
-
-void pe_graphics_shutdown(void) {
-#if defined(PSP)
-	pe_graphics_shutdown_psp();
-#endif
-}
-
-void pe_graphics_frame_begin(void) {
-#if defined(PSP)
-    sceGuStart(GU_DIRECT, list);
-#endif
-}
-
-void pe_graphics_frame_end(bool vsync) {
-	PE_TRACE_FUNCTION_BEGIN();
-#if defined(_WIN32)
+void pe_graphics_mode_3d_begin(peCamera camera) {
     pe_graphics_dynamic_draw_flush();
-    UINT sync_interval = (vsync ? 1 : 0);
-    IDXGISwapChain1_Present(pe_d3d.swapchain, sync_interval, 0);
-    ID3D11DeviceContext_OMSetRenderTargets(pe_d3d.context, 1, &pe_d3d.render_target_view, pe_d3d.depth_stencil_view);
-#elif defined(PSP)
+
+    PE_ASSERT(pe_graphics.mode == peGraphicsMode_2D);
+    pe_graphics.mode = peGraphicsMode_3D;
+
+    pe_graphics_matrix_mode(peMatrixMode_Projection);
+    float aspect_ratio = (float)pe_screen_width()/(float)pe_screen_height();
+    pMat4 matrix_perspective = pe_matrix_perspective(camera.fovy, aspect_ratio, 1.0f, 1000.0f);
+    pe_graphics_matrix_set(&matrix_perspective);
+
+    pe_graphics_matrix_mode(peMatrixMode_View);
+    pMat4 matrix_view = p_look_at_rh(camera.position, camera.target, camera.up);
+    pe_graphics_matrix_set(&matrix_view);
+
+    pe_graphics_matrix_mode(peMatrixMode_Model);
+    pe_graphics_matrix_identity();
+
+    pe_graphics_matrix_update();
+
+    pe_graphics_set_depth_test(true);
+}
+
+void pe_graphics_mode_3d_end(void) {
     pe_graphics_dynamic_draw_flush();
-    sceGuFinish();
-	peTraceMark tm_sync = PE_TRACE_MARK_BEGIN("sceGuSync");
-    sceGuSync(0, 0);
-	PE_TRACE_MARK_END(tm_sync);
-    if (vsync) {
-        sceDisplayWaitVblankStart();
+
+    PE_ASSERT(pe_graphics.mode == peGraphicsMode_3D);
+    pe_graphics.mode = peGraphicsMode_2D;
+
+    pe_graphics_matrix_mode(peMatrixMode_View);
+    pe_graphics_matrix_identity();
+    pe_graphics_matrix_mode(peMatrixMode_Model);
+    pe_graphics_matrix_identity();
+    pe_graphics.matrix_dirty[peGraphicsMode_2D][peMatrixMode_Projection] = true;
+
+    pe_graphics_matrix_update();
+
+    pe_graphics_set_depth_test(false);
+}
+
+void pe_graphics_matrix_mode(peMatrixMode mode) {
+    PE_ASSERT(mode >= 0);
+    PE_ASSERT(mode < peMatrixMode_Count);
+    pe_graphics.matrix_mode = mode;
+}
+
+void pe_graphics_matrix_set(pMat4 *matrix) {
+    memcpy(&pe_graphics.matrix[pe_graphics.mode][pe_graphics.matrix_mode], matrix, sizeof(pMat4));
+    pe_graphics.matrix_dirty[pe_graphics.mode][pe_graphics.matrix_mode] = true;
+    if (pe_graphics.matrix_mode == peMatrixMode_Model) {
+        pe_graphics.matrix_model_is_identity[pe_graphics.mode] = false;
     }
-    sceGuSwapBuffers();
-#elif defined(__linux__)
-    pe_graphics_dynamic_draw_flush();
-	pe_window_swap_buffers(vsync);
-#endif
-	PE_TRACE_FUNCTION_END();
 }
 
-void pe_graphics_matrix_projection(pMat4 *matrix) {
-#if defined(_WIN32)
-    peShaderConstant_Matrix *constant_projection = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_projection_buffer);
-	constant_projection->value = *matrix;
-	pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_projection_buffer);
-#elif defined(__linux__)
-	pe_shader_set_mat4(pe_opengl.shader_program, "matrix_projection", matrix);
-#elif defined(PSP)
-	sceGumMatrixMode(GU_PROJECTION);
-	sceGumLoadMatrix(&matrix->_sce);
-#endif
+void pe_graphics_matrix_identity(void) {
+    pe_graphics.matrix[pe_graphics.mode][pe_graphics.matrix_mode] = p_mat4_i();
+    pe_graphics.matrix_dirty[pe_graphics.mode][pe_graphics.matrix_mode] = true;
+    if (pe_graphics.matrix_mode == peMatrixMode_Model) {
+        pe_graphics.matrix_model_is_identity[pe_graphics.mode] = true;
+    }
 }
 
-void pe_graphics_matrix_view(pMat4 *matrix) {
-#if defined(_WIN32)
-    peShaderConstant_Matrix *constant_view = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_view_buffer);
-    constant_view->value = *matrix;
-    pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_view_buffer);
-#elif defined(__linux__)
-    pe_shader_set_mat4(pe_opengl.shader_program, "matrix_view", matrix);
-#elif defined(PSP)
-	sceGumMatrixMode(GU_VIEW);
-    sceGumLoadMatrix(&matrix->_sce);
-#endif
+int pe_graphics_primitive_vertex_count(pePrimitive primitive) {
+    PE_ASSERT(primitive >= 0);
+    PE_ASSERT(primitive < pePrimitive_Count);
+    int result;
+    switch (primitive) {
+        case pePrimitive_Points: result = 1; break;
+        case pePrimitive_Lines: result = 2; break;
+        case pePrimitive_Triangles: result = 3; break;
+        default: result = 0; break;
+    }
+    return result;
 }
 
-int pe_screen_width(void) {
-#if defined(_WIN32)
-    return pe_d3d.framebuffer_width;
-#elif defined(__linux__)
-	return pe_opengl.framebuffer_width;
-#elif defined(PSP)
-    return PSP_SCREEN_W;
-#endif
+bool pe_graphics_dynamic_draw_vertex_reserve(int count) {
+    bool flushed = false;
+    if (dynamic_draw.vertex_used + count > PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT) {
+        pe_graphics_dynamic_draw_flush();
+        flushed = true;
+    }
+    return flushed;
 }
 
-int pe_screen_height(void) {
-#if defined(_WIN32)
-    return pe_d3d.framebuffer_height;
-#elif defined(__linux__)
-	return pe_opengl.framebuffer_height;
-#elif defined(PSP)
-    return PSP_SCREEN_H;
-#endif
+void pe_graphics_dynamic_draw_end_batch(void) {
+    PE_ASSERT(dynamic_draw.batch_current < PE_MAX_DYNAMIC_DRAW_BATCH_COUNT);
+    if (dynamic_draw.batch[dynamic_draw.batch_current].vertex_count > 0) {
+        dynamic_draw.batch_current += 1;
+    }
 }
 
-void pe_clear_background(peColor color) {
-#if defined(_WIN32)
-    pVec4 color_converted_vec4 = pe_color_to_vec4(color);
-    ID3D11DeviceContext_ClearRenderTargetView(pe_d3d.context, pe_d3d.render_target_view, color_converted_vec4.elements);
-    ID3D11DeviceContext_ClearDepthStencilView(pe_d3d.context, pe_d3d.depth_stencil_view, D3D11_CLEAR_DEPTH, 1, 0);
-#elif defined(PSP)
-	sceGuClearColor(pe_color_to_8888(color));
-	sceGuClearDepth(0);
-	sceGuClear(GU_COLOR_BUFFER_BIT|GU_DEPTH_BUFFER_BIT);
-#elif defined(__linux__)
-	float r = (float)color.r / 255.0f;
-	float g = (float)color.g / 255.0f;
-	float b = (float)color.b / 255.0f;
-	float a = (float)color.a / 255.0f;
-	glClearColor(r, g, b, a);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-#endif
+void pe_graphics_dynamic_draw_new_batch(void) {
+    pe_graphics_dynamic_draw_end_batch();
+    if (dynamic_draw.batch_current == PE_MAX_DYNAMIC_DRAW_BATCH_COUNT) {
+        pe_graphics_dynamic_draw_flush();
+    }
+    dynamic_draw.batch[dynamic_draw.batch_current].primitive = dynamic_draw.primitive;
+    dynamic_draw.batch[dynamic_draw.batch_current].texture = dynamic_draw.texture;
+    dynamic_draw.batch[dynamic_draw.batch_current].vertex_offset = dynamic_draw.vertex_used;
+    dynamic_draw.batch[dynamic_draw.batch_current].vertex_count = 0;
 }
 
-pMat4 pe_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z) {
-#if defined(_WIN32)
-    return p_perspective_rh_zo(fovy * P_DEG2RAD, aspect_ratio, near_z, far_z);
-#else
-	return p_perspective_rh_no(fovy * P_DEG2RAD, aspect_ratio, near_z, far_z);
-#endif
+
+void pe_graphics_dynamic_draw_set_primitive(pePrimitive primitive) {
+    dynamic_draw.primitive = primitive;
+    if (dynamic_draw.batch[dynamic_draw.batch_current].primitive != primitive) {
+        pe_graphics_dynamic_draw_new_batch();
+    }
 }
 
-pMat4 pe_matrix_orthographic(float left, float right, float bottom, float top, float near_z, float far_z) {
-#if defined(_WIN32)
-    return p_orthographic_rh_zo(left, right, bottom, top, near_z, far_z);
-#else
-    return p_orthographic_rh_no(left, right, bottom, top, near_z, far_z);
-#endif
+void pe_graphics_dynamic_draw_set_texture(peTexture *texture) {
+    dynamic_draw.texture = texture;
+    if (dynamic_draw.batch[dynamic_draw.batch_current].texture != texture) {
+        pe_graphics_dynamic_draw_new_batch();
+    }
+}
+
+void pe_graphics_dynamic_draw_set_normal(pVec3 normal) {
+    dynamic_draw.normal = normal;
+}
+
+void pe_graphics_dynamic_draw_set_texcoord(pVec2 texcoord) {
+    dynamic_draw.texcoord = texcoord;
+}
+
+void pe_graphics_dynamic_draw_set_color(peColor color) {
+    dynamic_draw.color = color;
+}
+
+void pe_graphics_dynamic_draw_do_lighting(bool do_lighting) {
+    dynamic_draw.do_lighting = do_lighting;
+    if (dynamic_draw.batch[dynamic_draw.batch_current].do_lighting != do_lighting) {
+        pe_graphics_dynamic_draw_new_batch();
+    }
+}
+
+void pe_graphics_dynamic_draw_begin_primitive(pePrimitive primitive) {
+    pe_graphics_dynamic_draw_set_primitive(primitive);
+    pe_graphics_dynamic_draw_set_texture(NULL);
+    pe_graphics_dynamic_draw_set_color(PE_COLOR_WHITE);
+    pe_graphics_dynamic_draw_do_lighting(false);
+}
+
+void pe_graphics_dynamic_draw_begin_primitive_textured(pePrimitive primitive, peTexture *texture) {
+    pe_graphics_dynamic_draw_set_primitive(primitive);
+    pe_graphics_dynamic_draw_set_texture(texture);
+    pe_graphics_dynamic_draw_set_color(PE_COLOR_WHITE);
+    pe_graphics_dynamic_draw_do_lighting(false);
+}
+
+void pe_graphics_dynamic_draw_push_vec2(pVec2 position) {
+    pVec3 vec3 = p_vec3(position.x, position.y, 0.0f);
+    pe_graphics_dynamic_draw_push_vec3(vec3);
+}
+
+void pe_graphics_draw_point(pVec2 position, peColor color) {
+    pe_graphics_dynamic_draw_begin_primitive(pePrimitive_Points);
+    pe_graphics_dynamic_draw_set_color(color);
+    pe_graphics_dynamic_draw_push_vec2(position);
+}
+
+void pe_graphics_draw_point_int(int pos_x, int pos_y, peColor color) {
+    pVec2 position = p_vec2((float)pos_x, (float)pos_y);
+    pe_graphics_draw_point(position, color);
+}
+
+void pe_graphics_draw_line(pVec2 start_position, pVec2 end_position, peColor color) {
+    pe_graphics_dynamic_draw_begin_primitive(pePrimitive_Lines);
+    pe_graphics_dynamic_draw_set_color(color);
+    pe_graphics_dynamic_draw_push_vec2(start_position);
+    pe_graphics_dynamic_draw_push_vec2(end_position);
+}
+
+void pe_graphics_draw_rectangle(float x, float y, float width, float height, peColor color) {
+    pe_graphics_dynamic_draw_begin_primitive(pePrimitive_Triangles);
+    pe_graphics_dynamic_draw_set_color(color);
+
+    pVec2 positions[4] = {
+        p_vec2(x, y), // top left
+        p_vec2(x + width, y), // top right
+        p_vec2(x, y + height), // bottom left
+        p_vec2(x + width, y + height) // bottom_right
+    };
+    int indices[6] = { 0, 2, 3, 0, 3, 1 };
+
+    for (int i = 0; i < 6; i += 1) {
+        pe_graphics_dynamic_draw_push_vec2(positions[indices[i]]);
+    }
+}
+
+void pe_graphics_draw_texture(peTexture *texture, float x, float y, peColor tint) {
+    pe_graphics_dynamic_draw_begin_primitive_textured(pePrimitive_Triangles, texture);
+    pe_graphics_dynamic_draw_set_color(tint);
+
+    pVec2 positions[4] = {
+        p_vec2(x, y), // top left
+        p_vec2(x + texture->width, y), // top right
+        p_vec2(x, y + texture->height), // bottom left
+        p_vec2(x + texture->width, y + texture->height) // bottom_right
+    };
+    pVec2 texcoords[4] = {
+        p_vec2(0.0f, 0.0f), // top left
+        p_vec2(1.0f, 0.0f), // top right
+        p_vec2(0.0f, 1.0f), // bottom left
+        p_vec2(1.0f, 1.0f), // bottom right
+    };
+    int indices[6] = { 0, 2, 3, 0, 3, 1 };
+
+    for (int i = 0; i < 6; i += 1) {
+        pe_graphics_dynamic_draw_set_texcoord(texcoords[indices[i]]);
+        pe_graphics_dynamic_draw_push_vec2(positions[indices[i]]);
+    }
+}
+
+void pe_graphics_draw_point_3D(pVec3 position, peColor color) {
+    pe_graphics_dynamic_draw_begin_primitive(pePrimitive_Points);
+    pe_graphics_dynamic_draw_set_color(color);
+    pe_graphics_dynamic_draw_push_vec3(position);
+}
+
+void pe_graphics_draw_line_3D(pVec3 start_position, pVec3 end_position, peColor color) {
+    pe_graphics_dynamic_draw_begin_primitive(pePrimitive_Lines);
+    pe_graphics_dynamic_draw_set_color(color);
+    pe_graphics_dynamic_draw_push_vec3(start_position);
+    pe_graphics_dynamic_draw_push_vec3(end_position);
 }
 
 pVec4 pe_color_to_vec4(peColor color) {
@@ -193,58 +265,6 @@ uint32_t pe_color_to_8888(peColor color) {
 	uint32_t a = (uint32_t)color.a;
 	uint32_t result = r | g << 8 | b << 16 | a << 24;
 	return result;
-}
-
-peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int height, int format) {
-#if defined(_WIN32)
-	return pe_texture_create_win32(data, (UINT)width, (UINT)height, format);
-#elif defined(__linux__)
-	return pe_texture_create_linux(data, width, height, format);
-#elif defined(PSP)
-	return pe_texture_create_psp(temp_arena, data, width, height, format);
-#endif
-}
-
-void pe_texture_bind(peTexture texture) {
-#if defined(_WIN32)
-	ID3D11DeviceContext_PSSetShaderResources(pe_d3d.context, 0, 1, (ID3D11ShaderResourceView *const *)&texture.texture_resource);
-#elif defined(__linux__)
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, texture.texture_object);
-#elif defined(PSP)
-	sceGuEnable(GU_TEXTURE_2D);
- 	sceGuTexMode(texture.format, 0, 0, 1);
-	sceGuTexImage(0, texture.power_of_two_width, texture.power_of_two_height, texture.power_of_two_width, texture.data);
-	//sceGuTexEnvColor(0x00FFFFFF);
-	sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
-	//sceGuTexFilter(GU_LINEAR,GU_LINEAR);
-	sceGuTexFilter(GU_NEAREST,GU_NEAREST);
-    sceGuTexScale(1.0f,1.0f);
-	sceGuTexOffset(0.0f,0.0f);
-#endif
-}
-
-void pe_texture_bind_default(void) {
-#if defined(_WIN32) || defined(__linux__)
-	pe_texture_bind(default_texture);
-#elif defined(PSP)
-	sceGuDisable(GU_TEXTURE_2D);
-#endif
-}
-
-void pe_texture_disable(void) {
-#if defined(__linux__)
-    glBindTexture(GL_TEXTURE_2D, 0);
-#else
-    PE_UNIMPLEMENTED();
-#endif
-}
-
-void pe_camera_update(peCamera camera) {
-    pMat4 matrix_perspective = pe_matrix_perspective(camera.fovy, (float)pe_screen_width()/(float)pe_screen_height(), 1.0f, 1000.0f);
-    pe_graphics_matrix_projection(&matrix_perspective);
-    pMat4 matrix_lookat = p_look_at_rh(camera.position, camera.target, camera.up);
-    pe_graphics_matrix_view(&matrix_lookat);
 }
 
 peRay pe_get_mouse_ray(pVec2 mouse, peCamera camera) {
