@@ -301,14 +301,14 @@ int main(int argc, char* argv[]) {
         }
         
         // pe_graphics_draw_texture(&client.model.material[0].diffuse_map, 100.0f, 100.0f, PE_COLOR_WHITE);
-        pe_graphics_draw_rectangle(5.0f, 5.0f, 100.0f, 100.0f, (peColor){ 0, 255, 0, 128 });
-        pe_graphics_draw_rectangle(55.0f, 55.0f, 100.0f, 100.0f, (peColor){ 0, 255, 0, 128 });
 
         pe_graphics_mode_3d_begin(client.camera);
         {
             pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.25f, 0.0f, 0.0f), PE_COLOR_RED);
             pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.0f, 0.25f, 0.0f), PE_COLOR_GREEN);
             pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.0f, 0.0f, 0.25f), PE_COLOR_BLUE);
+
+            pe_graphics_draw_grid_3D(10, 1.0f);
 
             for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
                 peEntity *entity = &entities[e];
@@ -318,6 +318,10 @@ int main(int argc, char* argv[]) {
             }
         }
         pe_graphics_mode_3d_end();
+
+        pe_graphics_draw_rectangle(5.0f, 5.0f, 70.0f, 70.0f, (peColor){ 255, 0, 0, 64 });
+        pe_graphics_draw_rectangle(30.0f, 30.0f, 70.0f, 70.0f, (peColor){ 0, 255, 0, 64 });
+        pe_graphics_draw_rectangle(55.0f, 55.0f, 70.0f, 70.0f, (peColor){ 0, 0, 255, 64 });
 
         bool vsync = true;
         pe_graphics_frame_end(vsync);

@@ -237,6 +237,20 @@ void pe_graphics_draw_line_3D(pVec3 start_position, pVec3 end_position, peColor 
     pe_graphics_dynamic_draw_push_vec3(end_position);
 }
 
+void pe_graphics_draw_grid_3D(int slices, float spacing) {
+    pe_graphics_dynamic_draw_begin_primitive(pePrimitive_Lines);
+
+    int half_slices = slices/2;
+    for (int slice = -half_slices; slice <= half_slices; slice += 1) {
+        int channel = (slice == 0 ? 192 : 64);
+        pe_graphics_dynamic_draw_set_color((peColor){ channel, channel, channel, 255 });
+        pe_graphics_dynamic_draw_push_vec3(p_vec3((float)slice*spacing, 0.0f, (float)-half_slices*spacing));
+        pe_graphics_dynamic_draw_push_vec3(p_vec3((float)slice*spacing, 0.0f, (float)half_slices*spacing));
+        pe_graphics_dynamic_draw_push_vec3(p_vec3((float)-half_slices*spacing, 0.0f, (float)slice*spacing));
+        pe_graphics_dynamic_draw_push_vec3(p_vec3((float)half_slices*spacing, 0.0f, (float)slice*spacing));
+    }
+}
+
 pVec4 pe_color_to_vec4(peColor color) {
     pVec4 vec4 = {
         .r = (float)color.r / 255.0f,

@@ -191,6 +191,7 @@ void pe_graphics_draw_texture(peTexture *texture, float x, float y, peColor tint
 
 void pe_graphics_draw_point_3D(pVec3 position, peColor color);
 void pe_graphics_draw_line_3D(pVec3 start_position, pVec3 end_position, peColor color);
+void pe_graphics_draw_grid_3D(int slices, float spacing);
 
 // COLOR
 

@@ -323,7 +323,12 @@ void pe_clear_background(peColor color) {
 }
 
 void pe_graphics_frame_begin(void) {
-    // do nothing (we only need this for the PSP)
+    pe_graphics.matrix[peGraphicsMode_2D][peMatrixMode_Projection] = pe_matrix_orthographic(
+        0, (float)pe_screen_width(),
+        (float)pe_screen_height(), 0,
+        0.0f, 1000.0f
+    );
+    pe_graphics_matrix_update();
 }
 
 void pe_graphics_frame_end(bool vsync) {
