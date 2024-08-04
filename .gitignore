@@ -2,5 +2,4 @@
 .focus
 *build
 
-*.p3d
-*.pp3d
+res/assets

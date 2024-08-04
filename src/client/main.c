@@ -225,7 +225,7 @@ int main(int argc, char* argv[]) {
 #else
     #define PE_MODEL_EXTENSION ".pp3d"
 #endif
-    client.model = pe_model_load(&temp_arena, "./res/fox" PE_MODEL_EXTENSION);
+    client.model = pe_model_load(&temp_arena, "./res/assets/fox" PE_MODEL_EXTENSION);
 
     client.camera = (peCamera){
         .target = {0.0f, 0.7f, 0.0f},
