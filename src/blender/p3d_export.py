@@ -490,39 +490,66 @@ def p_write_string(file, text):
     if use_ascii: file.write(text)
     else: file.write(text.encode('ascii'))
 
-def p3d_write(file, file_path, procyon_data):
-    p3d_write_static_info_header(file, procyon_data)
-    p3d_write_mesh_info(file, file_path, procyon_data)
-    p3d_write_animation_info(file, procyon_data)
-    p3d_write_mesh_data(file, procyon_data)
-    p3d_write_bone_parent_indices(file, procyon_data)
+def pp3d_write(file, file_path, procyon_data):
+    pp3d_write_static_info_header(file, procyon_data)
+    pp3d_write_mesh_info(file, file_path, procyon_data)
+    pp3d_write_material_info(file, file_path, procyon_data)
+    if p_parsed_arguments.portable:
+        pp3d_write_subskeleton_info(file, procyon_data)
+    pp3d_write_animation_info(file, procyon_data)
+    if p_parsed_arguments.portable:
+        pp3d_write_mesh_data(file, procyon_data)
+    else:
+        pp3d_write_mesh_data_desktop(file, procyon_data)
+    pp3d_write_bone_parent_indices(file, procyon_data)
     p_write_inverse_model_space_matrix(file, procyon_data)
     p_write_animation_data(file, procyon_data)
 
-def p3d_write_static_info_header(file, procyon_data):
+def pp3d_write_static_info_header(file, procyon_data):
     print("Procyon: Writing static info header...")
-    p_write_string(file, " P3D") # 4 bytes (4)
+    p_write_string(file, "PP3D") # 4 bytes (4)
     p_write_float(file, procyon_data.scale) # 4 bytes (8)
-    p_write_uint32(file, procyon_data.num_vertex) # 4 bytes (12)
-    p_write_uint32(file, procyon_data.num_index) # 4 bytes (16)
+    p_write_uint32(file, procyon_data.num_vertex) # desktop # 4 bytes (12)
+    p_write_uint32(file, procyon_data.num_index) # desktop # 4 bytes (16)
     p_write_uint16(file, len(procyon_data.meshes)) # 2 bytes (18)
-    p_write_uint16(file, len(procyon_data.animations)) # 2 bytes (20)
+    p_write_uint16(file, len(procyon_data.materials)) # 2 bytes (20)
+    p_write_uint16(file, len(procyon_data.bone_groups)) # 2 bytes (22)
+    p_write_uint16(file, len(procyon_data.animations)) # 2 bytes (24)
+    p_write_uint16(file, len(procyon_data.joints)) # 2 bytes (26)
     num_frames_total = sum([len(animation.frames) for animation in procyon_data.animations])
-    p_write_uint16(file, num_frames_total)
-    p_write_uint8(file, len(procyon_data.joints)) # 1 byte (21)
-    p_write_uint8(file, 0) # alignment (24)
+    p_write_uint16(file, num_frames_total) # 2 bytes (28)
 
-def p3d_write_mesh_info(file, file_path, procyon_data):
+    p_write_int8(file, p_parsed_arguments.bone_weight_size) # 1 byte (29)
+    if p_parsed_arguments.portable:
+        p_write_uint8(file, 1) # 1 byte (30)
+    else:
+        p_write_uint8(file, 0) # 1 byte (30)
+    for a in range(2): p_write_uint8(file, 0) # alignment (32)
+
+def pp3d_write_mesh_info(file, file_path, procyon_data):
     if len(procyon_data.meshes): print("Procyon: Writing mesh info...")
     for mesh in procyon_data.meshes:
-        p_write_uint32(file, len(mesh.indices))
-        p_write_uint32(file, mesh.index_offset)
-        p_write_uint32(file, mesh.vertex_offset)
-        assert(mesh.material_index >= 0)
-        diffuse_color = procyon_data.materials[mesh.material_index].diffuse_color
-        p_write_uint32(file, p_color_to_uint32(diffuse_color))
-        diffuse_image = procyon_data.materials[mesh.material_index].diffuse_image
-        diffuse_image_name = f"{file_path.stem}_diffuse_{mesh.material_index}.png"
+        material_index = mesh.material_index if mesh.material_index >= 0 else UINT16_MAX
+        p_write_uint16(file, material_index)
+        subskeleton_index = mesh.subskeleton_index if mesh.subskeleton_index >= 0 else UINT16_MAX
+        p_write_uint16(file, subskeleton_index)
+        if p_parsed_arguments.no_indices:
+            num_vertex = len(mesh.indices)
+            num_index = 0
+        else:
+            num_vertex = len(mesh.vertices)
+            num_index = len(mesh.indices)
+        p_write_uint16(file, num_vertex)
+        p_write_uint16(file, num_index)
+        p_write_uint32(file, mesh.index_offset); # desktop
+        p_write_uint32(file, mesh.vertex_offset); # desktop
+
+def pp3d_write_material_info(file, file_path, procyon_data):
+    if len(procyon_data.materials): print("Procyon: Writing material info...")
+    for m, material in enumerate(procyon_data.materials):
+        p_write_uint32(file, p_color_to_uint32(material.diffuse_color))
+        diffuse_image = material.diffuse_image
+        diffuse_image_name = f"{file_path.stem}_diffuse_{m}.png"
         diffuse_image_name_length = len(diffuse_image_name) if diffuse_image else 0
         assert(diffuse_image_name_length < 48)
         if diffuse_image:
@@ -530,7 +557,16 @@ def p3d_write_mesh_info(file, file_path, procyon_data):
         for i in range(48 - diffuse_image_name_length):
             p_write_uint8(file, 0)
 
-def p3d_write_animation_info(file, procyon_data):
+def pp3d_write_subskeleton_info(file, procyon_data):
+    if len(procyon_data.bone_groups): print("Procyon: Writing subskeleton info...")
+    for bone_group in procyon_data.bone_groups:
+        p_write_uint8(file, len(bone_group))
+        for b in range(8):
+            bone_index = bone_group[b] if b < len(bone_group) else UINT8_MAX
+            p_write_uint8(file, bone_index)
+        for a in range(3): p_write_uint8(file, 0) # alignment
+
+def pp3d_write_animation_info(file, procyon_data):
     if len(procyon_data.animations): print("Procyon: Writing animation info...")
     for animation in procyon_data.animations:
         assert(len(animation.name) < 64)
@@ -538,8 +574,9 @@ def p3d_write_animation_info(file, procyon_data):
         for i in range(64-len(animation.name)):
             p_write_uint8(file, 0)
         p_write_uint16(file, len(animation.frames))
+        p_write_uint16(file, 0) # alignment
 
-def p3d_write_mesh_data(file, procyon_data):
+def pp3d_write_mesh_data_desktop(file, procyon_data):
     if len(procyon_data.meshes): print("Procyon: Writing mesh data...")
     # vertices
     for mesh in procyon_data.meshes:
@@ -575,86 +612,6 @@ def p3d_write_mesh_data(file, procyon_data):
     for mesh in procyon_data.meshes:
         for index in mesh.indices:
             p_write_uint32(file, index)
-
-def p3d_write_bone_parent_indices(file, procyon_data):
-    if len(procyon_data.joints): print("Procyon: Writing bone parent indices...")
-    for joint in procyon_data.joints:
-        bone_parent_index_uint8 = joint.parent_index if joint.parent_index >= 0 else UINT8_MAX
-        p_write_uint8(file, bone_parent_index_uint8)
-
-def pp3d_write(file, file_path, procyon_data):
-    pp3d_write_static_info_header(file, procyon_data)
-    pp3d_write_mesh_info(file, file_path, procyon_data)
-    pp3d_write_material_info(file, file_path, procyon_data)
-    pp3d_write_subskeleton_info(file, procyon_data)
-    pp3d_write_animation_info(file, procyon_data)
-    pp3d_write_mesh_data(file, procyon_data)
-    pp3d_write_bone_parent_indices(file, procyon_data)
-    p_write_inverse_model_space_matrix(file, procyon_data)
-    p_write_animation_data(file, procyon_data)
-
-def pp3d_write_static_info_header(file, procyon_data):
-    print("Procyon: Writing static info header...")
-    p_write_string(file, "PP3D") # 4 bytes (4)
-    p_write_float(file, procyon_data.scale) # 4 bytes (8)
-    p_write_uint16(file, len(procyon_data.meshes)) # 2 bytes (10)
-    p_write_uint16(file, len(procyon_data.materials)) # 2 bytes (12)
-    p_write_uint16(file, len(procyon_data.bone_groups)) # 2 bytes (14)
-    p_write_uint16(file, len(procyon_data.animations)) # 2 bytes (16)
-    p_write_uint16(file, len(procyon_data.joints)) # 2 bytes (18)
-    num_frames_total = sum([len(animation.frames) for animation in procyon_data.animations])
-    p_write_uint16(file, num_frames_total) # 2 bytes (20)
-
-    p_write_int8(file, p_parsed_arguments.bone_weight_size) # 1 byte
-    for a in range(3): p_write_uint8(file, 0) # alignment
-
-def pp3d_write_mesh_info(file, file_path, procyon_data):
-    if len(procyon_data.meshes): print("Procyon: Writing mesh info...")
-    for mesh in procyon_data.meshes:
-        material_index = mesh.material_index if mesh.material_index >= 0 else UINT16_MAX
-        p_write_uint16(file, material_index)
-        subskeleton_index = mesh.subskeleton_index if mesh.subskeleton_index >= 0 else UINT16_MAX
-        p_write_uint16(file, subskeleton_index)
-        if p_parsed_arguments.no_indices:
-            num_vertex = len(mesh.indices)
-            num_index = 0
-        else:
-            num_vertex = len(mesh.vertices)
-            num_index = len(mesh.indices)
-        p_write_uint16(file, num_vertex)
-        p_write_uint16(file, num_index)
-
-def pp3d_write_material_info(file, file_path, procyon_data):
-    if len(procyon_data.materials): print("Procyon: Writing material info...")
-    for m, material in enumerate(procyon_data.materials):
-        p_write_uint32(file, p_color_to_uint32(material.diffuse_color))
-        diffuse_image = material.diffuse_image
-        diffuse_image_name = f"{file_path.stem}_diffuse_{m}.png"
-        diffuse_image_name_length = len(diffuse_image_name) if diffuse_image else 0
-        assert(diffuse_image_name_length < 48)
-        if diffuse_image:
-            p_write_string(file, diffuse_image_name)
-        for i in range(48 - diffuse_image_name_length):
-            p_write_uint8(file, 0)
-
-def pp3d_write_subskeleton_info(file, procyon_data):
-    if len(procyon_data.bone_groups): print("Procyon: Writing subskeleton info...")
-    for bone_group in procyon_data.bone_groups:
-        p_write_uint8(file, len(bone_group))
-        for b in range(8):
-            bone_index = bone_group[b] if b < len(bone_group) else UINT8_MAX
-            p_write_uint8(file, bone_index)
-        for a in range(3): p_write_uint8(file, 0) # alignment
-
-def pp3d_write_animation_info(file, procyon_data):
-    if len(procyon_data.animations): print("Procyon: Writing animation info...")
-    for animation in procyon_data.animations:
-        assert(len(animation.name) < 64)
-        p_write_string(file, animation.name)
-        for i in range(64-len(animation.name)):
-            p_write_uint8(file, 0)
-        p_write_uint16(file, len(animation.frames))
-        p_write_uint16(file, 0) # alignment
 
 def pp3d_write_mesh_data(file, procyon_data):
     if len(procyon_data.meshes): print("Procyon: Writing mesh data...")
@@ -748,10 +705,7 @@ def p_main():
     file = open(str(file_path), file_write_mode)
 
     print(f"Procyon: Writing to: '{file_path}'")
-    if not p_parsed_arguments.portable:
-        p3d_write(file, file_path, procyon_data)
-    else:
-        pp3d_write(file, file_path, procyon_data)
+    pp3d_write(file, file_path, procyon_data)
 
     file.close()
 

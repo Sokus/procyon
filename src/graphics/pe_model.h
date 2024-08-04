@@ -113,10 +113,10 @@ typedef struct peModel {
 #endif
 } peModel;
 
-struct p3dStaticInfo;
-struct p3dAnimation;
+struct pp3dStaticInfo;
+struct pp3dAnimation;
 
-void pe_model_alloc(peModel *model, peArena *arena, struct p3dStaticInfo *p3d_static_info, struct p3dAnimation *p3d_animation);
+void pe_model_alloc(peModel *model, peArena *arena, struct pp3dStaticInfo *p3d_static_info, struct pp3dAnimation *p3d_animation);
 peModel pe_model_load(peArena *temp_arena, char *file_path);
 void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 rotation);
 
