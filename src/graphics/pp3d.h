@@ -30,10 +30,8 @@ typedef struct pp3dStaticInfo {
 typedef struct pp3dMesh {
     uint16_t material_index;
     uint16_t subskeleton_index; // psp
-    uint16_t num_vertex; // psp
+    uint16_t num_vertex;
     uint16_t num_index;
-    uint32_t index_offset; // desktop
-    uint32_t vertex_offset; // desktop
 } pp3dMesh;
 // pp3dMesh meshes[static_info.num_meshes];
 
@@ -60,15 +58,16 @@ typedef struct pp3dAnimation {
 } pp3dAnimation;
 // pp3dAnimation animations[static_info.num_animations];
 
+
 // 6. if static_info.is_portable == 0
 //   6.1. vertices
-// int16_t position[3*static_info.num_vertex];
-// int16_t normal[3*static_info.num_vertex];
-// int16_t texcoord[2*static_info.num_vertex];
-// uint8_t bone_index[4*static_info.num_vertex];
-// uint16_t bone_weight[4*static_info.num_vertex];
+// int16_t position[3*mesh[m].num_vertex];
+// int16_t normal[3*mesh[m].num_vertex];
+// int16_t texcoord[2*mesh[m].num_vertex];
+// uint8_t bone_index[4*mesh[m].num_vertex];
+// uint16_t bone_weight[4*mesh[m].num_vertex];
 //   6.2. indices
-// uint32_t index[num_index];
+// uint32_t index[mesh[m].num_index];
 
 // 6. if static_info.is_portable == 1
 //   6.1. vertices
@@ -110,6 +109,7 @@ typedef struct pp3dFile {
     pp3dSubskeleton *subskeleton; // psp
     pp3dAnimation *animation;
 
+    // TODO: flatten those out
     struct {
         void **vertex; // psp
         size_t *vertex_size; // psp
@@ -121,7 +121,7 @@ typedef struct pp3dFile {
         int16_t *position; // desktop
         int16_t *normal; // desktop
         int16_t *texcoord; // desktop
-        uint8_t *bone_index; // desktop
+        uint8_t *bone_index; // desktop // TODO: verify if 16-bit needed
         uint16_t *bone_weight; // desktop
         uint32_t *index; // desktop
     } desktop;

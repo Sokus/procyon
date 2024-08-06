@@ -541,8 +541,6 @@ def pp3d_write_mesh_info(file, file_path, procyon_data):
             num_index = len(mesh.indices)
         p_write_uint16(file, num_vertex)
         p_write_uint16(file, num_index)
-        p_write_uint32(file, mesh.index_offset); # desktop
-        p_write_uint32(file, mesh.vertex_offset); # desktop
 
 def pp3d_write_material_info(file, file_path, procyon_data):
     if len(procyon_data.materials): print("Procyon: Writing material info...")
@@ -578,40 +576,47 @@ def pp3d_write_animation_info(file, procyon_data):
 
 def pp3d_write_mesh_data_desktop(file, procyon_data):
     if len(procyon_data.meshes): print("Procyon: Writing mesh data...")
+    vertices = []
+    indices = []
+    for mesh in procyon_data.meshes:
+        if not p_parsed_arguments.no_indices:
+            mesh_indices = mesh.indices
+            indices.extend(mesh.indices)
+            vertices.extend(mesh.vertices)
+        else:
+            mesh_indices = list(range(len(mesh.vertices)))
+            vertices.extend([mesh.vertices[index] for index in mesh_indices])
+
     # vertices
-    for mesh in procyon_data.meshes:
-        for vertex in mesh.vertices:
-            for e in range(0, 3):
-                vertex_position_element_int16 = p_float_to_int16(vertex.position[e] / procyon_data.scale)
-                p_write_int16(file, vertex_position_element_int16)
-    for mesh in procyon_data.meshes:
-        for vertex in mesh.vertices:
-            for e in range(0, 3):
-                vertex_normal_element_int16 = p_float_to_int16(vertex.normal[e])
-                p_write_int16(file, vertex_normal_element_int16)
-    for mesh in procyon_data.meshes:
-        for vertex in mesh.vertices:
-            for e in range(0, 2):
-                vertex_texcoord_element_int16 = p_float_to_int16(vertex.uv[e])
-                p_write_int16(file, vertex_texcoord_element_int16)
-    for mesh in procyon_data.meshes:
-        for vertex in mesh.vertices:
-            for e in range(0, 4):
-                if e < len(vertex.joint_indices):
-                    p_write_uint8(file, vertex.joint_indices[e])
-                else:
-                    p_write_uint8(file, 255)
-    for mesh in procyon_data.meshes:
-        for vertex in mesh.vertices:
-            for e in range(0, 4):
-                vertex_bone_weight_element_uint16 = 0
-                if e < len(vertex.joint_weights):
-                    vertex_bone_weight_element_uint16 = p_float_to_uint16(vertex.joint_weights[e], a=0.0, b=1.0)
-                p_write_uint16(file, vertex_bone_weight_element_uint16)
-    # indices
-    for mesh in procyon_data.meshes:
-        for index in mesh.indices:
-            p_write_uint32(file, index)
+    for vertex in vertices:
+        for e in range(0, 3):
+            vertex_position_element_int16 = p_float_to_int16(vertex.position[e] / procyon_data.scale)
+            p_write_int16(file, vertex_position_element_int16)
+    for vertex in vertices:
+        vertex_normal_string = ""
+        for e in range(0, 3):
+            vertex_normal_element_int16 = p_float_to_int16(vertex.normal[e])
+            p_write_int16(file, vertex_normal_element_int16)
+    for vertex in vertices:
+        for e in range(0, 2):
+            vertex_texcoord_element_int16 = p_float_to_int16(vertex.uv[e])
+            p_write_int16(file, vertex_texcoord_element_int16)
+    for vertex in vertices:
+        for e in range(0, 4):
+            if e < len(vertex.joint_indices):
+                p_write_uint8(file, vertex.joint_indices[e])
+            else:
+                p_write_uint8(file, 255)
+    for vertex in vertices:
+        for e in range(0, 4):
+            vertex_bone_weight_element_uint16 = 0
+            if e < len(vertex.joint_weights):
+                vertex_bone_weight_element_uint16 = p_float_to_uint16(vertex.joint_weights[e], a=0.0, b=1.0)
+            p_write_uint16(file, vertex_bone_weight_element_uint16)
+
+    # indices:
+    for index in indices:
+        p_write_uint32(file, index)
 
 def pp3d_write_mesh_data(file, procyon_data):
     if len(procyon_data.meshes): print("Procyon: Writing mesh data...")

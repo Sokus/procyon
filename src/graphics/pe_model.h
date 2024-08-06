@@ -37,7 +37,13 @@ typedef struct peMesh {
     struct ID3D11Buffer *norm_buffer;
     struct ID3D11Buffer *tex_buffer;
     struct ID3D11Buffer *color_buffer;
+    struct ID3D11Buffer *bone_index_buffer;
+    struct ID3D11Buffer *bone_weight_buffer;
     struct ID3D11Buffer *index_buffer;
+#elif defined(__linux__)
+    GLuint vertex_array_object;
+    GLuint vertex_buffer_object;
+    GLuint element_buffer_object;
 #elif defined(PSP)
     int vertex_type;
     void *vertex;
@@ -59,12 +65,10 @@ typedef struct peAnimation {
     peAnimationJoint *frames; // count = num_frames * num_bones
 } peAnimation;
 
-#if defined(PSP)
 typedef struct peSubskeleton {
 	uint8_t num_bones;
 	uint8_t bone_indices[8];
 } peSubskeleton;
-#endif
 
 typedef struct peModel {
     peString model_path; // ./res/characters/fox (without extension!)
@@ -78,45 +82,32 @@ typedef struct peModel {
     pMat4 *bone_inverse_model_space_pose_matrix;
     peAnimation *animation;
 
-#if defined(_WIN32) || defined(__linux__)
-    unsigned int num_vertex;
-    unsigned int *num_index;
-    unsigned int *index_offset;
-    int *vertex_offset;
-    uint8_t *bone_parent_index;
-#endif
+    uint16_t *bone_parent_index;
 
-#if defined(_WIN32)
-    struct ID3D11Buffer *pos_buffer;
-    struct ID3D11Buffer *norm_buffer;
-    struct ID3D11Buffer *tex_buffer;
-    struct ID3D11Buffer *color_buffer;
-    struct ID3D11Buffer *bone_index_buffer;
-    struct ID3D11Buffer *bone_weight_buffer;
-    struct ID3D11Buffer *index_buffer;
-#endif
-
-#if defined(__linux__)
-    GLuint vertex_array_object;
-    GLuint vertex_buffer_object;
-    GLuint element_buffer_object;
-#endif
+    peMesh *mesh;
 
 #if defined(PSP)
     float scale;
-    peMesh *mesh;
     int *mesh_material;
     int *mesh_subskeleton;
-    uint16_t *bone_parent_index; // TODO: Change this to uint8_t
     int num_subskeleton;
     peSubskeleton *subskeleton;
 #endif
 } peModel;
 
-struct pp3dStaticInfo;
-struct pp3dAnimation;
+typedef struct pp3dStaticInfo pp3dStaticInfo;
+typedef struct pp3dMesh pp3dMesh;
+typedef struct pp3dAnimation pp3dAnimation;
 
-void pe_model_alloc(peModel *model, peArena *arena, struct pp3dStaticInfo *p3d_static_info, struct pp3dAnimation *p3d_animation);
+void pe_model_alloc(
+    peModel *model,
+    peArena *arena,
+    pp3dStaticInfo *p3d_static_info,
+    pp3dMesh *p3d_mesh, // psp
+    pp3dAnimation *p3d_animation,
+    size_t *p3d_vertex_size, // psp
+    size_t *p3d_index_size // psp
+);
 peModel pe_model_load(peArena *temp_arena, char *file_path);
 void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 rotation);
 
