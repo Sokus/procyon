@@ -562,7 +562,6 @@ def pp3d_write_subskeleton_info(file, procyon_data):
         for b in range(8):
             bone_index = bone_group[b] if b < len(bone_group) else UINT8_MAX
             p_write_uint8(file, bone_index)
-        for a in range(3): p_write_uint8(file, 0) # alignment
 
 def pp3d_write_animation_info(file, procyon_data):
     if len(procyon_data.animations): print("Procyon: Writing animation info...")
@@ -572,7 +571,6 @@ def pp3d_write_animation_info(file, procyon_data):
         for i in range(64-len(animation.name)):
             p_write_uint8(file, 0)
         p_write_uint16(file, len(animation.frames))
-        p_write_uint16(file, 0) # alignment
 
 def pp3d_write_mesh_data_desktop(file, procyon_data):
     if len(procyon_data.meshes): print("Procyon: Writing mesh data...")

@@ -86,27 +86,21 @@ typedef struct peModel {
 
     peMesh *mesh;
 
-#if defined(PSP)
-    float scale;
-    int *mesh_material;
-    int *mesh_subskeleton;
-    int num_subskeleton;
-    peSubskeleton *subskeleton;
-#endif
+    struct {
+        float scale;
+        int *mesh_material;
+        int *mesh_subskeleton;
+        int num_subskeleton;
+        peSubskeleton *subskeleton;
+    } psp;
 } peModel;
 
-typedef struct pp3dStaticInfo pp3dStaticInfo;
-typedef struct pp3dMesh pp3dMesh;
-typedef struct pp3dAnimation pp3dAnimation;
+typedef struct pp3dFile pp3dFile;
 
 void pe_model_alloc(
     peModel *model,
     peArena *arena,
-    pp3dStaticInfo *p3d_static_info,
-    pp3dMesh *p3d_mesh, // psp
-    pp3dAnimation *p3d_animation,
-    size_t *p3d_vertex_size, // psp
-    size_t *p3d_index_size // psp
+    pp3dFile *p3d
 );
 peModel pe_model_load(peArena *temp_arena, char *file_path);
 void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 rotation);

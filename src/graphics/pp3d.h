@@ -46,7 +46,6 @@ typedef struct pp3dMaterial {
 typedef struct pp3dSubskeleton {
     uint8_t num_bones;
     uint8_t bone_indices[8];
-    uint8_t alignment[3];
 } pp3dSubskeleton;
 // pp3dSubskeleton subskeletons[static_info.num_subskeletons];
 
@@ -54,7 +53,6 @@ typedef struct pp3dSubskeleton {
 typedef struct pp3dAnimation {
     char name[64];
     uint16_t num_frames;
-    uint16_t alignment; // this alignment is not needed
 } pp3dAnimation;
 // pp3dAnimation animations[static_info.num_animations];
 
