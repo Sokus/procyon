@@ -46,6 +46,7 @@ typedef struct pp3dMaterial {
 typedef struct pp3dSubskeleton {
     uint8_t num_bones;
     uint8_t bone_indices[8];
+    uint8_t alignment[3];
 } pp3dSubskeleton;
 // pp3dSubskeleton subskeletons[static_info.num_subskeletons];
 
@@ -56,6 +57,13 @@ typedef struct pp3dAnimation {
 } pp3dAnimation;
 // pp3dAnimation animations[static_info.num_animations];
 
+typedef struct pp3dVertex {
+    int16_t position[3];
+    int16_t normal[3];
+    int16_t texcoord[2];
+    uint8_t bone_index[4]; // TODO: verify if 16-bit needed
+    uint16_t bone_weight[4];
+} pp3dVertex;
 
 // 6. if static_info.is_portable == 0
 //   6.1. vertices
@@ -116,11 +124,7 @@ typedef struct pp3dFile {
     } portable;
 
     struct {
-        int16_t *position; // desktop
-        int16_t *normal; // desktop
-        int16_t *texcoord; // desktop
-        uint8_t *bone_index; // desktop // TODO: verify if 16-bit needed
-        uint16_t *bone_weight; // desktop
+        pp3dVertex *vertex; // desktop
         uint32_t *index; // desktop
     } desktop;
 

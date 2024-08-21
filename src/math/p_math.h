@@ -667,6 +667,7 @@ static inline pMat4 p_rotate_rh(float r, pVec3 axis) {
 static inline pMat4 p_rotate_xyz(pVec3 rotations) {
     pMat4 result;
 #if defined(__PSP__)
+    gumLoadIdentity(&result._sce);
     gumRotateXYZ(&result._sce, &rotations._sce);
 #else
     pMat4 rotate_x = p_rotate_rh(rotations.x, p_vec3(1.0f, 0.0f, 0.0f));

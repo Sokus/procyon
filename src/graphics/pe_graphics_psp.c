@@ -36,7 +36,6 @@ void pe_graphics_init(peArena *, int, int) {
 	void *depthbuffer = pe_arena_alloc_align(&edram_arena, depthbuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
 
 	sceGuInit();
-
 	sceGuStart(GU_DIRECT,list);
 	sceGuDrawBuffer(GU_PSM_5650, framebuffer0, PSP_BUFF_W);
 	sceGuDispBuffer(PSP_SCREEN_W, PSP_SCREEN_H, framebuffer1, PSP_BUFF_W);

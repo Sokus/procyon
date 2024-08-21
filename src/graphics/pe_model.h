@@ -33,12 +33,7 @@ typedef struct peMesh {
     int num_index;
 
 #if defined(_WIN32)
-    struct ID3D11Buffer *pos_buffer;
-    struct ID3D11Buffer *norm_buffer;
-    struct ID3D11Buffer *tex_buffer;
-    struct ID3D11Buffer *color_buffer;
-    struct ID3D11Buffer *bone_index_buffer;
-    struct ID3D11Buffer *bone_weight_buffer;
+    struct ID3D11Buffer *vertex_buffer;
     struct ID3D11Buffer *index_buffer;
 #elif defined(__linux__)
     GLuint vertex_array_object;
@@ -73,6 +68,7 @@ typedef struct peSubskeleton {
 typedef struct peModel {
     peString model_path; // ./res/characters/fox (without extension!)
 
+    float scale;
     int num_mesh;
     int num_material;
     int num_bone;
@@ -85,10 +81,9 @@ typedef struct peModel {
     uint16_t *bone_parent_index;
 
     peMesh *mesh;
+    int *mesh_material;
 
     struct {
-        float scale;
-        int *mesh_material;
         int *mesh_subskeleton;
         int num_subskeleton;
         peSubskeleton *subskeleton;

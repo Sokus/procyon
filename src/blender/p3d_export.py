@@ -562,6 +562,8 @@ def pp3d_write_subskeleton_info(file, procyon_data):
         for b in range(8):
             bone_index = bone_group[b] if b < len(bone_group) else UINT8_MAX
             p_write_uint8(file, bone_index)
+        for a in range(3):
+            p_write_uint8(file, 0)
 
 def pp3d_write_animation_info(file, procyon_data):
     if len(procyon_data.animations): print("Procyon: Writing animation info...")
@@ -590,22 +592,17 @@ def pp3d_write_mesh_data_desktop(file, procyon_data):
         for e in range(0, 3):
             vertex_position_element_int16 = p_float_to_int16(vertex.position[e] / procyon_data.scale)
             p_write_int16(file, vertex_position_element_int16)
-    for vertex in vertices:
-        vertex_normal_string = ""
         for e in range(0, 3):
             vertex_normal_element_int16 = p_float_to_int16(vertex.normal[e])
             p_write_int16(file, vertex_normal_element_int16)
-    for vertex in vertices:
         for e in range(0, 2):
             vertex_texcoord_element_int16 = p_float_to_int16(vertex.uv[e])
             p_write_int16(file, vertex_texcoord_element_int16)
-    for vertex in vertices:
         for e in range(0, 4):
             if e < len(vertex.joint_indices):
                 p_write_uint8(file, vertex.joint_indices[e])
             else:
                 p_write_uint8(file, 255)
-    for vertex in vertices:
         for e in range(0, 4):
             vertex_bone_weight_element_uint16 = 0
             if e < len(vertex.joint_weights):
