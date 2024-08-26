@@ -127,6 +127,7 @@ typedef struct peDynamicDrawState {
 
     peDynamicDrawBatch batch[PE_MAX_DYNAMIC_DRAW_BATCH_COUNT];
     int batch_current;
+    int batch_drawn_count;
 } peDynamicDrawState;
 extern peDynamicDrawState dynamic_draw;
 
@@ -181,9 +182,9 @@ void pe_texture_bind_default(void);
 int pe_graphics_primitive_vertex_count(pePrimitive primitive);
 
 bool pe_graphics_dynamic_draw_vertex_reserve(int count);
-void pe_graphics_dynamic_draw_end_batch(void);
 void pe_graphics_dynamic_draw_new_batch(void);
-void pe_graphics_dynamic_draw_flush(void);
+void pe_graphics_dynamic_draw_clear(void);
+void pe_graphics_dynamic_draw_draw_batches(void);
 
 void pe_graphics_dynamic_draw_set_primitive(pePrimitive primitive);
 void pe_graphics_dynamic_draw_set_texture(peTexture *texture);

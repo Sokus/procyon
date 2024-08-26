@@ -11,7 +11,8 @@ peGraphics pe_graphics = {0};
 peDynamicDrawState dynamic_draw = {0};
 
 void pe_graphics_mode_3d_begin(peCamera camera) {
-    pe_graphics_dynamic_draw_flush();
+    pe_graphics_dynamic_draw_draw_batches();
+    pe_graphics_dynamic_draw_new_batch();
 
     PE_ASSERT(pe_graphics.mode == peGraphicsMode_2D);
     pe_graphics.mode = peGraphicsMode_3D;
@@ -34,7 +35,8 @@ void pe_graphics_mode_3d_begin(peCamera camera) {
 }
 
 void pe_graphics_mode_3d_end(void) {
-    pe_graphics_dynamic_draw_flush();
+    pe_graphics_dynamic_draw_draw_batches();
+    pe_graphics_dynamic_draw_new_batch();
 
     PE_ASSERT(pe_graphics.mode == peGraphicsMode_3D);
     pe_graphics.mode = peGraphicsMode_2D;
@@ -86,25 +88,15 @@ int pe_graphics_primitive_vertex_count(pePrimitive primitive) {
 }
 
 bool pe_graphics_dynamic_draw_vertex_reserve(int count) {
-    bool flushed = false;
-    if (dynamic_draw.vertex_used + count > PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT) {
-        pe_graphics_dynamic_draw_flush();
-        flushed = true;
-    }
-    return flushed;
-}
-
-void pe_graphics_dynamic_draw_end_batch(void) {
-    PE_ASSERT(dynamic_draw.batch_current < PE_MAX_DYNAMIC_DRAW_BATCH_COUNT);
-    if (dynamic_draw.batch[dynamic_draw.batch_current].vertex_count > 0) {
-        dynamic_draw.batch_current += 1;
-    }
+    bool can_fit = (dynamic_draw.vertex_used + count <= PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT);
+    PE_ASSERT(can_fit);
+    return can_fit;
 }
 
 void pe_graphics_dynamic_draw_new_batch(void) {
-    pe_graphics_dynamic_draw_end_batch();
-    if (dynamic_draw.batch_current == PE_MAX_DYNAMIC_DRAW_BATCH_COUNT) {
-        pe_graphics_dynamic_draw_flush();
+    PE_ASSERT(dynamic_draw.batch_current < PE_MAX_DYNAMIC_DRAW_BATCH_COUNT);
+    if (dynamic_draw.batch[dynamic_draw.batch_current].vertex_count > 0) {
+        dynamic_draw.batch_current += 1;
     }
     dynamic_draw.batch[dynamic_draw.batch_current].primitive = dynamic_draw.primitive;
     dynamic_draw.batch[dynamic_draw.batch_current].texture = dynamic_draw.texture;
@@ -112,6 +104,17 @@ void pe_graphics_dynamic_draw_new_batch(void) {
     dynamic_draw.batch[dynamic_draw.batch_current].vertex_count = 0;
 }
 
+void pe_graphics_dynamic_draw_clear(void) {
+    if (dynamic_draw.vertex_used > 0) {
+        bool all_batches_drawn = (dynamic_draw.batch_drawn_count > dynamic_draw.batch_current);
+        bool current_batch_empty = (dynamic_draw.batch[dynamic_draw.batch_current].vertex_count == 0);
+        PE_ASSERT(all_batches_drawn || current_batch_empty);
+    }
+    dynamic_draw.vertex_used = 0;
+    dynamic_draw.batch_current = 0;
+    dynamic_draw.batch_drawn_count = 0;
+    dynamic_draw.batch[0].vertex_count = 0;
+}
 
 void pe_graphics_dynamic_draw_set_primitive(pePrimitive primitive) {
     dynamic_draw.primitive = primitive;

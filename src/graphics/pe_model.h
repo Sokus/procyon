@@ -5,11 +5,8 @@
 #include "math/p_math.h"
 #include "pe_graphics.h"
 
-#include "HandmadeMath.h"
-
 #include <stdint.h>
 #include <stdbool.h>
-
 
 #if defined(_WIN32)
 struct ID3D11ShaderResourceView;
@@ -17,7 +14,7 @@ struct ID3D11Buffer;
 #endif
 
 #if defined(__linux__)
-#include "glad/glad.h"
+typedef unsigned int GLuint;
 #endif
 
 typedef struct peMaterial {
@@ -25,8 +22,6 @@ typedef struct peMaterial {
     bool has_diffuse_map;
     peTexture diffuse_map;
 } peMaterial;
-
-peMaterial pe_default_material(void);
 
 typedef struct peMesh {
     int num_vertex;
@@ -46,13 +41,21 @@ typedef struct peMesh {
 #endif
 } peMesh;
 
+// desktop
+typedef struct peVertexSkinned {
+    float position[3];
+    float normal[3];
+    float texcoord[2];
+    uint32_t color;
+    uint32_t bone_index[4];
+    float bone_weight[4];
+} peVertexSkinned;
+
 typedef struct peAnimationJoint {
     pVec3 translation;
     pQuat rotation;
     pVec3 scale;
 } peAnimationJoint;
-
-peAnimationJoint pe_concatenate_animation_joints(peAnimationJoint parent, peAnimationJoint child);
 
 typedef struct peAnimation {
     char name[64];
@@ -91,16 +94,26 @@ typedef struct peModel {
     peAnimation *animation;
 } peModel;
 
-typedef struct pp3dFile pp3dFile;
+peMaterial pe_default_material(void);
+peAnimationJoint pe_concatenate_animation_joints(peAnimationJoint parent, peAnimationJoint child);
 
-void pe_model_alloc(
-    peModel *model,
-    peArena *arena,
-    pp3dFile *p3d
-);
+typedef struct p3dFile p3dFile;
+typedef struct p3dStaticInfo p3dStaticInfo;
+typedef struct p3dVertex p3dVertex;
+typedef struct p3dAnimation p3dAnimation;
+typedef struct p3dAnimationJoint p3dAnimationJoint;
+bool pe_parse_p3d_static_info(p3dStaticInfo *static_info);
+void pe_model_alloc(peModel *model, peArena *arena, p3dFile *p3d);
+void pe_model_alloc_mesh_data(peModel *model, peArena *arena, p3dFile *p3d);
 peModel pe_model_load(peArena *temp_arena, char *file_path);
+void pe_model_load_static_info(peModel *model, p3dStaticInfo *static_info);
+void pe_model_load_mesh_data(peModel *model, peArena *temp_arena, p3dFile *p3d);
+peVertexSkinned pe_vertex_skinned_from_p3d(p3dVertex vertex_p3d, float scale);
+void pe_model_load_skeleton(peModel *model, p3dFile *file);
+void pe_model_load_animations(peModel *model, p3dStaticInfo *static_info, p3dAnimation *animation, p3dAnimationJoint *animation_joint);
+void pe_model_load_writeback_arena(peArena *model_arena);
+
 void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 rotation);
-
-
+void pe_model_draw_meshes(peModel *model, pMat4 *final_bone_matrix);
 
 #endif // PE_MODEL_H

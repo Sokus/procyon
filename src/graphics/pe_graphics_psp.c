@@ -108,7 +108,7 @@ void pe_graphics_frame_begin(void) {
 
 void pe_graphics_frame_end(bool vsync) {
 	PE_TRACE_FUNCTION_BEGIN();
-    pe_graphics_dynamic_draw_flush();
+	pe_graphics_dynamic_draw_draw_batches();
     sceGuFinish();
 	peTraceMark tm_sync = PE_TRACE_MARK_BEGIN("sceGuSync");
     sceGuSync(0, 0);
@@ -117,6 +117,7 @@ void pe_graphics_frame_end(bool vsync) {
         sceDisplayWaitVblankStart();
     }
     sceGuSwapBuffers();
+    pe_graphics_dynamic_draw_clear();
 	PE_TRACE_FUNCTION_END();
 }
 
@@ -213,8 +214,7 @@ void pe_texture_bind_default(void) {
 	sceGuDisable(GU_TEXTURE_2D);
 }
 
-void pe_graphics_dynamic_draw_flush(void) {
-    pe_graphics_dynamic_draw_end_batch();
+void pe_graphics_dynamic_draw_draw_batches(void) {
     if (dynamic_draw.vertex_used > 0) {
         peMatrixMode old_matrix_mode = pe_graphics.matrix_mode;
         pMat4 old_matrix_model = pe_graphics.matrix[pe_graphics.mode][peMatrixMode_Model];
@@ -226,7 +226,9 @@ void pe_graphics_dynamic_draw_flush(void) {
 
         sceKernelDcacheWritebackRange(dynamic_draw.vertex, sizeof(peDynamicDrawVertex)*PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT);
 
-        for (int b = 0; b < dynamic_draw.batch_current; b += 1) {
+        for (int b = dynamic_draw.batch_drawn_count; b <= dynamic_draw.batch_current; b += 1) {
+            PE_ASSERT(dynamic_draw.batch[b].vertex_count > 0);
+
             if (dynamic_draw.batch[b].texture) {
                 pe_texture_bind(*dynamic_draw.batch[b].texture);
             } else {
@@ -256,11 +258,9 @@ void pe_graphics_dynamic_draw_flush(void) {
         pe_graphics_matrix_update();
         pe_graphics_matrix_mode(old_matrix_mode);
         pe_graphics.matrix_model_is_identity[pe_graphics.mode] = old_matrix_model_is_identity;
-    }
 
-    dynamic_draw.vertex_used = 0;
-    dynamic_draw.batch_current = 0;
-    dynamic_draw.batch[0].vertex_count = 0;
+        dynamic_draw.batch_drawn_count = dynamic_draw.batch_current + 1;
+    }
 }
 
 void pe_graphics_dynamic_draw_push_vec3(pVec3 position) {

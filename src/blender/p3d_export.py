@@ -136,11 +136,11 @@ def p_get_axis_mapping_matrix():
     return bpy_extras.io_utils.axis_conversion("-Y", "Z", forward_axis, up_axis).to_4x4()
 
 def p_get_visible_mesh_objects():
-    mesh_objects = []
+    visible_mesh_objects = []
     for visible_object in bpy.context.visible_objects:
         if visible_object.type == "MESH":
-            mesh_objects.append(visible_object)
-    return mesh_objects
+            visible_mesh_objects.append(visible_object)
+    return visible_mesh_objects
 
 def p_get_visible_armature_objects():
     armature_objects = []
@@ -179,9 +179,9 @@ def p_bmesh_triangulated(mesh):
     bmesh.ops.triangulate(bm, faces=bm.faces)
     bm.to_mesh(mesh)
 
-def p_procyon_data_process_mesh_objects(procyon_data, mesh_objects, armature):
+def p_procyon_data_process_mesh_objects(procyon_data, visible_mesh_objects, armature):
     print("Procyon: Processing mesh objects...")
-    if len(mesh_objects) > 0:
+    if len(visible_mesh_objects) > 0:
         transform_matrix = p_get_axis_mapping_matrix()
         scene_with_applied_modifiers = bpy.context.evaluated_depsgraph_get()
         p_materials = {}
@@ -191,7 +191,7 @@ def p_procyon_data_process_mesh_objects(procyon_data, mesh_objects, armature):
         dummy_material = bpy.data.materials.new("Dummy")
         dummy_material.diffuse_color = dummy_color
 
-        for mesh_object in mesh_objects:
+        for mesh_object in visible_mesh_objects:
             mesh = mesh_object.evaluated_get(scene_with_applied_modifiers).to_mesh(preserve_all_data_layers=True, depsgraph=bpy.context.evaluated_depsgraph_get())
             mesh.transform(transform_matrix @ mesh_object.matrix_world)
             p_bmesh_triangulated(mesh)
@@ -270,6 +270,8 @@ def p_procyon_data_process_mesh_objects(procyon_data, mesh_objects, armature):
                     vertex_index = p_meshes[mesh_index].vertices.index(vertex)
                     p_meshes[mesh_index].indices.append(vertex_index)
 
+        # For portable devices we scale vectors to [-1.0, 1.0] range and store as intN_t types.
+        # We need to scale them back up ingame, that is why we check the original scale here.
         min_vector = [sys.float_info.max, sys.float_info.max, sys.float_info.max]
         max_vector = [sys.float_info.min, sys.float_info.min, sys.float_info.min]
         for mesh in p_meshes:
@@ -296,6 +298,8 @@ def p_procyon_data_process_mesh_objects(procyon_data, mesh_objects, armature):
 
 def p_procyon_data_make_subskeletons(procyon_data):
     print("Procyon: Splitting meshes...")
+
+    # Iterate through each triangle in every mesh, check which group of bones controls each triangle and store unique entries.
     bone_connections = []
     for mesh in procyon_data.meshes:
         for f in range(int(len(mesh.indices)/3)):
@@ -307,6 +311,10 @@ def p_procyon_data_make_subskeletons(procyon_data):
                     if weight > 0.0 and bone_index != -1 and bone_index not in triangle_bone_indices:
                         triangle_bone_indices.append(bone_index)
                 triangle_bone_indices.sort()
+
+            # FIXME: maybe this shouldn't actually be enforced?
+            assert(len(triangle_bone_indices) > 0) # all vertices must be controlled by a bone
+
             if not any(connection==triangle_bone_indices for connection in bone_connections):
                 bone_connections.append(triangle_bone_indices)
     bone_connections.extend([b] for b in range(len(procyon_data.joints)) if not any(b in connection for connection in bone_connections))
@@ -315,8 +323,8 @@ def p_procyon_data_make_subskeletons(procyon_data):
     new_meshes = []
     for mesh in procyon_data.meshes:
         for f in range(int(len(mesh.indices)/3)):
+            # Check which subskeleton does the triangle belong to
             triangle_bone_indices = []
-            triangle_bone_weights = []
             for index in mesh.indices[(3*f):(3*f+3)]:
                 vertex = mesh.vertices[index]
                 for w, weight in enumerate(vertex.joint_weights):
@@ -324,17 +332,17 @@ def p_procyon_data_make_subskeletons(procyon_data):
                     if weight > 0.0 and bone_index != -1 and bone_index not in triangle_bone_indices:
                         triangle_bone_indices.append(bone_index)
             triangle_bone_indices.sort()
-
-            # FIXME: this shouldn't actually be enforced
-            assert(len(triangle_bone_indices) > 0) # all vertices must be controlled by a bone
-
             subskeleton_index = None
             for group_index, group in enumerate(procyon_data.bone_groups):
                 if all(bone_index in group for bone_index in triangle_bone_indices):
                     subskeleton_index = group_index
 
-            assert(subskeleton_index) # at this point it should always be possible to find a suitable skeleton
+            # NOTE: At this point it should always be possible to find a suitable skeleton
+            # (Unless we start accepting unskinned vertices)
+            assert(subskeleton_index)
 
+            # Check if there is any mesh already associated with the subskeleton,
+            # create a new one if there isn't.
             mesh_index = -1
             for m, new_mesh in enumerate(new_meshes):
                 if new_mesh.material_index == mesh.material_index and new_mesh.subskeleton_index == subskeleton_index:
@@ -347,6 +355,7 @@ def p_procyon_data_make_subskeletons(procyon_data):
                 new_meshes[mesh_index].subskeleton_index = subskeleton_index
             assert(mesh_index >= 0)
 
+            # Copy the original triangle over to subskeleton's mesh
             for index in mesh.indices[(3*f):(3*f+3)]:
                 old_vertex = mesh.vertices[index]
                 new_vertex = copy(old_vertex)
@@ -410,11 +419,11 @@ def p_procyon_data_collect():
     print("Procyon: Collecting data...")
     procyon_data = ProcyonData()
 
-    selected_armature_objects = p_get_visible_armature_objects()
+    visible_armature_objects = p_get_visible_armature_objects()
     armature = None
-    if len(selected_armature_objects) == 1:
-        armature = selected_armature_objects[0]
-    elif len(selected_armature_objects) > 1:
+    if len(visible_armature_objects) == 1:
+        armature = visible_armature_objects[0]
+    elif len(visible_armature_objects) > 1:
         print("Procyon: Multiple armature objects selected, aborting.", file=sys.stderr)
         return None
 
@@ -423,8 +432,8 @@ def p_procyon_data_collect():
         p_armature_object_set_state(armature, pose_position="REST")
 
 
-    mesh_objects = p_get_visible_mesh_objects()
-    p_procyon_data_process_mesh_objects(procyon_data, mesh_objects, armature)
+    visible_mesh_objects = p_get_visible_mesh_objects()
+    p_procyon_data_process_mesh_objects(procyon_data, visible_mesh_objects, armature)
 
     p_procyon_data_process_armature_object(procyon_data, armature)
 
@@ -490,24 +499,24 @@ def p_write_string(file, text):
     if use_ascii: file.write(text)
     else: file.write(text.encode('ascii'))
 
-def pp3d_write(file, file_path, procyon_data):
-    pp3d_write_static_info_header(file, procyon_data)
-    pp3d_write_mesh_info(file, file_path, procyon_data)
-    pp3d_write_material_info(file, file_path, procyon_data)
+def p_write(file, file_path, procyon_data):
+    p_write_static_info_header(file, procyon_data)
+    p_write_mesh_info(file, file_path, procyon_data)
+    p_write_material_info(file, file_path, procyon_data)
     if p_parsed_arguments.portable:
-        pp3d_write_subskeleton_info(file, procyon_data)
-    pp3d_write_animation_info(file, procyon_data)
+        p_write_subskeleton_info(file, procyon_data)
+    p_write_animation_info(file, procyon_data)
     if p_parsed_arguments.portable:
-        pp3d_write_mesh_data(file, procyon_data)
+        p_write_mesh_data_portable(file, procyon_data)
     else:
-        pp3d_write_mesh_data_desktop(file, procyon_data)
-    pp3d_write_bone_parent_indices(file, procyon_data)
+        p_write_mesh_data_desktop(file, procyon_data)
+    p_write_bone_parent_indices(file, procyon_data)
     p_write_inverse_model_space_matrix(file, procyon_data)
     p_write_animation_data(file, procyon_data)
 
-def pp3d_write_static_info_header(file, procyon_data):
+def p_write_static_info_header(file, procyon_data):
     print("Procyon: Writing static info header...")
-    p_write_string(file, "PP3D") # 4 bytes (4)
+    p_write_string(file, "P3D ") # 4 bytes (4)
     p_write_float(file, procyon_data.scale) # 4 bytes (8)
     p_write_uint32(file, procyon_data.num_vertex) # desktop # 4 bytes (12)
     p_write_uint32(file, procyon_data.num_index) # desktop # 4 bytes (16)
@@ -526,7 +535,7 @@ def pp3d_write_static_info_header(file, procyon_data):
         p_write_uint8(file, 0) # 1 byte (30)
     for a in range(2): p_write_uint8(file, 0) # alignment (32)
 
-def pp3d_write_mesh_info(file, file_path, procyon_data):
+def p_write_mesh_info(file, file_path, procyon_data):
     if len(procyon_data.meshes): print("Procyon: Writing mesh info...")
     for mesh in procyon_data.meshes:
         material_index = mesh.material_index if mesh.material_index >= 0 else UINT16_MAX
@@ -542,7 +551,7 @@ def pp3d_write_mesh_info(file, file_path, procyon_data):
         p_write_uint16(file, num_vertex)
         p_write_uint16(file, num_index)
 
-def pp3d_write_material_info(file, file_path, procyon_data):
+def p_write_material_info(file, file_path, procyon_data):
     if len(procyon_data.materials): print("Procyon: Writing material info...")
     for m, material in enumerate(procyon_data.materials):
         p_write_uint32(file, p_color_to_uint32(material.diffuse_color))
@@ -555,7 +564,7 @@ def pp3d_write_material_info(file, file_path, procyon_data):
         for i in range(48 - diffuse_image_name_length):
             p_write_uint8(file, 0)
 
-def pp3d_write_subskeleton_info(file, procyon_data):
+def p_write_subskeleton_info(file, procyon_data):
     if len(procyon_data.bone_groups): print("Procyon: Writing subskeleton info...")
     for bone_group in procyon_data.bone_groups:
         p_write_uint8(file, len(bone_group))
@@ -565,7 +574,7 @@ def pp3d_write_subskeleton_info(file, procyon_data):
         for a in range(3):
             p_write_uint8(file, 0)
 
-def pp3d_write_animation_info(file, procyon_data):
+def p_write_animation_info(file, procyon_data):
     if len(procyon_data.animations): print("Procyon: Writing animation info...")
     for animation in procyon_data.animations:
         assert(len(animation.name) < 64)
@@ -574,7 +583,7 @@ def pp3d_write_animation_info(file, procyon_data):
             p_write_uint8(file, 0)
         p_write_uint16(file, len(animation.frames))
 
-def pp3d_write_mesh_data_desktop(file, procyon_data):
+def p_write_mesh_data_desktop(file, procyon_data):
     if len(procyon_data.meshes): print("Procyon: Writing mesh data...")
     vertices = []
     indices = []
@@ -613,7 +622,7 @@ def pp3d_write_mesh_data_desktop(file, procyon_data):
     for index in indices:
         p_write_uint32(file, index)
 
-def pp3d_write_mesh_data(file, procyon_data):
+def p_write_mesh_data_portable(file, procyon_data):
     if len(procyon_data.meshes): print("Procyon: Writing mesh data...")
     for mesh in procyon_data.meshes:
         material = procyon_data.materials[mesh.material_index]
@@ -623,7 +632,7 @@ def pp3d_write_mesh_data(file, procyon_data):
             mesh_indices = list(range(len(mesh.vertices)))
         for index in mesh_indices:
             vertex = mesh.vertices[index]
-            pp3d_write_vertex_bone_weights(file, vertex)
+            p_write_vertex_bone_weights(file, vertex)
             if material.diffuse_image:
                 for e in range(0, 2):
                     vertex_texcoord_element_int16 = p_float_to_int16(vertex.uv[e])
@@ -638,7 +647,7 @@ def pp3d_write_mesh_data(file, procyon_data):
             for i, index in enumerate(mesh.indices):
                 p_write_uint16(file, index)
 
-def pp3d_write_vertex_bone_weights(file, vertex):
+def p_write_vertex_bone_weights(file, vertex):
     bone_weight_size = p_parsed_arguments.bone_weight_size
     for weight in vertex.joint_weights:
         if bone_weight_size == 1:
@@ -653,8 +662,7 @@ def pp3d_write_vertex_bone_weights(file, vertex):
     if bone_weights_size % 2:
         p_write_uint8(file, 0) # pad to 16 bits
 
-# TODO: Convert 16-bit index to 8-bit and merge with `p3d_write_bone_parent_indices`
-def pp3d_write_bone_parent_indices(file, procyon_data):
+def p_write_bone_parent_indices(file, procyon_data):
     if len(procyon_data.joints): print("Procyon: Writing bone parent indices...")
     for joint in procyon_data.joints:
         bone_parent_index_uint16 = joint.parent_index if joint.parent_index >= 0 else UINT16_MAX
@@ -705,7 +713,7 @@ def p_main():
     file = open(str(file_path), file_write_mode)
 
     print(f"Procyon: Writing to: '{file_path}'")
-    pp3d_write(file, file_path, procyon_data)
+    p_write(file, file_path, procyon_data)
 
     file.close()
 

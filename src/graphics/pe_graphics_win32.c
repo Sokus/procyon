@@ -334,10 +334,11 @@ void pe_graphics_frame_begin(void) {
 
 void pe_graphics_frame_end(bool vsync) {
 	PE_TRACE_FUNCTION_BEGIN();
-    pe_graphics_dynamic_draw_flush();
+    pe_graphics_dynamic_draw_draw_batches();
     UINT sync_interval = (vsync ? 1 : 0);
     IDXGISwapChain1_Present(pe_d3d.swapchain, sync_interval, 0);
     ID3D11DeviceContext_OMSetRenderTargets(pe_d3d.context, 1, &pe_d3d.render_target_view, pe_d3d.depth_stencil_view);
+    pe_graphics_dynamic_draw_clear();
 	PE_TRACE_FUNCTION_END();
 }
 
@@ -394,8 +395,7 @@ pMat4 pe_matrix_orthographic(float left, float right, float bottom, float top, f
     return p_orthographic_rh_zo(left, right, bottom, top, near_z, far_z);
 }
 
-void pe_graphics_dynamic_draw_flush(void) {
-    pe_graphics_dynamic_draw_end_batch();
+void pe_graphics_dynamic_draw_draw_batches(void) {
     if (dynamic_draw.vertex_used > 0) {
         peMatrixMode old_matrix_mode = pe_graphics.matrix_mode;
         pMat4 old_matrix_model = pe_graphics.matrix[pe_graphics.mode][peMatrixMode_Model];
@@ -426,8 +426,10 @@ void pe_graphics_dynamic_draw_flush(void) {
             ID3D11DeviceContext_OMSetDepthStencilState(pe_d3d.context, pe_d3d.depth_stencil_state_disabled, 0);
         }
 
-        bool previous_do_lighting;
-        for (int b = 0; b < dynamic_draw.batch_current; b += 1) {
+        bool previous_do_lighting = false;
+        for (int b = dynamic_draw.batch_drawn_count; b <= dynamic_draw.batch_current; b += 1) {
+            PE_ASSERT(dynamic_draw.batch[b].vertex_count > 0);
+
             peTexture *texture = dynamic_draw.batch[b].texture;
             if (!texture) texture = &default_texture;
             pe_texture_bind(*texture);
@@ -459,11 +461,9 @@ void pe_graphics_dynamic_draw_flush(void) {
         pe_graphics_matrix_update();
         pe_graphics_matrix_mode(old_matrix_mode);
         pe_graphics.matrix_model_is_identity[pe_graphics.mode] = old_matrix_model_is_identity;
-    }
 
-    dynamic_draw.vertex_used = 0;
-    dynamic_draw.batch_current = 0;
-    dynamic_draw.batch[0].vertex_count = 0;
+        dynamic_draw.batch_drawn_count = dynamic_draw.batch_current + 1;
+    }
 }
 
 void pe_graphics_dynamic_draw_push_vec3(pVec3 position) {
