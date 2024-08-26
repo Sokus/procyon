@@ -6,26 +6,6 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-typedef enum peTargetPlatform {
-    peTargetPlatform_Unknown,
-    peTargetPlatform_Windows,
-    peTargetPlatform_Linux,
-    peTargetPlatform_PSP,
-    peTargetPlatform_Count,
-} peTargetPlatform;
-
-static inline peTargetPlatform pe_target_platform(void) {
-    peTargetPlatform result = peTargetPlatform_Unknown;
-#if defined(_WIN32)
-    result = peTargetPlatform_Windows;
-#elif defined(__linux__)
-    result = peTargetPlatform_Linux;
-#elif defined(__PSP__)
-    result = peTargetPlatform_PSP;
-#endif
-    return result;
-}
-
 #if !defined(PE_INLINE)
 	#if defined(_MSC_VER)
 		#if _MSC_VER < 1300

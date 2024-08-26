@@ -41,9 +41,4 @@ void pe_shader_set_mat4_array(GLuint shader_program, const GLchar *name, pMat4 *
 void pe_shader_get_bool(GLuint shader_program, const GLchar *name, bool *value);
 void pe_shader_set_bool(GLuint shader_program, const GLchar *name, bool value);
 
-typedef struct peTexture peTexture;
-peTexture pe_texture_create(void *data, int width, int height, int channels);
-void pe_texture_bind(peTexture texture);
-void pe_texture_bind_default(void);
-
 #endif // PE_GRAPHICS_LINUX_H_HEADER_GUARD

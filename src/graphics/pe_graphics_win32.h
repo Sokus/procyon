@@ -61,6 +61,7 @@ typedef struct peShaderConstantBuffersD3D {
     ID3D11Buffer *view;
     ID3D11Buffer *model;
     ID3D11Buffer *light;
+    ID3D11Buffer *light_vector;
     ID3D11Buffer *material;
     ID3D11Buffer *skeleton;
 } peShaderConstantBuffersD3D;
@@ -72,8 +73,11 @@ typedef __declspec(align(16)) struct peShaderConstant_Matrix {
 
 typedef __declspec(align(16)) struct peShaderConstant_Light {
     bool do_lighting;
-    pVec3 light_vector;
 } peShaderConstant_Light;
+
+typedef __declspec(align(16)) struct peShaderConstant_LightVector {
+    pVec3 light_vector;
+} peShaderConstant_LightVector;
 
 typedef __declspec(align(16)) struct peShaderConstant_Material {
     pVec4 diffuse_color;
@@ -96,10 +100,5 @@ void pe_shader_constant_end_map(ID3D11DeviceContext *context, ID3D11Buffer *buff
 ID3D11Buffer *pe_d3d11_create_buffer(void *data, UINT byte_width, D3D11_USAGE usage, UINT bind_flags, D3D11_CPU_ACCESS_FLAG cpu_access_flags);
 
 void pe_framebuffer_size_callback_win32(int width, int height);
-
-typedef struct peTexture peTexture;
-peTexture pe_texture_create(void *data, UINT width, UINT height, int channels);
-void pe_texture_bind(peTexture texture);
-void pe_texture_bind_default(void);
 
 #endif // PE_GRAPHICS_WIN32_H_HEADER_GUARD

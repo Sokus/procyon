@@ -8,14 +8,9 @@
 
 #include "HandmadeMath.h"
 
-struct peArena;
+typedef struct peArena peArena;
 
 #define PE_LIGHT_VECTOR_DEFAULT (pVec3){ 1.0f, -1.0f, 1.0f }
-
-typedef union peColor {
-    struct { uint8_t r, g, b, a; };
-    struct { uint32_t rgba; };
-} peColor;
 
 #define PE_COLOR_WHITE (peColor){ 255, 255, 255, 255 }
 #define PE_COLOR_GRAY  (peColor){ 127, 127, 127, 255 }
@@ -23,6 +18,34 @@ typedef union peColor {
 #define PE_COLOR_GREEN (peColor){   0, 255,   0, 255 }
 #define PE_COLOR_BLUE  (peColor){   0,   0, 255, 255 }
 #define PE_COLOR_BLACK (peColor){   0,   0,   0,   0 }
+
+typedef enum peGraphicsMode {
+    peGraphicsMode_2D,
+    peGraphicsMode_3D,
+    peGraphicsMode_Count
+} peGraphicsMode;
+
+typedef enum peMatrixMode {
+    peMatrixMode_Projection,
+    peMatrixMode_View,
+    peMatrixMode_Model,
+    peMatrixMode_Count
+} peMatrixMode;
+
+typedef struct peGraphics {
+    peGraphicsMode mode;
+    peMatrixMode matrix_mode;
+
+    pMat4 matrix[peGraphicsMode_Count][peMatrixMode_Count];
+    bool matrix_dirty[peGraphicsMode_Count][peMatrixMode_Count];
+    bool matrix_model_is_identity[peGraphicsMode_Count];
+} peGraphics;
+extern peGraphics pe_graphics;
+
+typedef union peColor {
+    struct { uint8_t r, g, b, a; };
+    struct { uint32_t rgba; };
+} peColor;
 
 #if defined(_WIN32)
 typedef struct ID3D11ShaderResourceView ID3D11ShaderResourceView;
@@ -48,29 +71,6 @@ typedef struct peTexture {
 	int format;
 #endif
 } peTexture;
-
-typedef enum peGraphicsMode {
-    peGraphicsMode_2D,
-    peGraphicsMode_3D,
-    peGraphicsMode_Count
-} peGraphicsMode;
-
-typedef enum peMatrixMode {
-    peMatrixMode_Projection,
-    peMatrixMode_View,
-    peMatrixMode_Model,
-    peMatrixMode_Count
-} peMatrixMode;
-
-typedef struct peGraphics {
-    peGraphicsMode mode;
-    peMatrixMode matrix_mode;
-
-    pMat4 matrix[peGraphicsMode_Count][peMatrixMode_Count];
-    bool matrix_dirty[peGraphicsMode_Count][peMatrixMode_Count];
-    bool matrix_model_is_identity[peGraphicsMode_Count];
-} peGraphics;
-extern peGraphics pe_graphics;
 
 typedef enum pePrimitive {
     pePrimitive_Points,
@@ -139,7 +139,7 @@ typedef struct peCamera {
 
 // GENERAL
 
-void pe_graphics_init(struct peArena *temp_arena, int window_width, int window_height);
+void pe_graphics_init(peArena *temp_arena, int window_width, int window_height);
 void pe_graphics_shutdown(void);
 int pe_screen_width(void);
 int pe_screen_height(void);
@@ -150,6 +150,9 @@ void pe_graphics_mode_3d_begin(peCamera camera);
 void pe_graphics_mode_3d_end(void);
 
 void pe_graphics_set_depth_test(bool enable);
+void pe_graphics_set_lighting(bool enable);
+void pe_graphics_set_light_vector(pVec3 light_vector);
+void pe_graphics_set_diffuse_color(peColor color);
 
 // MATRICES
 
@@ -160,6 +163,18 @@ void pe_graphics_matrix_update(void);
 
 pMat4 pe_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z);
 pMat4 pe_matrix_orthographic(float left, float right, float bottom, float top, float near_z, float far_z);
+
+// COLOR
+
+pVec4 pe_color_to_vec4(peColor color);
+uint16_t pe_color_to_5650(peColor color);
+uint32_t pe_color_to_8888(peColor color);
+
+// TEXTURE
+
+peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int height);
+void pe_texture_bind(peTexture texture);
+void pe_texture_bind_default(void);
 
 // DYNAMIC DRAW
 
@@ -192,12 +207,6 @@ void pe_graphics_draw_texture(peTexture *texture, float x, float y, peColor tint
 void pe_graphics_draw_point_3D(pVec3 position, peColor color);
 void pe_graphics_draw_line_3D(pVec3 start_position, pVec3 end_position, peColor color);
 void pe_graphics_draw_grid_3D(int slices, float spacing);
-
-// COLOR
-
-pVec4 pe_color_to_vec4(peColor color);
-uint16_t pe_color_to_5650(peColor color);
-uint32_t pe_color_to_8888(peColor color);
 
 // CAMERA
 

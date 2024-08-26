@@ -73,21 +73,22 @@ typedef struct peModel {
     int num_material;
     int num_bone;
     int num_animations;
-
-    peMaterial *material;
-    pMat4 *bone_inverse_model_space_pose_matrix;
-    peAnimation *animation;
-
-    uint16_t *bone_parent_index;
+#if defined(__PSP__)
+    int num_subskeleton;
+#endif
 
     peMesh *mesh;
+    peMaterial *material;
     int *mesh_material;
 
-    struct {
-        int *mesh_subskeleton;
-        int num_subskeleton;
-        peSubskeleton *subskeleton;
-    } psp;
+    pMat4 *bone_inverse_model_space_pose_matrix;
+    uint16_t *bone_parent_index;
+#if defined(__PSP__)
+    peSubskeleton *subskeleton;
+    int *mesh_subskeleton;
+#endif
+
+    peAnimation *animation;
 } peModel;
 
 typedef struct pp3dFile pp3dFile;

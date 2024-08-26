@@ -12,14 +12,17 @@ cbuffer constant_model : register(b2) {
 
 cbuffer constant_light : register(b3) {
     bool do_lighting;
+}
+
+cbuffer constant_light_vector : register(b4) {
     float3 light_vector;
 }
 
-cbuffer constant_material : register(b4) {
+cbuffer constant_material : register(b5) {
     float4 diffuse_color;
 }
 
-cbuffer constant_skeleton : register(b5) {
+cbuffer constant_skeleton : register(b6) {
     bool has_skeleton;
     column_major float4x4 matrix_bone[256];
 }

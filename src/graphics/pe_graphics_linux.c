@@ -98,14 +98,14 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
 
     // init shader defaults
     {
-        pe_shader_set_bool(pe_opengl.shader_program, "do_lighting", true);
-        pe_shader_set_vec3(pe_opengl.shader_program, "light_vector", PE_LIGHT_VECTOR_DEFAULT);
+        pe_graphics_set_lighting(true);
+        pe_graphics_set_light_vector(PE_LIGHT_VECTOR_DEFAULT);
     }
 
     // init default texture
 	{
 		uint32_t texture_data[] = { 0xFFFFFFFF };
-		default_texture = pe_texture_create(texture_data, 1, 1, 4);
+		default_texture = pe_texture_create(temp_arena, texture_data, 1, 1);
 	}
 
     pe_window_set_framebuffer_size_callback(&pe_framebuffer_size_callback_linux);
@@ -153,6 +153,18 @@ void pe_graphics_set_depth_test(bool enable) {
     }
 }
 
+void pe_graphics_set_lighting(bool enable) {
+    pe_shader_set_bool(pe_opengl.shader_program, "do_lighting", enable);
+}
+
+void pe_graphics_set_light_vector(pVec3 light_vector) {
+    pe_shader_set_vec3(pe_opengl.shader_program, "light_vector", light_vector);
+}
+
+void pe_graphics_set_diffuse_color(peColor color) {
+    pe_shader_set_vec3(pe_opengl.shader_program, "diffuse_color", pe_color_to_vec4(color).rgb);
+}
+
 void pe_graphics_matrix_update(void) {
     char *uniform_names[peMatrixMode_Count] = {
         "matrix_projection",
@@ -182,8 +194,6 @@ void pe_graphics_dynamic_draw_flush(void) {
         peMatrixMode old_matrix_mode = pe_graphics.matrix_mode;
         pMat4 old_matrix_model = pe_graphics.matrix[pe_graphics.mode][peMatrixMode_Model];
         bool old_matrix_model_is_identity = pe_graphics.matrix_model_is_identity[pe_graphics.mode];
-        bool old_do_lighting;
-        pe_shader_get_bool(pe_opengl.shader_program, "do_lighting", &old_do_lighting);
 
         pe_graphics_matrix_mode(peMatrixMode_Model);
         pe_graphics_matrix_identity();
@@ -202,7 +212,8 @@ void pe_graphics_dynamic_draw_flush(void) {
 
             bool do_lighting = dynamic_draw.batch[b].do_lighting;
             if (b == 0 || previous_do_lighting != do_lighting) {
-                pe_shader_set_bool(pe_opengl.shader_program, "do_lighting", do_lighting);
+                pe_graphics_set_lighting(do_lighting);
+                pe_graphics_set_light_vector(PE_LIGHT_VECTOR_DEFAULT);
                 previous_do_lighting = do_lighting;
             }
 
@@ -227,7 +238,6 @@ void pe_graphics_dynamic_draw_flush(void) {
         pe_graphics_matrix_update();
         pe_graphics_matrix_mode(old_matrix_mode);
         pe_graphics.matrix_model_is_identity[pe_graphics.mode] = old_matrix_model_is_identity;
-        pe_shader_set_bool(pe_opengl.shader_program, "do_lighting", old_do_lighting);
     }
 
     dynamic_draw.vertex_used = 0;
@@ -418,7 +428,7 @@ void pe_shader_set_bool(GLuint shader_program, const GLchar *name, bool value) {
     glUniform1i(uniform_location, gl_value);
 }
 
-peTexture pe_texture_create(void *data, int width, int height, int channels) {
+peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int height) {
     GLint texture_object;
     glGenTextures(1, &texture_object);
     glBindTexture(GL_TEXTURE_2D, texture_object);
@@ -428,6 +438,7 @@ peTexture pe_texture_create(void *data, int width, int height, int channels) {
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border_color);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    const int channels = 4;
     PE_ASSERT(channels == 3 || channels == 4);
     GLint gl_format = (
         channels == 3 ? GL_RGB  :

@@ -128,6 +128,19 @@ void pe_graphics_set_depth_test(bool enable) {
     }
 }
 
+void pe_graphics_set_lighting(bool enable) {
+
+}
+
+void pe_graphics_set_light_vector(pVec3 light_vector) {
+
+}
+
+void pe_graphics_set_diffuse_color(peColor color) {
+    // TODO: change only the diffuse color and not everything
+    sceGuColor(color.rgba);
+}
+
 void pe_graphics_matrix_update(void) {
     int gu_matrix_modes[peMatrixMode_Count];
     {
@@ -154,7 +167,8 @@ pMat4 pe_matrix_orthographic(float left, float right, float bottom, float top, f
     return p_orthographic_rh_no(left, right, bottom, top, near_z, far_z);
 }
 
-peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int height, int format) {
+peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int height) {
+    const int format = GU_PSM_8888;
 	int power_of_two_width = closest_greater_power_of_two(width);
 	int power_of_two_height = closest_greater_power_of_two(height);
 	unsigned int size = power_of_two_width * power_of_two_height * bytes_per_pixel(format);
@@ -182,6 +196,7 @@ peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int heig
 }
 
 void pe_texture_bind(peTexture texture) {
+    PE_TRACE_FUNCTION_BEGIN();
 	sceGuEnable(GU_TEXTURE_2D);
  	sceGuTexMode(texture.format, 0, 0, 1);
 	sceGuTexImage(0, texture.power_of_two_width, texture.power_of_two_height, texture.power_of_two_width, texture.data);
@@ -191,6 +206,7 @@ void pe_texture_bind(peTexture texture) {
 	sceGuTexFilter(GU_NEAREST,GU_NEAREST);
     sceGuTexScale(1.0f,1.0f);
 	sceGuTexOffset(0.0f,0.0f);
+	PE_TRACE_FUNCTION_END();
 }
 
 void pe_texture_bind_default(void) {

@@ -215,6 +215,7 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
         pe_shader_constant_buffer_init(pe_d3d.device, sizeof(peShaderConstant_Matrix), &cb->view);
         pe_shader_constant_buffer_init(pe_d3d.device, sizeof(peShaderConstant_Matrix), &cb->model);
         pe_shader_constant_buffer_init(pe_d3d.device, sizeof(peShaderConstant_Light), &cb->light);
+        pe_shader_constant_buffer_init(pe_d3d.device, sizeof(peShaderConstant_LightVector), &cb->light_vector);
         pe_shader_constant_buffer_init(pe_d3d.device, sizeof(peShaderConstant_Material), &cb->material);
         pe_shader_constant_buffer_init(pe_d3d.device, sizeof(peShaderConstant_Skeleton), &cb->skeleton);
 
@@ -223,9 +224,11 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
             constant_buffers_d3d.view,
             constant_buffers_d3d.model,
             constant_buffers_d3d.light,
+            constant_buffers_d3d.light_vector,
             constant_buffers_d3d.material,
             constant_buffers_d3d.skeleton,
         };
+        PE_ASSERT(PE_COUNT_OF(constant_buffers) <= 15);
         ID3D11DeviceContext_VSSetConstantBuffers(pe_d3d.context, 0, PE_COUNT_OF(constant_buffers), constant_buffers);
     }
 
@@ -286,16 +289,14 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
     }
 
     {
-        peShaderConstant_Light *constant_light = pe_shader_constant_begin_map(pe_d3d.context, constant_buffers_d3d.light);
-        constant_light->do_lighting = true;
-        constant_light->light_vector = PE_LIGHT_VECTOR_DEFAULT;
-        pe_shader_constant_end_map(pe_d3d.context, constant_buffers_d3d.light);
+        pe_graphics_set_lighting(true);
+        pe_graphics_set_light_vector(PE_LIGHT_VECTOR_DEFAULT);
     }
 
     // init default texture
 	{
 		uint32_t texture_data[] = { 0xFFFFFFFF };
-		default_texture = pe_texture_create(texture_data, 1, 1, 4);
+		default_texture = pe_texture_create(temp_arena, texture_data, 1, 1);
 	}
 
     pe_d3d.framebuffer_width = window_width;
@@ -348,6 +349,24 @@ void pe_graphics_set_depth_test(bool enable) {
         depth_stencil_state = pe_d3d.depth_stencil_state_disabled;
     }
     ID3D11DeviceContext_OMSetDepthStencilState(pe_d3d.context, depth_stencil_state, 0);
+}
+
+void pe_graphics_set_lighting(bool enable) {
+    peShaderConstant_Light *constant_light = pe_shader_constant_begin_map(pe_d3d.context, constant_buffers_d3d.light);
+    constant_light->do_lighting = enable;
+    pe_shader_constant_end_map(pe_d3d.context, constant_buffers_d3d.light);
+}
+
+void pe_graphics_set_light_vector(pVec3 light_vector) {
+    peShaderConstant_LightVector *constant_light_vector = pe_shader_constant_begin_map(pe_d3d.context, constant_buffers_d3d.light_vector);
+    constant_light_vector->light_vector = light_vector;
+    pe_shader_constant_end_map(pe_d3d.context, constant_buffers_d3d.light_vector);
+}
+
+void pe_graphics_set_diffuse_color(peColor color) {
+    peShaderConstant_Material *constant_material = pe_shader_constant_begin_map(pe_d3d.context, constant_buffers_d3d.material);
+    constant_material->diffuse_color = pe_color_to_vec4(color);
+    pe_shader_constant_end_map(pe_d3d.context, constant_buffers_d3d.material);
 }
 
 void pe_graphics_matrix_update(void) {
@@ -414,10 +433,8 @@ void pe_graphics_dynamic_draw_flush(void) {
             pe_texture_bind(*texture);
 
             if (b == 0 || previous_do_lighting != dynamic_draw.batch[b].do_lighting) {
-                peShaderConstant_Light *constant_light = pe_shader_constant_begin_map(pe_d3d.context, constant_buffers_d3d.light);
-                constant_light->do_lighting = dynamic_draw.batch[b].do_lighting;
-                constant_light->light_vector = PE_LIGHT_VECTOR_DEFAULT;
-                pe_shader_constant_end_map(pe_d3d.context, constant_buffers_d3d.light);
+                pe_graphics_set_lighting(dynamic_draw.batch[b].do_lighting);
+                pe_graphics_set_light_vector(PE_LIGHT_VECTOR_DEFAULT);
                 previous_do_lighting = dynamic_draw.batch[b].do_lighting;
             }
 
@@ -486,9 +503,10 @@ ID3D11Buffer *pe_d3d11_create_buffer(void *data, UINT byte_width, D3D11_USAGE us
     return buffer;
 }
 
-peTexture pe_texture_create(void *data, UINT width, UINT height, int channels) {
+peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int height) {
     DXGI_FORMAT dxgi_format = DXGI_FORMAT_UNKNOWN;
     int bytes_per_pixel = 0;
+    const int channels = 4;
     switch (channels) {
         case 1:
             dxgi_format = DXGI_FORMAT_R8_UNORM;
@@ -501,8 +519,8 @@ peTexture pe_texture_create(void *data, UINT width, UINT height, int channels) {
         default: PE_PANIC_MSG("Unsupported channel count: %d\n", channels); break;
     }
     D3D11_TEXTURE2D_DESC texture_desc = {
-        .Width = width,
-        .Height = height,
+        .Width = (UINT)width,
+        .Height = (UINT)height,
         .MipLevels = 1,
         .ArraySize = 1,
         .Format = dxgi_format,
