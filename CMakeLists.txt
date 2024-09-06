@@ -36,7 +36,7 @@ endif()
 add_library(platform STATIC
     src/platform/pe_input.c
     src/platform/pe_net.c
-    src/platform/pe_time.c
+    src/platform/p_time.c
     src/platform/pe_platform.c
     src/platform/pe_window.c
 )

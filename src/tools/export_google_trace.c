@@ -4,7 +4,7 @@
 
 #include "core/pe_core.h"
 #include "core/pe_file_io.h"
-#include "platform/pe_time.h"
+#include "platform/p_time.h"
 
 #include "utility/pe_trace.h"
 
@@ -105,8 +105,8 @@ int main(int argc, char *argv[]) {
             output_file,
             "\t{\"pid\":0,\"name\":\"%s\",\"ph\":\"X\",\"ts\":%f,\"dur\":%f},\n",
             trace_event_name,
-            pe_time_us(trace_event_data->timestamp),
-            pe_time_us(trace_event_data->duration)
+            ptime_us(trace_event_data->timestamp),
+            ptime_us(trace_event_data->duration)
         );
     }
 

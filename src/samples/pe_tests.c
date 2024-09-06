@@ -3,7 +3,7 @@
 #include "graphics/pe_graphics.h"
 #include "platform/pe_input.h"
 #include "graphics/pe_model.h"
-#include "platform/pe_time.h"
+#include "platform/p_time.h"
 #include "utility/pe_trace.h"
 #include "platform/pe_window.h"
 
@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
     pe_window_init(960, 540, "Procyon");
     pe_graphics_init(&temp_arena, 960, 540);
     pe_input_init();
-    pe_time_init();
+    ptime_init();
     pe_trace_init();
 
 #if !defined(PSP)
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
             break;
         }
 
-        uint64_t frame_start_time = pe_time_now();
+        uint64_t frame_start_time = ptime_now();
         peTraceMark tm_game_loop = PE_TRACE_MARK_BEGIN("game loop");
 
         pe_window_poll_events();
@@ -94,8 +94,8 @@ int main(int argc, char *argv[]) {
         pe_arena_clear(&temp_arena);
 
         PE_TRACE_MARK_END(tm_game_loop);
-        uint64_t frame_duration = pe_time_since(frame_start_time);
-        float frame_duration_ms = (float)pe_time_ms(frame_duration);
+        uint64_t frame_duration = ptime_since(frame_start_time);
+        float frame_duration_ms = (float)ptime_ms(frame_duration);
         average_frame_duration += 0.05f * (frame_duration_ms - average_frame_duration);
         // printf("average frame duration: %6.3f\n", average_frame_duration);
     }

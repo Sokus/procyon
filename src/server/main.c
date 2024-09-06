@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 #include "core/pe_core.h"
-#include "platform/pe_time.h"
+#include "platform/p_time.h"
 #include "platform/pe_net.h"
 
 #include "pe_config.h"
@@ -64,7 +64,7 @@ void pe_send_packet_to_connected_client(int client_index, pePacket *packet) {
     PE_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
     PE_ASSERT(server.client_connected[client_index]);
     pe_send_packet(server.socket, server.client_address[client_index], packet);
-    server.client_data[client_index].last_packet_send_time = pe_time_now();
+    server.client_data[client_index].last_packet_send_time = ptime_now();
 }
 
 void pe_connect_client(int client_index, peAddress address) {
@@ -89,7 +89,7 @@ void pe_connect_client(int client_index, peAddress address) {
     server.client_connected[client_index] = true;
     server.client_address[client_index] = address;
     server.client_data[client_index].entity_index = entity->index;
-    uint64_t time_now = pe_time_now();
+    uint64_t time_now = ptime_now();
     server.client_data[client_index].connect_time = time_now;
     server.client_data[client_index].last_packet_receive_time = time_now;
 
@@ -145,8 +145,8 @@ void pe_process_connection_request_message(peConnectionRequestMessage *msg, peAd
         PE_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
         PE_ASSERT(pe_address_compare(address, server.client_address[client_index]));
         float connection_request_repsonse_interval = 1.0f / (float)CONNECTION_REQUEST_RESPONSE_SEND_RATE;
-        uint64_t ticks_since_last_sent_packet = pe_time_since(server.client_data[client_index].last_packet_send_time);
-        float seconds_since_last_sent_packet = (float)pe_time_sec(ticks_since_last_sent_packet);
+        uint64_t ticks_since_last_sent_packet = ptime_since(server.client_data[client_index].last_packet_send_time);
+        float seconds_since_last_sent_packet = (float)ptime_sec(ticks_since_last_sent_packet);
         if (seconds_since_last_sent_packet > connection_request_repsonse_interval) {
             pePacket packet = {0};
             peConnectionAcceptedMessage connection_accepted_message = {
@@ -201,7 +201,7 @@ void pe_process_input_state_message(peInputStateMessage *msg, peAddress address,
         PE_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
         PE_ASSERT(pe_address_compare(address, server.client_address[client_index]));
         server.client_input[client_index] = msg->input;
-        server.client_data[client_index].last_packet_receive_time = pe_time_now();
+        server.client_data[client_index].last_packet_receive_time = ptime_now();
     }
 }
 
@@ -262,8 +262,8 @@ void pe_send_packets(void) {
 void pe_check_for_time_out(void) {
     for (int i = 0; i < MAX_CLIENT_COUNT; i += 1) {
         if (server.client_connected[i]) {
-            uint64_t ticks_since_last_received_packet = pe_time_since(server.client_data[i].last_packet_receive_time);
-            float seconds_since_last_received_packet = (float)pe_time_sec(ticks_since_last_received_packet);
+            uint64_t ticks_since_last_received_packet = ptime_since(server.client_data[i].last_packet_receive_time);
+            float seconds_since_last_received_packet = (float)ptime_sec(ticks_since_last_received_packet);
             if (seconds_since_last_received_packet > (float)SECONDS_TO_TIME_OUT) {
                 pe_disconnect_client(i, peConnectionClosedReason_TimedOut);
             }
@@ -278,7 +278,7 @@ int main(int argc, char *argv[]) {
         pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
     }
 
-    pe_time_init();
+    ptime_init();
     pe_net_init();
 
     pe_socket_create(peAddressFamily_IPv4, &server.socket);
@@ -292,7 +292,7 @@ int main(int argc, char *argv[]) {
 
     float dt = 1.0f/60.0f;
     while(true) {
-        uint64_t work_start_tick = pe_time_now();
+        uint64_t work_start_tick = ptime_now();
 
         pe_receive_packets(&temp_arena);
 
@@ -305,12 +305,12 @@ int main(int argc, char *argv[]) {
 
         pe_arena_clear(&temp_arena);
 
-        uint64_t ticks_spent_working = pe_time_since(work_start_tick);
-        double seconds_spent_working = pe_time_sec(ticks_spent_working);
+        uint64_t ticks_spent_working = ptime_since(work_start_tick);
+        double seconds_spent_working = ptime_sec(ticks_spent_working);
         double seconds_left_for_cycle = (double)dt - seconds_spent_working;
         if (seconds_left_for_cycle > 0.0) {
             unsigned int ms_sleep_duration = (unsigned int)(1000.0 * seconds_left_for_cycle);
-            pe_time_sleep(ms_sleep_duration);
+            ptime_sleep(ms_sleep_duration);
         }
     }
 

@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <string.h>
 
-#include "platform/pe_time.h"
+#include "platform/p_time.h"
 #include "core/pe_core.h"
 #include "pe_trace.h"
 #include "core/pe_file_io.h"
@@ -72,7 +72,7 @@ static void pe_trace_event_add(const char *name, uint64_t timestamp, uint64_t du
 peTraceMark pe_trace_mark_begin_internal(const char *name) {
     peTraceMark result = {
         .name = name,
-        .timestamp = pe_time_now()
+        .timestamp = ptime_now()
     };
     return result;
 }
