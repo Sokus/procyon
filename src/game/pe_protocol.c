@@ -1,12 +1,14 @@
 #include "pe_protocol.h"
 
-#include "core/pe_core.h"
+#include "core/p_assert.h"
+#include "core/p_arena.h"
 #include "pe_bit_stream.h"
 #include "platform/pe_net.h"
 #include "game/pe_entity.h"
 #include "pe_config.h"
 
 #include <stdio.h>
+#include <string.h>
 
 static peSerializationError pe_serialize_connection_request_message(peBitStream *bs, peConnectionRequestMessage *msg) {
     return peSerializationError_None;
@@ -33,7 +35,7 @@ static peSerializationError pe_serialize_input_state_message(peBitStream *bs, pe
 
 static peSerializationError pe_serialize_world_state_message(peBitStream *bs, peWorldStateMessage *msg) {
     peSerializationError err = peSerializationError_None;
-    for (int i = 0; i < PE_COUNT_OF(msg->entities); i += 1) {
+    for (int i = 0; i < P_COUNT_OF(msg->entities); i += 1) {
         err = pe_serialize_entity(bs, &msg->entities[i]);
         if (err) return err;
     }
@@ -41,8 +43,8 @@ static peSerializationError pe_serialize_world_state_message(peBitStream *bs, pe
 }
 
 peMessage pe_message_create(peArena *arena, peMessageType type) {
-    PE_ASSERT(type >= 0);
-    PE_ASSERT(type < peMessageType_Count);
+    P_ASSERT(type >= 0);
+    P_ASSERT(type < peMessageType_Count);
     peMessage message = {0};
     size_t message_size;
     switch (type) {
@@ -52,11 +54,11 @@ peMessage pe_message_create(peArena *arena, peMessageType type) {
         case peMessageType_ConnectionClosed: message_size = sizeof(peConnectionClosedMessage); break;
         case peMessageType_InputState: message_size = sizeof(peInputStateMessage); break;
         case peMessageType_WorldState: message_size = sizeof(peWorldStateMessage); break;
-        default: PE_PANIC(); return message;
+        default: P_PANIC(); return message;
     }
     message.type = type;
     message.any = pe_arena_alloc(arena, message_size);
-    pe_zero_size(message.any, message_size);
+    memset(message.any, 0, message_size);
     return message;
 }
 
@@ -74,14 +76,14 @@ peSerializationError pe_serialize_message(peBitStream *bs, peMessage *msg) {
             return pe_serialize_input_state_message(bs, msg->input_state);
         case peMessageType_WorldState:
             return pe_serialize_world_state_message(bs, msg->world_state);
-        default: PE_PANIC(); break;
+        default: P_PANIC(); break;
     }
 
     return peSerializationError_ValueOutOfRange;
 }
 
 void pe_append_message(pePacket *packet, peMessage msg) {
-    PE_ASSERT(packet->message_count < MAX_MESSAGES_PER_PACKET);
+    P_ASSERT(packet->message_count < MAX_MESSAGES_PER_PACKET);
     packet->messages[packet->message_count].type = msg.type;
     packet->messages[packet->message_count].any = msg.any;
     packet->message_count += 1;
@@ -111,7 +113,7 @@ bool pe_send_packet(peSocket socket, peAddress address, pePacket *packet) {
 }
 
 bool pe_receive_packet(peSocket socket, peArena *arena, peAddress *address, pePacket *packet) {
-    PE_ASSERT(packet->message_count == 0);
+    P_ASSERT(packet->message_count == 0);
 
     uint8_t buffer[1400];
     int bytes_received;

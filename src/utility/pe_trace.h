@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define PE_TRACE_DATA_BATCH_SIZE PE_KILOBYTES(48)
+#define PE_TRACE_DATA_BATCH_SIZE P_KILOBYTES(48)
 
 #define PE_TRACE_REFERENCE_LITERAL "fB8PgEXDfgO5i2a5HfQ0hvelQ07mP4ce"
 

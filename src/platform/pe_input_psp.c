@@ -1,5 +1,5 @@
 #include "pe_input_psp.h"
-#include "core/pe_core.h"
+#include "core/p_assert.h"
 
 #include <pspctrl.h>
 
@@ -15,8 +15,8 @@ void pe_input_init_psp(void) {
 }
 
 static float pe_psp_process_axis_value(unsigned char value, float deadzone_radius) {
-	PE_ASSERT(deadzone_radius < 1.0f);
-	PE_ASSERT(deadzone_radius >= 0.0f);
+	P_ASSERT(deadzone_radius < 1.0f);
+	P_ASSERT(deadzone_radius >= 0.0f);
 	float fvalue = (float)value/(255.0f/2.0f) - 1.0f;
 	float effective_range = 1.0 - deadzone_radius;
 	float result = 0.0f;

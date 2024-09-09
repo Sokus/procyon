@@ -1,6 +1,7 @@
 #include "pe_graphics.h"
 #include "pe_graphics_psp.h"
-#include "core/pe_core.h"
+#include "core/p_assert.h"
+#include "core/p_arena.h"
 #include "utility/pe_trace.h"
 
 #include <pspge.h>
@@ -227,7 +228,7 @@ void pe_graphics_dynamic_draw_draw_batches(void) {
         sceKernelDcacheWritebackRange(dynamic_draw.vertex, sizeof(peDynamicDrawVertex)*PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT);
 
         for (int b = dynamic_draw.batch_drawn_count; b <= dynamic_draw.batch_current; b += 1) {
-            PE_ASSERT(dynamic_draw.batch[b].vertex_count > 0);
+            P_ASSERT(dynamic_draw.batch[b].vertex_count > 0);
 
             if (dynamic_draw.batch[b].texture) {
                 pe_texture_bind(*dynamic_draw.batch[b].texture);

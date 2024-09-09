@@ -1,5 +1,5 @@
 #include "pe_platform.h"
-#include "core/pe_core.h"
+#include "core/p_assert.h"
 
 #include <stdbool.h>
 
@@ -10,7 +10,7 @@
 static bool platform_initialized = false;
 
 void pe_platform_init(void) {
-    PE_ASSERT(!platform_initialized);
+    P_ASSERT(!platform_initialized);
     bool success = true;
 #if defined(PSP)
     success &= pe_platform_init_psp();
@@ -19,7 +19,7 @@ void pe_platform_init(void) {
 }
 
 void pe_platform_shutdown(void) {
-    PE_ASSERT(platform_initialized);
+    P_ASSERT(platform_initialized);
 #if defined(PSP)
     pe_platform_shutdown_psp();
 #endif
@@ -27,7 +27,7 @@ void pe_platform_shutdown(void) {
 }
 
 bool pe_platform_should_quit(void) {
-    PE_ASSERT(platform_initialized);
+    P_ASSERT(platform_initialized);
     bool result = false;
 #if defined(PSP)
     result = pe_platform_should_quit_psp();

@@ -1,7 +1,7 @@
 #include "pe_window_glfw.h"
 
 #include "pe_input_glfw.h"
-#include "core/pe_core.h"
+#include "core/p_assert.h"
 
 #define GLFW_INCLUDE_NONE
 #include "GLFW/glfw3.h"
@@ -28,17 +28,17 @@ struct peWindowGLFW {
 struct peWindowGLFW window_state_glfw = {0};
 
 static void pe_framebuffer_size_callback_glfw(GLFWwindow *window, int width, int height) {
-    PE_ASSERT(window_state_glfw.framebuffer_size_callback != NULL);
+    P_ASSERT(window_state_glfw.framebuffer_size_callback != NULL);
     window_state_glfw.framebuffer_size_callback(width, height);
 }
 
 static void pe_window_key_callback_glfw(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    PE_ASSERT(window_state_glfw.key_callback != NULL);
+    P_ASSERT(window_state_glfw.key_callback != NULL);
     window_state_glfw.key_callback(key, action);
 }
 
 static void pe_cursor_position_callback_glfw(GLFWwindow *window, double pos_x, double pos_y) {
-    PE_ASSERT(window_state_glfw.cursor_position_callback != NULL);
+    P_ASSERT(window_state_glfw.cursor_position_callback != NULL);
     window_state_glfw.cursor_position_callback(pos_x, pos_y);
 }
 

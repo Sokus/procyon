@@ -2,9 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "core/pe_core.h"
-#include "core/pe_file_io.h"
-#include "platform/p_time.h"
+#include "core/p_defines.h"
+#include "core/p_assert.h"
+#include "core/p_heap.h"
+#include "core/p_arena.h"
+#include "core/p_file.h"
+#include "core/p_time.h"
 
 #include "utility/pe_trace.h"
 
@@ -16,7 +19,7 @@ int main(int argc, char *argv[]) {
 
     peArena temp_arena;
     {
-        size_t temp_arena_size = PE_MEGABYTES(256);
+        size_t temp_arena_size = P_MEGABYTES(256);
         pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
     }
 

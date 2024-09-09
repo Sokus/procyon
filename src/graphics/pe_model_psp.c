@@ -1,5 +1,6 @@
 #include "graphics/pe_model.h"
 #include "graphics/p3d.h"
+#include "core/p_assert.h"
 #include "utility/pe_trace.h"
 
 #include <stdbool.h>
@@ -21,7 +22,7 @@ void pe_model_alloc_mesh_data(peModel *model, peArena *arena, p3dFile *p3d) {
     size_t mesh_material_size = p3d->static_info->num_meshes * sizeof(int);
     model->mesh_material = pe_arena_alloc(arena, mesh_material_size);
 
-    PE_ASSERT(p3d->static_info->is_portable);
+    P_ASSERT(p3d->static_info->is_portable);
     size_t mesh_subskeleton_size = p3d->static_info->num_meshes * sizeof(int); // psp
     size_t subskeleton_size = p3d->static_info->num_subskeletons * sizeof(peSubskeleton); // psp
     model->mesh_subskeleton = pe_arena_alloc(arena, mesh_subskeleton_size);
@@ -62,7 +63,7 @@ void pe_model_load_mesh_data(peModel *model, peArena *temp_arena, p3dFile *p3d) 
 				case 1: model->mesh[m].vertex_type |= GU_WEIGHT_8BIT; break;
 				case 2: model->mesh[m].vertex_type |= GU_WEIGHT_16BIT; break;
 				case 4: model->mesh[m].vertex_type |= GU_WEIGHT_32BITF; break;
-				default: PE_PANIC(); break;
+				default: P_PANIC(); break;
 			}
 		}
 
@@ -77,7 +78,7 @@ void pe_model_load_mesh_data(peModel *model, peArena *temp_arena, p3dFile *p3d) 
 
 void pe_model_load_skeleton(peModel *model, p3dFile *p3d) {
 	memcpy(model->bone_parent_index, p3d->bone_parent_index, p3d->static_info->num_bones * sizeof(uint16_t));
-	PE_ASSERT(sizeof(p3dMatrix) == sizeof(pMat4));
+	P_ASSERT(sizeof(p3dMatrix) == sizeof(pMat4));
 	memcpy(model->bone_inverse_model_space_pose_matrix, p3d->inverse_model_space_pose_matrix, p3d->static_info->num_bones * sizeof(pMat4));
 	for (int s = 0; s < p3d->static_info->num_subskeletons; s += 1) {
 		model->subskeleton[s].num_bones = p3d->subskeleton[s].num_bones;
@@ -89,7 +90,7 @@ void pe_model_load_skeleton(peModel *model, p3dFile *p3d) {
 
 void pe_model_load_animations(peModel *model, p3dStaticInfo *static_info, p3dAnimation *animation, p3dAnimationJoint *animation_joint) {
     for (int a = 0; a < static_info->num_animations; a += 1) {
-        PE_ASSERT(sizeof(model->animation[a].name) == sizeof(animation[a].name));
+        P_ASSERT(sizeof(model->animation[a].name) == sizeof(animation[a].name));
         memcpy(model->animation[a].name, animation[a].name, sizeof(model->animation[a].name));
         model->animation[a].num_frames = animation[a].num_frames;
     }

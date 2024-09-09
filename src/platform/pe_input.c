@@ -1,5 +1,5 @@
 #include "pe_input.h"
-#include "core/pe_core.h"
+#include "core/p_assert.h"
 #include "utility/pe_trace.h"
 
 
@@ -31,7 +31,7 @@ void pe_input_init(void) {
 
 void pe_input_update(void) {
     PE_TRACE_FUNCTION_BEGIN();
-    PE_ASSERT(input_initialized);
+    P_ASSERT(input_initialized);
 #if defined(_WIN32) || defined(__linux__)
     pe_input_update_glfw();
 #elif defined(__PSP__)
@@ -41,7 +41,7 @@ void pe_input_update(void) {
 }
 
 bool pe_input_key_is_down(peKeyboardKey key) {
-    PE_ASSERT(key >= 0 && key < peKeyboardKey_Count);
+    P_ASSERT(key >= 0 && key < peKeyboardKey_Count);
 #if defined(_WIN32) || defined(__linux__)
     return pe_input_key_is_down_glfw(key);
 #else
@@ -50,7 +50,7 @@ bool pe_input_key_is_down(peKeyboardKey key) {
 }
 
 bool pe_input_key_was_down(peKeyboardKey key) {
-    PE_ASSERT(key >= 0 && key < peKeyboardKey_Count);
+    P_ASSERT(key >= 0 && key < peKeyboardKey_Count);
 #if defined(_WIN32) || defined(__linux__)
     return pe_input_key_was_down_glfw(key);
 #else
@@ -59,7 +59,7 @@ bool pe_input_key_was_down(peKeyboardKey key) {
 }
 
 bool pe_input_key_pressed(peKeyboardKey key) {
-    PE_ASSERT(key >= 0 && key < peKeyboardKey_Count);
+    P_ASSERT(key >= 0 && key < peKeyboardKey_Count);
 #if defined(_WIN32) || defined(__linux__)
     return pe_input_key_pressed_glfw(key);
 #else
@@ -68,7 +68,7 @@ bool pe_input_key_pressed(peKeyboardKey key) {
 }
 
 bool pe_input_key_released(peKeyboardKey key) {
-    PE_ASSERT(key >= 0 && key < peKeyboardKey_Count);
+    P_ASSERT(key >= 0 && key < peKeyboardKey_Count);
 #if defined(_WIN32) || defined(__linux__)
     return pe_input_key_released_glfw(key);
 #else
@@ -86,7 +86,7 @@ void pe_input_mouse_positon(float *pos_x, float *pos_y) {
 }
 
 bool pe_input_gamepad_is_down(peGamepadButton button) {
-    PE_ASSERT(button >= 0 && button < peGamepadButton_Count);
+    P_ASSERT(button >= 0 && button < peGamepadButton_Count);
 #if defined(_WIN32) || defined(__linux__)
     return pe_input_gamepad_is_down_glfw(button);
 #elif defined(PSP)
@@ -95,7 +95,7 @@ bool pe_input_gamepad_is_down(peGamepadButton button) {
 }
 
 bool pe_input_gamepad_was_down(peGamepadButton button) {
-    PE_ASSERT(button >= 0 && button < peGamepadButton_Count);
+    P_ASSERT(button >= 0 && button < peGamepadButton_Count);
 #if defined(_WIN32) || defined(__linux__)
     return pe_input_gamepad_was_down_glfw(button);
 #elif defined(PSP)

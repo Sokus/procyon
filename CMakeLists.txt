@@ -17,9 +17,7 @@ endif()
 # CORE LIBRARY:
 
 add_library(core STATIC
-    src/core/pe_core.c
-    src/core/pe_file_io.c
-    src/core/pe_random.c
+    src/core/p_core.c
 )
 
 # MATH LIBRARY:
@@ -36,7 +34,6 @@ endif()
 add_library(platform STATIC
     src/platform/pe_input.c
     src/platform/pe_net.c
-    src/platform/p_time.c
     src/platform/pe_platform.c
     src/platform/pe_window.c
 )

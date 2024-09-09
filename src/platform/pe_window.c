@@ -1,6 +1,6 @@
 #include "pe_window.h"
 
-#include "core/pe_core.h"
+#include "core/p_assert.h"
 
 #if defined(_WIN32)
     #define WIN32_LEAN_AND_MEAN
@@ -19,7 +19,7 @@ struct peWindowState {
 struct peWindowState window_state = {0};
 
 void pe_window_init(int window_width, int window_height, const char *window_name) {
-    PE_ASSERT(!window_state.initialized);
+    P_ASSERT(!window_state.initialized);
 #if defined(_WIN32) || defined(__linux__)
     pe_window_init_glfw(window_width, window_height, window_name);
 #endif
@@ -27,7 +27,7 @@ void pe_window_init(int window_width, int window_height, const char *window_name
 }
 
 void pe_window_shutdown(void) {
-    PE_ASSERT(window_state.initialized);
+    P_ASSERT(window_state.initialized);
 #if defined(_WIN32) || defined(__linux__)
     pe_window_shutdown_glfw();
 #endif
@@ -35,21 +35,21 @@ void pe_window_shutdown(void) {
 }
 
 void pe_window_set_framebuffer_size_callback(peWindowFramebufferSizeCallback *cb) {
-    PE_ASSERT(window_state.initialized);
+    P_ASSERT(window_state.initialized);
 #if defined(_WIN32) || defined(__linux__)
     pe_window_set_framebuffer_size_callback_glfw(cb);
 #endif
 }
 
 void pe_window_set_key_callback(peWindowKeyCallback *cb) {
-    PE_ASSERT(window_state.initialized);
+    P_ASSERT(window_state.initialized);
 #if defined(_WIN32) || defined(__linux__)
     pe_window_set_key_callback_glfw(cb);
 #endif
 }
 
 void pe_window_set_cursor_position_callback(peWindowCursorPositionCallback *cb) {
-    PE_ASSERT(window_state.initialized);
+    P_ASSERT(window_state.initialized);
 #if defined(_WIN32) || defined(__linux__)
     pe_window_set_cursor_position_callback_glfw(cb);
 #endif

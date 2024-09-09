@@ -1,11 +1,11 @@
-#include "core/pe_core.h"
-#include "platform/pe_platform.h"
+#include "core/p_heap.h"
+#include "core/p_time.h"
 #include "graphics/pe_graphics.h"
-#include "platform/pe_input.h"
 #include "graphics/pe_model.h"
-#include "platform/p_time.h"
-#include "utility/pe_trace.h"
+#include "platform/pe_platform.h"
+#include "platform/pe_input.h"
 #include "platform/pe_window.h"
+#include "utility/pe_trace.h"
 
 #include <stdio.h>
 
@@ -14,7 +14,7 @@
 int main(int argc, char *argv[]) {
     peArena temp_arena;
     {
-        size_t temp_arena_size = PE_MEGABYTES(4);
+        size_t temp_arena_size = P_MEGABYTES(4);
         pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
     }
 
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
         pe_window_poll_events();
         pe_input_update();
 
-        pe_camera_update(camera);
+        // pe_camera_update(camera);
 
         pe_graphics_frame_begin();
         pe_clear_background((peColor){ 20, 20, 20, 255 });

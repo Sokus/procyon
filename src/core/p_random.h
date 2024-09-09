@@ -1,7 +1,18 @@
-#include "pe_random.h"
+#ifndef P_RANDOM_HEADER_GUARD
+#define P_RANDOM_HEADER_GUARD
 
-#include <stddef.h>
 #include <stdint.h>
+
+typedef struct peRandom {
+	uint32_t state;
+} peRandom;
+
+peRandom pe_random_from_seed(uint32_t seed);
+peRandom pe_random_from_time(void);
+uint32_t pe_random_uint32(peRandom *random);
+
+#endif // P_RANDOM_HEADER_GUARD
+#if defined(P_CORE_IMPLEMENTATION) && !defined(P_RANDOM_IMPLEMENTATION_GUARD)
 
 peRandom pe_random_from_seed(uint32_t seed) {
     peRandom result = {
@@ -45,3 +56,5 @@ uint32_t pe_random_uint32(peRandom *random) {
     random->state = result;
     return result;
 }
+
+#endif // P_CORE_IMPLEMENTATION

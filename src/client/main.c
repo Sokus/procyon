@@ -3,10 +3,12 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "core/pe_core.h"
+#include "core/p_defines.h"
+#include "core/p_assert.h"
+#include "core/p_heap.h"
+#include "core/p_time.h"
 #include "math/p_math.h"
 #include "graphics/pe_math.h"
-#include "platform/p_time.h"
 #include "platform/pe_net.h"
 #include "platform/pe_platform.h"
 #include "platform/pe_window.h"
@@ -70,7 +72,7 @@ void pe_client_process_message(peMessage message) {
                 client.entity_index = message.connection_accepted->entity_index;
                 client.last_packet_receive_time = ptime_now();
             } else if (client.network_state == peClientNetworkState_Connected) {
-                PE_ASSERT(client.client_index == message.connection_accepted->client_index);
+                P_ASSERT(client.client_index == message.connection_accepted->client_index);
                 client.last_packet_receive_time = ptime_now();
             }
         } break;
@@ -191,8 +193,8 @@ peInput pe_get_input(peCamera camera) {
 
     peInput result = {
         .movement = p_vec2(
-            PE_CLAMP(gamepad_input.x + keyboard_input.x, -1.0f, 1.0f),
-            PE_CLAMP(gamepad_input.y + keyboard_input.y, -1.0f, 1.0f)
+            P_CLAMP(gamepad_input.x + keyboard_input.x, -1.0f, 1.0f),
+            P_CLAMP(gamepad_input.y + keyboard_input.y, -1.0f, 1.0f)
         ),
         .angle = look_angle
     };
@@ -202,7 +204,7 @@ peInput pe_get_input(peCamera camera) {
 int main(int argc, char* argv[]) {
 	peArena temp_arena;
     {
-        size_t temp_arena_size = PE_MEGABYTES(4);
+        size_t temp_arena_size = P_MEGABYTES(4);
         pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
     }
 

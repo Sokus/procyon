@@ -1,6 +1,6 @@
 #include "pe_graphics.h"
 
-#include "core/pe_core.h"
+#include "core/p_assert.h"
 #include "pe_math.h"
 #include "utility/pe_trace.h"
 
@@ -14,7 +14,7 @@ void pe_graphics_mode_3d_begin(peCamera camera) {
     pe_graphics_dynamic_draw_draw_batches();
     pe_graphics_dynamic_draw_new_batch();
 
-    PE_ASSERT(pe_graphics.mode == peGraphicsMode_2D);
+    P_ASSERT(pe_graphics.mode == peGraphicsMode_2D);
     pe_graphics.mode = peGraphicsMode_3D;
 
     pe_graphics_matrix_mode(peMatrixMode_Projection);
@@ -38,7 +38,7 @@ void pe_graphics_mode_3d_end(void) {
     pe_graphics_dynamic_draw_draw_batches();
     pe_graphics_dynamic_draw_new_batch();
 
-    PE_ASSERT(pe_graphics.mode == peGraphicsMode_3D);
+    P_ASSERT(pe_graphics.mode == peGraphicsMode_3D);
     pe_graphics.mode = peGraphicsMode_2D;
 
     pe_graphics_matrix_mode(peMatrixMode_View);
@@ -53,8 +53,8 @@ void pe_graphics_mode_3d_end(void) {
 }
 
 void pe_graphics_matrix_mode(peMatrixMode mode) {
-    PE_ASSERT(mode >= 0);
-    PE_ASSERT(mode < peMatrixMode_Count);
+    P_ASSERT(mode >= 0);
+    P_ASSERT(mode < peMatrixMode_Count);
     pe_graphics.matrix_mode = mode;
 }
 
@@ -75,8 +75,8 @@ void pe_graphics_matrix_identity(void) {
 }
 
 int pe_graphics_primitive_vertex_count(pePrimitive primitive) {
-    PE_ASSERT(primitive >= 0);
-    PE_ASSERT(primitive < pePrimitive_Count);
+    P_ASSERT(primitive >= 0);
+    P_ASSERT(primitive < pePrimitive_Count);
     int result;
     switch (primitive) {
         case pePrimitive_Points: result = 1; break;
@@ -89,12 +89,12 @@ int pe_graphics_primitive_vertex_count(pePrimitive primitive) {
 
 bool pe_graphics_dynamic_draw_vertex_reserve(int count) {
     bool can_fit = (dynamic_draw.vertex_used + count <= PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT);
-    PE_ASSERT(can_fit);
+    P_ASSERT(can_fit);
     return can_fit;
 }
 
 void pe_graphics_dynamic_draw_new_batch(void) {
-    PE_ASSERT(dynamic_draw.batch_current < PE_MAX_DYNAMIC_DRAW_BATCH_COUNT);
+    P_ASSERT(dynamic_draw.batch_current < PE_MAX_DYNAMIC_DRAW_BATCH_COUNT);
     if (dynamic_draw.batch[dynamic_draw.batch_current].vertex_count > 0) {
         dynamic_draw.batch_current += 1;
     }
@@ -108,7 +108,7 @@ void pe_graphics_dynamic_draw_clear(void) {
     if (dynamic_draw.vertex_used > 0) {
         bool all_batches_drawn = (dynamic_draw.batch_drawn_count > dynamic_draw.batch_current);
         bool current_batch_empty = (dynamic_draw.batch[dynamic_draw.batch_current].vertex_count == 0);
-        PE_ASSERT(all_batches_drawn || current_batch_empty);
+        P_ASSERT(all_batches_drawn || current_batch_empty);
     }
     dynamic_draw.vertex_used = 0;
     dynamic_draw.batch_current = 0;

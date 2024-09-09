@@ -43,7 +43,8 @@ static inline double ptime_ns(uint64_t ticks) {
 
 #endif // P_TIME_HEADER_GUARD
 
-#ifdef P_TIME_IMPLEMENTATION
+#if defined(P_CORE_IMPLEMENTATION) && !defined(P_TIME_IMPLEMENTATION_GUARD)
+#define P_TIME_IMPLEMENTATION_GUARD
 
 #include <stdbool.h>
 #include <stdint.h>

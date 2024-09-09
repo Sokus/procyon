@@ -1,8 +1,9 @@
 #include "pe_graphics.h"
 #include "pe_graphics_linux.h"
 
-#include "core/pe_core.h"
-#include "core/pe_file_io.h"
+#include "core/p_assert.h"
+#include "core/p_arena.h"
+#include "core/p_file.h"
 #include "math/p_math.h"
 #include "platform/pe_window.h"
 #include "utility/pe_trace.h"
@@ -206,7 +207,7 @@ void pe_graphics_dynamic_draw_draw_batches(void) {
 
         bool previous_do_lighting = false;
         for (int b = dynamic_draw.batch_drawn_count; b <= dynamic_draw.batch_current; b += 1) {
-            PE_ASSERT(dynamic_draw.batch[b].vertex_count > 0);
+            P_ASSERT(dynamic_draw.batch[b].vertex_count > 0);
 
             peTexture *texture = dynamic_draw.batch[b].texture;
             if (!texture) texture = &default_texture;
@@ -224,7 +225,7 @@ void pe_graphics_dynamic_draw_draw_batches(void) {
                 case pePrimitive_Points: primitive_gl = GL_POINTS; break;
                 case pePrimitive_Lines: primitive_gl = GL_LINES; break;
                 case pePrimitive_Triangles: primitive_gl = GL_TRIANGLES; break;
-                default: PE_PANIC(); break;
+                default: P_PANIC(); break;
             }
 
             glDrawArrays(
@@ -343,7 +344,7 @@ static GLuint pe_shader_compile(GLenum type, const GLchar *shader_source) {
     );
     const char *shader_line_offset = "#line 1\n";
     const char *complete_shader_source[] = { shader_version, shader_define, shader_line_offset, shader_source };
-    glShaderSource(shader, PE_COUNT_OF(complete_shader_source), complete_shader_source, NULL);
+    glShaderSource(shader, P_COUNT_OF(complete_shader_source), complete_shader_source, NULL);
 
     glCompileShader(shader);
     // NOTE: We don't check whether compilation succeeded or not because
@@ -386,7 +387,7 @@ void pe_framebuffer_size_callback_linux(int width, int height) {
     pe_opengl.framebuffer_width = width;
     pe_opengl.framebuffer_height = height;
 
-    PE_ASSERT(pe_graphics.mode == peGraphicsMode_2D);
+    P_ASSERT(pe_graphics.mode == peGraphicsMode_2D);
     pe_graphics.matrix_mode = peMatrixMode_Projection;
     pMat4 matrix_orthographic = pe_matrix_orthographic(
         0, (float)width,
@@ -439,7 +440,7 @@ peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int heig
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     const int channels = 4;
-    PE_ASSERT(channels == 3 || channels == 4);
+    P_ASSERT(channels == 3 || channels == 4);
     GLint gl_format = (
         channels == 3 ? GL_RGB  :
         channels == 4 ? GL_RGBA : GL_INVALID_ENUM

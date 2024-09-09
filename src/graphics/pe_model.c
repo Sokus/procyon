@@ -1,10 +1,11 @@
 #include "pe_model.h"
 
-#include "core/pe_core.h"
-#include "core/pe_file_io.h"
+#include "core/p_assert.h"
+#include "core/p_heap.h"
+#include "core/p_file.h"
+#include "core/p_time.h"
 #include "graphics/p3d.h"
 #include "utility/pe_trace.h"
-#include "platform/p_time.h"
 
 #include <string.h>
 
@@ -35,7 +36,7 @@ static float pe_int16_to_float(int16_t value, float a, float b) {
     } else {
         float_negative_one_to_one = -1.0f * (float)value / (float)INT16_MIN;
     }
-    PE_ASSERT(b > a);
+    P_ASSERT(b > a);
     float float_a_to_b = (float_negative_one_to_one + 1.0f) * (b - a) / 2.0f + a;
     return float_a_to_b;
 }
@@ -235,8 +236,8 @@ peModel pe_model_load(peArena *temp_arena, char *file_path) {
 		// so far we are only loading a single model to test things out
 		// so we don't really care, but we should allocate models in
 		// another way in the future (pool allocator?)
-		size_t model_memory_size = PE_KILOBYTES(512);
-		void *model_memory = pe_heap_alloc(PE_KILOBYTES(512));
+		size_t model_memory_size = P_KILOBYTES(512);
+		void *model_memory = pe_heap_alloc(P_KILOBYTES(512));
 		pe_arena_init(&model_arena, model_memory, model_memory_size);
         pe_model_alloc(&model, &model_arena, &p3d);
     }

@@ -1,7 +1,8 @@
 #include "pe_graphics.h"
 #include "pe_graphics_win32.h"
 
-#include "core/pe_core.h"
+#include "core/p_defines.h"
+#include "core/p_assert.h"
 #include "platform/pe_window.h"
 #include "utility/pe_trace.h"
 
@@ -59,7 +60,7 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
             );
         }
 #endif
-        PE_ASSERT_MSG(SUCCEEDED(hr), "D3D11CreateDevice failed with HRESULT=%x", hr);
+        P_ASSERT_MSG(SUCCEEDED(hr), "D3D11CreateDevice failed with HRESULT=%x", hr);
 #ifndef NDEBUG
         ID3D11InfoQueue* info;
         if (SUCCEEDED(ID3D11Device_QueryInterface(pe_d3d.device, &IID_ID3D11InfoQueue, (void**)&info))) {
@@ -173,11 +174,11 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
     // compile shaders
     {
         bool vertex_shader_create_result = pe_vertex_shader_create(pe_d3d.device, L"res/shader.hlsl", &pe_d3d.vertex_shader, &pe_d3d.vs_blob);
-        PE_ASSERT(vertex_shader_create_result);
+        P_ASSERT(vertex_shader_create_result);
         ID3D11DeviceContext_VSSetShader(pe_d3d.context, pe_d3d.vertex_shader, NULL, 0);
 
         bool pixel_shader_create_result = pe_pixel_shader_create(pe_d3d.device, L"res/shader.hlsl", &pe_d3d.pixel_shader, &pe_d3d.ps_blob);
-        PE_ASSERT(pixel_shader_create_result);
+        P_ASSERT(pixel_shader_create_result);
         ID3D11DeviceContext_PSSetShader(pe_d3d.context, pe_d3d.pixel_shader, NULL, 0);
     }
 
@@ -200,7 +201,7 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
         hr = ID3D11Device_CreateInputLayout(
             pe_d3d.device,
             input_element_descs,
-            PE_COUNT_OF(input_element_descs),
+            P_COUNT_OF(input_element_descs),
             ID3D10Blob_GetBufferPointer(pe_d3d.vs_blob),
             ID3D10Blob_GetBufferSize(pe_d3d.vs_blob),
             &pe_d3d.input_layout
@@ -228,8 +229,8 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
             constant_buffers_d3d.material,
             constant_buffers_d3d.skeleton,
         };
-        PE_ASSERT(PE_COUNT_OF(constant_buffers) <= 15);
-        ID3D11DeviceContext_VSSetConstantBuffers(pe_d3d.context, 0, PE_COUNT_OF(constant_buffers), constant_buffers);
+        P_ASSERT(P_COUNT_OF(constant_buffers) <= 15);
+        ID3D11DeviceContext_VSSetConstantBuffers(pe_d3d.context, 0, P_COUNT_OF(constant_buffers), constant_buffers);
     }
 
     // init dynamic_draw
@@ -259,7 +260,7 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
         hr = ID3D11Device_CreateInputLayout(
             pe_d3d.device,
             input_element_descs,
-            PE_COUNT_OF(input_element_descs),
+            P_COUNT_OF(input_element_descs),
             ID3D10Blob_GetBufferPointer(pe_d3d.vs_blob),
             ID3D10Blob_GetBufferSize(pe_d3d.vs_blob),
             &dynamic_draw_d3d.input_layout
@@ -428,7 +429,7 @@ void pe_graphics_dynamic_draw_draw_batches(void) {
 
         bool previous_do_lighting = false;
         for (int b = dynamic_draw.batch_drawn_count; b <= dynamic_draw.batch_current; b += 1) {
-            PE_ASSERT(dynamic_draw.batch[b].vertex_count > 0);
+            P_ASSERT(dynamic_draw.batch[b].vertex_count > 0);
 
             peTexture *texture = dynamic_draw.batch[b].texture;
             if (!texture) texture = &default_texture;
@@ -516,7 +517,7 @@ peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int heig
             dxgi_format = DXGI_FORMAT_R8G8B8A8_UNORM;
             bytes_per_pixel = 4;
             break;
-        default: PE_PANIC_MSG("Unsupported channel count: %d\n", channels); break;
+        default: P_PANIC_MSG("Unsupported channel count: %d\n", channels); break;
     }
     D3D11_TEXTURE2D_DESC texture_desc = {
         .Width = (UINT)width,
@@ -590,11 +591,11 @@ void pe_create_swapchain_resources(void) {
 static void pe_destroy_swapchain_resources(void) {
     ID3D11DeviceContext_OMSetRenderTargets(pe_d3d.context, 0, NULL, NULL);
 
-    PE_ASSERT(pe_d3d.render_target_view != NULL);
+    P_ASSERT(pe_d3d.render_target_view != NULL);
     ID3D11RenderTargetView_Release(pe_d3d.render_target_view);
     pe_d3d.render_target_view = NULL;
 
-    PE_ASSERT(pe_d3d.depth_stencil_view != NULL);
+    P_ASSERT(pe_d3d.depth_stencil_view != NULL);
     ID3D11DepthStencilView_Release(pe_d3d.depth_stencil_view);
     pe_d3d.render_target_view = NULL;
 }

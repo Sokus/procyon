@@ -1,5 +1,5 @@
 #include "pe_bit_stream.h"
-#include "core/pe_core.h"
+#include "core/p_assert.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -15,7 +15,7 @@ peBitStream pe_create_write_stream(void *buffer, size_t buffer_size) {
 }
 
 peBitStream pe_create_read_stream(void *buffer, size_t buffer_size, size_t data_size) {
-    PE_ASSERT(buffer_size >= 4*((data_size+3)/4));
+    P_ASSERT(buffer_size >= 4*((data_size+3)/4));
     peBitStream read_stream = {0};
     read_stream.mode = peBitStream_Read;
     int num_words = (((int)data_size + 3)/4);
@@ -35,14 +35,14 @@ peBitStream pe_create_measure_stream(size_t buffer_size) {
 }
 
 void pe_bit_stream_flush_bits(peBitStream *bit_stream) {
-    PE_ASSERT(bit_stream->mode == peBitStream_Write);
-    PE_ASSERT(bit_stream->scratch_bits >= 0);
+    P_ASSERT(bit_stream->mode == peBitStream_Write);
+    P_ASSERT(bit_stream->scratch_bits >= 0);
     if (bit_stream->scratch_bits > 0) {
-        PE_ASSERT(bit_stream->word_index < bit_stream->num_words);
+        P_ASSERT(bit_stream->word_index < bit_stream->num_words);
         bit_stream->data[bit_stream->word_index] = (uint32_t)(bit_stream->scratch & 0xFFFFFFFF);
         bit_stream->word_index += 1;
         bit_stream->scratch >>= 32;
-        bit_stream->scratch_bits = PE_MAX(bit_stream->scratch_bits - 32, 0);
+        bit_stream->scratch_bits = P_MAX(bit_stream->scratch_bits - 32, 0);
     }
 }
 
@@ -64,7 +64,7 @@ peSerializationError pe_serialize_bits(peBitStream *bs, uint32_t *value, int bit
 }
 
 peSerializationError pe_serialize_bytes(peBitStream *bs, void *bytes, size_t num_bytes) {
-    PE_ASSERT(num_bytes > 0);
+    P_ASSERT(num_bytes > 0);
     peSerializationError error = peSerializationError_None;
     error = pe_serialize_align(bs);
     if (error) return error;
@@ -73,12 +73,12 @@ peSerializationError pe_serialize_bytes(peBitStream *bs, void *bytes, size_t num
         bs->bits_processed += (int)num_bytes * 8;
         return peSerializationError_None;
     }
-    PE_ASSERT(bs->mode == peBitStream_Write || bs->mode == peBitStream_Read);
-    PE_ASSERT(pe_bit_stream_align_offset(bs) == 0);
-    PE_ASSERT_MSG(pe_bit_stream_bits_remaining(bs) >= (num_bytes * 8), "(%d >= %d)\n", pe_bit_stream_bits_remaining(bs), num_bytes * 8);
+    P_ASSERT(bs->mode == peBitStream_Write || bs->mode == peBitStream_Read);
+    P_ASSERT(pe_bit_stream_align_offset(bs) == 0);
+    P_ASSERT_MSG(pe_bit_stream_bits_remaining(bs) >= (num_bytes * 8), "(%d >= %d)\n", pe_bit_stream_bits_remaining(bs), num_bytes * 8);
 
     int num_head_bytes = (4 - (bs->bits_processed % 32) / 8) % 4;
-    num_head_bytes = PE_MIN(num_head_bytes, (int)num_bytes);
+    num_head_bytes = P_MIN(num_head_bytes, (int)num_bytes);
     for (int i = 0; i < num_head_bytes; i += 1) {
         error = pe_serialize_u8(bs, (uint8_t*)bytes + i);
         if (error) return error;
@@ -93,7 +93,7 @@ peSerializationError pe_serialize_bytes(peBitStream *bs, void *bytes, size_t num
 
     int num_middle_bytes = (((int)num_bytes - num_head_bytes) / 4) * 4;
     if (num_middle_bytes > 0) {
-        PE_ASSERT(bs->bits_processed % 32 == 0);
+        P_ASSERT(bs->bits_processed % 32 == 0);
         uint32_t *middle_words = (uint32_t*)((uint8_t*)bytes + num_head_bytes);
         int num_middle_words = num_middle_bytes / 4;
         switch (bs->mode) {
@@ -113,16 +113,16 @@ peSerializationError pe_serialize_bytes(peBitStream *bs, void *bytes, size_t num
         bs->scratch = 0;
     }
 
-    PE_ASSERT(pe_bit_stream_align_offset(bs) == 0);
+    P_ASSERT(pe_bit_stream_align_offset(bs) == 0);
 
     int num_tail_bytes = (int)num_bytes - num_head_bytes - num_middle_bytes;
-    PE_ASSERT(num_tail_bytes >= 0 && num_tail_bytes < 4);
+    P_ASSERT(num_tail_bytes >= 0 && num_tail_bytes < 4);
     int tail_bytes_start = num_head_bytes + num_middle_bytes;
     for (int i = 0; i < num_tail_bytes; i += 1) {
         error = pe_serialize_u8(bs, (uint8_t*)bytes + tail_bytes_start + i);
         if (error) return error;
     }
-    PE_ASSERT(num_head_bytes + num_middle_bytes + num_tail_bytes == num_bytes);
+    P_ASSERT(num_head_bytes + num_middle_bytes + num_tail_bytes == num_bytes);
     return peSerializationError_None;
 }
 
@@ -133,14 +133,14 @@ peSerializationError pe_serialize_align(peBitStream *bs) {
         uint32_t value = 0;
         if (error = pe_serialize_bits(bs, &value, align_offset)) return error;
         if (bs->mode == peBitStream_Write || bs->mode == peBitStream_Read) {
-            PE_ASSERT(bs->bits_processed % 8 == 0);
+            P_ASSERT(bs->bits_processed % 8 == 0);
         }
     }
     return error;
 }
 
 peSerializationError pe_serialize_check(peBitStream *bs, char *str) {
-    PE_UNIMPLEMENTED();
+    P_UNIMPLEMENTED();
     return peSerializationError_InvalidBitStreamMode;
 }
 
@@ -153,26 +153,26 @@ unsigned int pe_most_significant_bit(unsigned int value) {
 }
 
 int pe_bits_required_for_range_int(int min_value, int max_value) {
-    PE_ASSERT(min_value < max_value);
+    P_ASSERT(min_value < max_value);
     uint32_t max_relative_value = (uint32_t)((int64_t)max_value - (int64_t)min_value);
     unsigned int bits = pe_most_significant_bit(max_relative_value) + 1;
     return bits;
 }
 
 int pe_bits_required_for_range_uint(unsigned min_value, unsigned max_value) {
-    PE_ASSERT(min_value < max_value);
+    P_ASSERT(min_value < max_value);
     unsigned int bits = pe_most_significant_bit(max_value - min_value) + 1;
     return bits;
 }
 
 peSerializationError pe_serialize_range_int(peBitStream *bs, int *value, int min_value, int max_value) {
-    PE_ASSERT(min_value < max_value);
+    P_ASSERT(min_value < max_value);
     int bits = pe_bits_required_for_range_int(min_value, max_value);
 
     switch (bs->mode) {
         case peBitStream_Write: {
-            PE_ASSERT(*value >= min_value);
-            PE_ASSERT(*value <= max_value);
+            P_ASSERT(*value >= min_value);
+            P_ASSERT(*value <= max_value);
             uint32_t relative_value = (uint32_t)(*value - min_value);
             return pe_serialize_bits(bs, &relative_value, bits);
         } break;
@@ -194,13 +194,13 @@ peSerializationError pe_serialize_range_int(peBitStream *bs, int *value, int min
 }
 
 peSerializationError pe_serialize_range_uint(peBitStream *bs, unsigned *value, unsigned min_value, unsigned max_value) {
-    PE_ASSERT(min_value < max_value);
+    P_ASSERT(min_value < max_value);
     int bits = pe_bits_required_for_range_uint(min_value, max_value);
 
     switch (bs->mode) {
         case peBitStream_Write: {
-            PE_ASSERT(*value >= min_value);
-            PE_ASSERT(*value <= max_value);
+            P_ASSERT(*value >= min_value);
+            P_ASSERT(*value <= max_value);
             uint32_t relative_value = *value - min_value;
             return pe_serialize_bits(bs, &relative_value, bits);
         } break;
@@ -268,10 +268,10 @@ peSerializationError pe_serialize_enum(peBitStream *bs, void *value, int enum_va
 //
 
 static peSerializationError pe_serialize_bits_write_stream(peBitStream *bs, uint32_t *value, int bits) {
-    PE_ASSERT(bs->mode == peBitStream_Write);
-    PE_ASSERT(bits > 0);
-    PE_ASSERT(bits <= 32);
-    PE_ASSERT(!pe_bit_stream_would_overflow(bs, bits));
+    P_ASSERT(bs->mode == peBitStream_Write);
+    P_ASSERT(bits > 0);
+    P_ASSERT(bits <= 32);
+    P_ASSERT(!pe_bit_stream_would_overflow(bs, bits));
 
     if (pe_bit_stream_would_overflow(bs, bits)) {
         return peSerializationError_Overflow;
@@ -282,7 +282,7 @@ static peSerializationError pe_serialize_bits_write_stream(peBitStream *bs, uint
     bs->scratch_bits += bits;
 
     if (bs->scratch_bits >= 32) {
-        PE_ASSERT(bs->word_index < bs->num_words);
+        P_ASSERT(bs->word_index < bs->num_words);
         bs->data[bs->word_index] = pe_host_to_network_u32((uint32_t)(bs->scratch & 0xFFFFFFFF));
         bs->scratch >>= 32;
         bs->scratch_bits -= 32;
@@ -295,24 +295,24 @@ static peSerializationError pe_serialize_bits_write_stream(peBitStream *bs, uint
 }
 
 static peSerializationError pe_serialize_bits_read_stream(peBitStream *bs, uint32_t *value, int bits) {
-    PE_ASSERT(bs->mode == peBitStream_Read);
-    PE_ASSERT(bits > 0);
-    PE_ASSERT(bits <= 32);
-    PE_ASSERT(bs->scratch_bits >= 0);
-    PE_ASSERT(bs->scratch_bits <= 64);
+    P_ASSERT(bs->mode == peBitStream_Read);
+    P_ASSERT(bits > 0);
+    P_ASSERT(bits <= 32);
+    P_ASSERT(bs->scratch_bits >= 0);
+    P_ASSERT(bs->scratch_bits <= 64);
 
     if (pe_bit_stream_would_overflow(bs, bits)) {
         return peSerializationError_Overflow;
     }
 
     if (bs->scratch_bits < bits) {
-        PE_ASSERT(bs->word_index < bs->num_words);
+        P_ASSERT(bs->word_index < bs->num_words);
         bs->scratch |= (uint64_t)(pe_network_to_host_u32(bs->data[bs->word_index])) << bs->scratch_bits;
         bs->scratch_bits += 32;
         bs->word_index += 1;
     }
 
-    PE_ASSERT(bs->scratch_bits >= bits);
+    P_ASSERT(bs->scratch_bits >= bits);
     *value = (uint32_t)(bs->scratch & ((1ULL << bits) - 1));
     bs->bits_processed += bits;
     bs->scratch >>= bits;
@@ -322,13 +322,9 @@ static peSerializationError pe_serialize_bits_read_stream(peBitStream *bs, uint3
 }
 
 static peSerializationError pe_serialize_bits_measure_stream(peBitStream *bs, uint32_t *value, int bits) {
-    PE_ASSERT(bits > 0);
-    PE_ASSERT(bits <= 32);
-    PE_ASSERT(bs->mode == peBitStream_Measure);
+    P_ASSERT(bits > 0);
+    P_ASSERT(bits <= 32);
+    P_ASSERT(bs->mode == peBitStream_Measure);
     bs->bits_processed += bits;
     return peSerializationError_None;
 }
-
-#if !defined(_MSC_VER)
-#include "pe_bit_stream.i"
-#endif

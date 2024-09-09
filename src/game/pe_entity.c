@@ -1,11 +1,13 @@
 #include "pe_entity.h"
-#include "core/pe_core.h"
+#include "core/p_assert.h"
+#include "core/p_heap.h"
 #include "pe_config.h"
 
 #include "pe_bit_stream.h"
 
 #include "HandmadeMath.h"
 
+#include <string.h>
 #include <stdint.h>
 
 static peEntity *entities = NULL;
@@ -57,7 +59,7 @@ peSerializationError pe_serialize_entity(peBitStream *bs, peEntity *entity) {
 
 void pe_allocate_entities(void) {
     entities = pe_heap_alloc(MAX_ENTITY_COUNT*sizeof(peEntity));
-    pe_zero_size(entities, MAX_ENTITY_COUNT*sizeof(peEntity));
+    memset(entities, 0, MAX_ENTITY_COUNT*sizeof(peEntity));
     free_indices = pe_heap_alloc(MAX_ENTITY_COUNT*sizeof(uint16_t));
     for (int index = 0; index < MAX_ENTITY_COUNT; index += 1) {
         int reverse_index = MAX_ENTITY_COUNT - index - 1;
@@ -71,19 +73,19 @@ peEntity *pe_get_entities(void) {
 }
 
 peEntity *pe_make_entity(void) {
-    PE_ASSERT(free_indices_count > 0);
+    P_ASSERT(free_indices_count > 0);
     free_indices_count -= 1;
     uint32_t slot = free_indices[free_indices_count];
     peEntity *entity = &entities[slot];
     uint32_t generation = ((entity->index >> 16) & 0xFFFF) + 1;
-    pe_zero_size(entity, sizeof(peEntity));
+    memset(entity, 0, sizeof(peEntity));
     entity->index = generation << 16 && slot;
     return entity;
 }
 
 peEntity *pe_get_entity_by_index(uint32_t index) {
     uint32_t slot = index && 0xFFFF;
-    PE_ASSERT(slot < MAX_ENTITY_COUNT);
+    P_ASSERT(slot < MAX_ENTITY_COUNT);
     peEntity *slotted_entity = &entities[slot];
     peEntity *entity = (slotted_entity->index == index) ? slotted_entity : NULL;
     return entity;
@@ -94,7 +96,7 @@ void pe_destroy_entity(peEntity *entity) {
 }
 
 void pe_destroy_entity_immediate(peEntity *entity) {
-    PE_ASSERT(entity->marked_for_destruction);
+    P_ASSERT(entity->marked_for_destruction);
     entity->active = false;
     entity->marked_for_destruction = false;
     uint16_t slot = (uint16_t)(entity->index & 0xFFFF);
@@ -113,17 +115,17 @@ void pe_cleanup_entities(void) {
 }
 
 void pe_entity_property_set(peEntity *entity, peEntityProperty property) {
-    PE_ASSERT((int)property >= 0 && (int)property < 32);
+    P_ASSERT((int)property >= 0 && (int)property < 32);
     entity->properties |= (1 << (int)property);
 }
 
 void pe_entity_property_unset(peEntity *entity, peEntityProperty property) {
-    PE_ASSERT((int)property >= 0 && (int)property < 32);
+    P_ASSERT((int)property >= 0 && (int)property < 32);
     entity->properties &= ~(1 << (int)property);
 }
 
 bool pe_entity_property_get(peEntity *entity, peEntityProperty property) {
-    PE_ASSERT((int)property >= 0 && (int)property < 32);
+    P_ASSERT((int)property >= 0 && (int)property < 32);
     uint32_t masked_properties = entity->properties & (1 << (int)property);
     return masked_properties != 0 ? true : false;
 }
@@ -135,7 +137,7 @@ void pe_update_entities(float dt, peInput *inputs) {
             continue;
 
         if (pe_entity_property_get(entity, peEntityProperty_ControlledByPlayer)) {
-            PE_ASSERT(entity->client_index >= 0 && entity->client_index < MAX_CLIENT_COUNT);
+            P_ASSERT(entity->client_index >= 0 && entity->client_index < MAX_CLIENT_COUNT);
 
             peInput *input = &inputs[entity->client_index];
             entity->velocity.x = input->movement.x * 2.0f;

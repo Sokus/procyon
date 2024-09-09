@@ -51,7 +51,7 @@ peMesh pe_gen_mesh_cube(float width, float height, float length) {
     };
 
     uint32_t color[24];
-    for (int i = 0; i < PE_COUNT_OF(color); i += 1) {
+    for (int i = 0; i < P_COUNT_OF(color); i += 1) {
         color[i] = 0xffffffff;
     }
 
@@ -65,8 +65,8 @@ peMesh pe_gen_mesh_cube(float width, float height, float length) {
     };
 
     peMesh mesh = {0};
-    int num_vertex = PE_COUNT_OF(pos)/3;
-    int num_index = PE_COUNT_OF(index);
+    int num_vertex = P_COUNT_OF(pos)/3;
+    int num_index = P_COUNT_OF(index);
     mesh.pos_buffer = pe_d3d11_create_buffer(pos, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
     mesh.norm_buffer = pe_d3d11_create_buffer(norm, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
     mesh.tex_buffer = pe_d3d11_create_buffer(tex, 2*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
@@ -99,7 +99,7 @@ peMesh pe_gen_mesh_quad(float width, float length) {
 	};
 
     uint32_t color[6];
-    for (int i = 0; i < PE_COUNT_OF(color); i += 1) {
+    for (int i = 0; i < P_COUNT_OF(color); i += 1) {
         color[i] = 0xffffffff;
     }
 
@@ -109,8 +109,8 @@ peMesh pe_gen_mesh_quad(float width, float length) {
 	};
 
     peMesh mesh = {0};
-    int num_vertex = PE_COUNT_OF(pos)/3;
-    int num_index = PE_COUNT_OF(index);
+    int num_vertex = P_COUNT_OF(pos)/3;
+    int num_index = P_COUNT_OF(index);
     mesh.pos_buffer = pe_d3d11_create_buffer(pos, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
     mesh.norm_buffer = pe_d3d11_create_buffer(norm, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
     mesh.tex_buffer = pe_d3d11_create_buffer(tex, 2*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
@@ -154,7 +154,7 @@ void pe_draw_mesh(peMesh *mesh, peMaterial material, HMM_Vec3 position, HMM_Vec3
     uint32_t vertex_buffer_offsets[] = { 0, 0, 0, 0 };
 
     ID3D11DeviceContext_IASetPrimitiveTopology(pe_d3d.context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    ID3D11DeviceContext_IASetVertexBuffers(pe_d3d.context, 0, PE_COUNT_OF(vertex_buffers),
+    ID3D11DeviceContext_IASetVertexBuffers(pe_d3d.context, 0, P_COUNT_OF(vertex_buffers),
         vertex_buffers, vertex_buffer_strides, vertex_buffer_offsets);
     ID3D11DeviceContext_IASetIndexBuffer(pe_d3d.context, mesh->index_buffer, DXGI_FORMAT_R32_UINT, 0);
 
@@ -249,8 +249,8 @@ Mesh gen_mesh_cube(float width, float height, float length, peColor color) {
 
 	Mesh mesh = {0};
 
-	int vertex_count = PE_COUNT_OF(vertices)/3; // NOTE: 3 floats per vertex
-	int index_count = PE_COUNT_OF(indices);
+	int vertex_count = P_COUNT_OF(vertices)/3; // NOTE: 3 floats per vertex
+	int index_count = P_COUNT_OF(indices);
 	mesh.vertex_count = vertex_count;
 	mesh.index_count = index_count;
 	mesh.vertices = pe_alloc_align(pe_heap_allocator(), vertex_count*sizeof(VertexTCP), 16);
@@ -298,8 +298,8 @@ Mesh pe_gen_mesh_quad(float width, float length, peColor color) {
 
 	Mesh mesh = {0};
 
-	int vertex_count = PE_COUNT_OF(vertices)/3;
-	int index_count = PE_COUNT_OF(indices);
+	int vertex_count = P_COUNT_OF(vertices)/3;
+	int index_count = P_COUNT_OF(indices);
 	mesh.vertex_count = vertex_count;
 	mesh.index_count = index_count;
 	mesh.vertices = pe_alloc_align(pe_heap_allocator(), vertex_count*sizeof(VertexTCP), 16);

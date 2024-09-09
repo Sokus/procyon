@@ -2,8 +2,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "core/pe_core.h"
-#include "platform/p_time.h"
+#include "core/p_defines.h"
+#include "core/p_assert.h"
+#include "core/p_heap.h"
+#include "core/p_arena.h"
+#include "core/p_time.h"
 #include "platform/pe_net.h"
 
 #include "pe_config.h"
@@ -33,8 +36,8 @@ struct peServerState {
 
 void pe_reset_client_state(int client_index) {
     server.client_connected[client_index] = false;
-    pe_zero_size(&server.client_address[client_index], sizeof(peAddress));
-    pe_zero_size(&server.client_data[client_index], sizeof(peClientData));
+    memset(&server.client_address[client_index], 0, sizeof(peAddress));
+    memset(&server.client_data[client_index], 0, sizeof(peClientData));
 }
 
 bool pe_find_free_client_index(int *index) {
@@ -61,16 +64,16 @@ bool pe_find_existing_client_index(peAddress address, int *index) {
 }
 
 void pe_send_packet_to_connected_client(int client_index, pePacket *packet) {
-    PE_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
-    PE_ASSERT(server.client_connected[client_index]);
+    P_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
+    P_ASSERT(server.client_connected[client_index]);
     pe_send_packet(server.socket, server.client_address[client_index], packet);
     server.client_data[client_index].last_packet_send_time = ptime_now();
 }
 
 void pe_connect_client(int client_index, peAddress address) {
-    PE_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
-    PE_ASSERT(server.client_count < MAX_CLIENT_COUNT-1);
-    PE_ASSERT(!server.client_connected[client_index]);
+    P_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
+    P_ASSERT(server.client_count < MAX_CLIENT_COUNT-1);
+    P_ASSERT(!server.client_connected[client_index]);
 
     char address_string_buffer[256];
     char *address_string = pe_address_to_string(address, address_string_buffer, sizeof(address_string_buffer));
@@ -107,9 +110,9 @@ void pe_connect_client(int client_index, peAddress address) {
 }
 
 void pe_disconnect_client(int client_index, peConnectionClosedReason reason) {
-    PE_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
-    PE_ASSERT(server.client_count > 0);
-    PE_ASSERT(server.client_connected[client_index]);
+    P_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
+    P_ASSERT(server.client_count > 0);
+    P_ASSERT(server.client_connected[client_index]);
 
     if (reason != peConnectionClosedReason_ServerShutdown) {
         char address_string_buffer[256];
@@ -142,8 +145,8 @@ void pe_disconnect_client(int client_index, peConnectionClosedReason reason) {
 
 void pe_process_connection_request_message(peConnectionRequestMessage *msg, peAddress address, bool client_exists, int client_index) {
     if (client_exists) {
-        PE_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
-        PE_ASSERT(pe_address_compare(address, server.client_address[client_index]));
+        P_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
+        P_ASSERT(pe_address_compare(address, server.client_address[client_index]));
         float connection_request_repsonse_interval = 1.0f / (float)CONNECTION_REQUEST_RESPONSE_SEND_RATE;
         uint64_t ticks_since_last_sent_packet = ptime_since(server.client_data[client_index].last_packet_send_time);
         float seconds_since_last_sent_packet = (float)ptime_sec(ticks_since_last_sent_packet);
@@ -184,22 +187,22 @@ void pe_process_connection_request_message(peConnectionRequestMessage *msg, peAd
 
     int free_client_index;
     bool found_free_client_index = pe_find_free_client_index(&free_client_index);
-    PE_ASSERT(found_free_client_index);
+    P_ASSERT(found_free_client_index);
     pe_connect_client(free_client_index, address);
 }
 
 void pe_process_connection_closed_message(peConnectionClosedMessage *msg, peAddress address, bool client_exists, int client_index) {
     if (client_exists) {
-        PE_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
-        PE_ASSERT(pe_address_compare(address, server.client_address[client_index]));
+        P_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
+        P_ASSERT(pe_address_compare(address, server.client_address[client_index]));
         pe_disconnect_client(client_index, peConnectionClosedReason_ClientDisconnected);
     }
 }
 
 void pe_process_input_state_message(peInputStateMessage *msg, peAddress address, bool client_exists, int client_index) {
     if (client_exists) {
-        PE_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
-        PE_ASSERT(pe_address_compare(address, server.client_address[client_index]));
+        P_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
+        P_ASSERT(pe_address_compare(address, server.client_address[client_index]));
         server.client_input[client_index] = msg->input;
         server.client_data[client_index].last_packet_receive_time = ptime_now();
     }
@@ -274,7 +277,7 @@ void pe_check_for_time_out(void) {
 int main(int argc, char *argv[]) {
 	peArena temp_arena;
     {
-        size_t temp_arena_size = PE_MEGABYTES(4);
+        size_t temp_arena_size = P_MEGABYTES(4);
         pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
     }
 
@@ -285,7 +288,7 @@ int main(int argc, char *argv[]) {
     pe_socket_set_nonblocking(server.socket);
     {
         peSocketBindError socket_bind_error = pe_socket_bind(server.socket, peAddressFamily_IPv4, SERVER_PORT);
-        PE_ASSERT(socket_bind_error == peSocketBindError_None);
+        P_ASSERT(socket_bind_error == peSocketBindError_None);
     }
 
     pe_allocate_entities();

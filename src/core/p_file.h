@@ -1,6 +1,50 @@
-#include "pe_file_io.h"
+#ifndef P_FILE_HEADER_GUARD
+#define P_FILE_HEADER_GUARD
 
-#include "pe_core.h"
+// TODO: Cleanup
+
+#include <stdbool.h>
+#include <stddef.h>
+
+#if defined(__PSP__)
+    #include <pspkerneltypes.h>
+#endif
+#if defined(_WIN32)
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+#endif
+
+typedef struct peFileHandle {
+#if defined(__PSP__)
+    SceUID fd_psp;
+#elif defined(_WIN32)
+    HANDLE handle_win32;
+#else
+    int dummy;
+#endif
+} peFileHandle;
+
+bool pe_file_open(const char *file_path, peFileHandle *result);
+bool pe_file_close(peFileHandle file);
+bool pe_file_write_async(peFileHandle file, void *data, size_t data_size);
+bool pe_file_poll(peFileHandle file, bool *result);
+bool pe_file_wait(peFileHandle file);
+
+typedef struct peFileContents {
+    void *data;
+    size_t size;
+} peFileContents;
+
+struct peArena;
+peFileContents pe_file_read_contents(struct peArena *arena, const char *file_path, bool zero_terminate);
+
+#endif // P_FILE_HEADER_GUARD
+
+#if defined(P_CORE_IMPLEMENTATION) && !defined(P_FILE_IMPLEMENTATION_GUARD)
+#define P_FILE_IMPLEMENTATION_GUARD
+
+#include "p_assert.h"
+#include "p_arena.h"
 
 #if defined(_WIN32)
     #define WIN32_LEAN_AND_MEAN
@@ -48,7 +92,7 @@ bool pe_file_open(const char *file_path, peFileHandle *result) {
         };
     }
 #else
-    PE_UNIMPLEMENTED();
+    P_UNIMPLEMENTED();
 #endif
     return success;
 }
@@ -61,7 +105,7 @@ bool pe_file_close(peFileHandle file) {
 #elif defined(_WIN32)
     success = CloseHandle(file.handle_win32);
 #else
-    PE_UNIMPLEMENTED();
+    P_UNIMPLEMENTED();
 #endif
     return success;
 }
@@ -77,7 +121,7 @@ bool pe_file_write_async(peFileHandle file, void *data, size_t data_size) {
     // TODO: Actually do async writing
     success = WriteFile(file.handle_win32, data, (DWORD)data_size, NULL, NULL);
 #else
-    PE_UNIMPLEMENTED();
+    P_UNIMPLEMENTED();
 #endif
     return success;
 }
@@ -98,7 +142,7 @@ bool pe_file_poll(peFileHandle file, bool *result) {
     success = true;
     *result = false;
 #else
-    PE_UNIMPLEMENTED();
+    P_UNIMPLEMENTED();
 #endif
     return success;
 }
@@ -116,7 +160,7 @@ bool pe_file_wait(peFileHandle file) {
     // the operation is always done
     success = true;
 #else
-    PE_UNIMPLEMENTED();
+    P_UNIMPLEMENTED();
 #endif
     return success;
 }
@@ -201,7 +245,7 @@ peFileContents pe_file_read_contents(peArena *arena, const char *file_path, bool
             CloseHandle(file_handle);
             return result;
         }
-        PE_ASSERT(bytes_read == file_size);
+        P_ASSERT(bytes_read == file_size);
         CloseHandle(file_handle);
 #elif defined(PSP)
         int bytes_read = sceIoRead(file_handle, data, file_size);
@@ -209,7 +253,7 @@ peFileContents pe_file_read_contents(peArena *arena, const char *file_path, bool
             sceIoClose(file_handle);
             return result;
         }
-        PE_ASSERT(bytes_read == file_size);
+        P_ASSERT(bytes_read == file_size);
         sceIoClose(file_handle);
 #elif defined(__linux__)
         ssize_t bytes_read = read(file_handle, data, file_size);
@@ -217,7 +261,7 @@ peFileContents pe_file_read_contents(peArena *arena, const char *file_path, bool
             close(file_handle);
             return result;
         }
-        PE_ASSERT(bytes_read == file_size);
+        P_ASSERT(bytes_read == file_size);
         close(file_handle);
 #endif
     }
@@ -229,3 +273,5 @@ peFileContents pe_file_read_contents(peArena *arena, const char *file_path, bool
     }
     return result;
 }
+
+#endif // P_CORE_IMPLEMENTATION

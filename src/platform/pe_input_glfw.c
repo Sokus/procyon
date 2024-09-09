@@ -1,6 +1,9 @@
 #include "pe_input_glfw.h"
 #include "pe_input.h"
-#include "core/pe_core.h"
+
+#include "core/p_defines.h"
+#include "core/p_assert.h"
+
 #include "platform/pe_window.h"
 
 
@@ -43,7 +46,7 @@ static void pe_input_key_callback_glfw(int key, int action) {
         return;
     }
     bool new_key_state = (action == GLFW_PRESS);
-    PE_ASSERT(new_key_state != pe_input_state_glfw.keyboard_state.next.key_down[key]);
+    P_ASSERT(new_key_state != pe_input_state_glfw.keyboard_state.next.key_down[key]);
     pe_input_state_glfw.keyboard_state.next.key_down[key] = new_key_state;
     pe_input_state_glfw.keyboard_state.next.key_state_changes[key] += 1;
 }
@@ -64,15 +67,15 @@ void pe_input_update_glfw(void) {
         peKeyboardStateGLFW *keyboard_state_current = &pe_input_state_glfw.keyboard_state.current;
         peKeyboardStateGLFW *keyboard_state_next = &pe_input_state_glfw.keyboard_state.next;
         memcpy(keyboard_state_current, keyboard_state_next, sizeof(peKeyboardStateGLFW));
-        pe_zero_size(keyboard_state_next->key_state_changes, sizeof(keyboard_state_next->key_state_changes));
+        memset(keyboard_state_next->key_state_changes, 0, sizeof(keyboard_state_next->key_state_changes));
     }
 
     // update gamepad state
     {
         peGamepadStateGLFW *gamepad_state = &pe_input_state_glfw.gamepad_state;
         memcpy(gamepad_state->button_last, gamepad_state->button_current, sizeof(gamepad_state->button_current));
-        pe_zero_size(gamepad_state->button_current, sizeof(gamepad_state->button_current));
-        pe_zero_size(gamepad_state->axis, sizeof(gamepad_state->axis));
+        memset(gamepad_state->button_current, 0, sizeof(gamepad_state->button_current));
+        memset(gamepad_state->axis, 0, sizeof(gamepad_state->axis));
 
         for (int joystick_id = GLFW_JOYSTICK_1; joystick_id < GLFW_JOYSTICK_LAST; joystick_id += 1) {
             GLFWgamepadstate glfw_gamepad_state;
@@ -105,7 +108,7 @@ void pe_input_update_glfw(void) {
         }
 
         for (int a = 0; a < peGamepadAxis_Count; a += 1) {
-            gamepad_state->axis[a] = PE_CLAMP(gamepad_state->axis[a], -1.0f, 1.0f);
+            gamepad_state->axis[a] = P_CLAMP(gamepad_state->axis[a], -1.0f, 1.0f);
         }
     }
 }
@@ -123,19 +126,19 @@ static int pe_input_key_map_glfw(peKeyboardKey key) {
 }
 
 bool pe_input_key_is_down_glfw(peKeyboardKey key) {
-    PE_ASSERT(key >= 0 && key < peKeyboardKey_Count);
+    P_ASSERT(key >= 0 && key < peKeyboardKey_Count);
     int key_glfw = pe_input_key_map_glfw(key);
     return pe_input_state_glfw.keyboard_state.current.key_down[key_glfw];
 }
 
 bool pe_input_key_was_down_glfw(peKeyboardKey key) {
-    PE_ASSERT(key >= 0 && key < peKeyboardKey_Count);
+    P_ASSERT(key >= 0 && key < peKeyboardKey_Count);
     int key_glfw = pe_input_key_map_glfw(key);
     return !pe_input_state_glfw.keyboard_state.current.key_down[key_glfw];
 }
 
 bool pe_input_key_pressed_glfw(peKeyboardKey key) {
-    PE_ASSERT(key >= 0 && key < peKeyboardKey_Count);
+    P_ASSERT(key >= 0 && key < peKeyboardKey_Count);
     int key_glfw = pe_input_key_map_glfw(key);
     bool key_down = pe_input_state_glfw.keyboard_state.current.key_down[key_glfw];
     int key_state_changes = pe_input_state_glfw.keyboard_state.current.key_state_changes[key_glfw];
@@ -143,7 +146,7 @@ bool pe_input_key_pressed_glfw(peKeyboardKey key) {
 }
 
 bool pe_input_key_released_glfw(peKeyboardKey key) {
-    PE_ASSERT(key >= 0 && key < peKeyboardKey_Count);
+    P_ASSERT(key >= 0 && key < peKeyboardKey_Count);
     int key_glfw = pe_input_key_map_glfw(key);
     bool key_down = pe_input_state_glfw.keyboard_state.current.key_down[key_glfw];
     int key_state_changes = pe_input_state_glfw.keyboard_state.current.key_state_changes[key_glfw];
