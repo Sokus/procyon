@@ -307,10 +307,10 @@ void pe_model_draw(peModel *model, peArena *temp_arena, pVec3 position, pVec3 ro
 	PE_TRACE_FUNCTION_BEGIN();
     peArenaTemp temp_arena_memory = pe_arena_temp_begin(temp_arena);
 	if (!last_frame_time_initialized) {
-		last_frame_time = ptime_now();
+		last_frame_time = p_time_now();
 		last_frame_time_initialized = true;
 	}
-	current_frame_time += (float)ptime_sec(ptime_laptime(&last_frame_time));
+	current_frame_time += (float)p_time_sec(p_time_laptime(&last_frame_time));
 	if (current_frame_time >= frame_time) {
 		frame_index = (frame_index + 1) % model->animation[0].num_frames;
 		current_frame_time -= frame_time;

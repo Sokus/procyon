@@ -108,8 +108,8 @@ int main(int argc, char *argv[]) {
             output_file,
             "\t{\"pid\":0,\"name\":\"%s\",\"ph\":\"X\",\"ts\":%f,\"dur\":%f},\n",
             trace_event_name,
-            ptime_us(trace_event_data->timestamp),
-            ptime_us(trace_event_data->duration)
+            p_time_us(trace_event_data->timestamp),
+            p_time_us(trace_event_data->duration)
         );
     }
 

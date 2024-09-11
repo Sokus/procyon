@@ -70,10 +70,10 @@ void pe_client_process_message(peMessage message) {
                 client.network_state = peClientNetworkState_Connected;
                 client.client_index = message.connection_accepted->client_index;
                 client.entity_index = message.connection_accepted->entity_index;
-                client.last_packet_receive_time = ptime_now();
+                client.last_packet_receive_time = p_time_now();
             } else if (client.network_state == peClientNetworkState_Connected) {
                 P_ASSERT(client.client_index == message.connection_accepted->client_index);
-                client.last_packet_receive_time = ptime_now();
+                client.last_packet_receive_time = p_time_now();
             }
         } break;
         case peMessageType_ConnectionClosed: {
@@ -124,19 +124,19 @@ void pe_send_packets(peArena *temp_arena, peInput input) {
         case peClientNetworkState_Disconnected: {
             fprintf(stdout, "connecting to the server\n");
             client.network_state = peClientNetworkState_Connecting;
-            client.last_packet_receive_time = ptime_now();
+            client.last_packet_receive_time = p_time_now();
         } break;
         case peClientNetworkState_Connecting: {
-            uint64_t ticks_since_last_received_packet = ptime_since(client.last_packet_receive_time);
-            float seconds_since_last_received_packet = (float)ptime_sec(ticks_since_last_received_packet);
+            uint64_t ticks_since_last_received_packet = p_time_since(client.last_packet_receive_time);
+            float seconds_since_last_received_packet = (float)p_time_sec(ticks_since_last_received_packet);
             if (seconds_since_last_received_packet > (float)CONNECTION_REQUEST_TIME_OUT) {
                 //fprintf(stdout, "connection request timed out");
                 client.network_state = peClientNetworkState_Error;
                 break;
             }
             float connection_request_send_interval = 1.0f / (float)CONNECTION_REQUEST_SEND_RATE;
-            uint64_t ticks_since_last_sent_packet = ptime_since(client.last_packet_send_time);
-            float seconds_since_last_sent_packet = (float)ptime_sec(ticks_since_last_sent_packet);
+            uint64_t ticks_since_last_sent_packet = p_time_since(client.last_packet_send_time);
+            float seconds_since_last_sent_packet = (float)p_time_sec(ticks_since_last_sent_packet);
             if (seconds_since_last_sent_packet > connection_request_send_interval) {
                 peMessage message = pe_message_create(temp_arena, peMessageType_ConnectionRequest);
                 pe_append_message(&outgoing_packet, message);
@@ -155,7 +155,7 @@ void pe_send_packets(peArena *temp_arena, peInput input) {
         peTraceMark send_packet_tm = PE_TRACE_MARK_BEGIN("pe_send_packet");
         pe_send_packet(client.socket, client.server_address, &outgoing_packet);
         PE_TRACE_MARK_END(send_packet_tm);
-        client.last_packet_send_time = ptime_now();
+        client.last_packet_send_time = p_time_now();
     }
     outgoing_packet.message_count = 0;
     pe_arena_temp_end(send_packets_arena_temp);
@@ -209,7 +209,6 @@ int main(int argc, char* argv[]) {
     }
 
     pe_platform_init();
-    ptime_init();
     pe_net_init();
     pe_trace_init();
 
@@ -252,7 +251,7 @@ int main(int argc, char* argv[]) {
     float dt = 1.0f/60.0f;
 
     while(!pe_client_should_quit()) {
-        uint64_t loop_start = ptime_now();
+        uint64_t loop_start = p_time_now();
 
         pe_window_poll_events();
         pe_input_update();
@@ -327,11 +326,11 @@ int main(int argc, char* argv[]) {
 
         bool vsync = true;
         pe_graphics_frame_end(vsync);
-        uint64_t loop_time = ptime_since(loop_start);
-        double loop_time_sec = ptime_sec(loop_time);
+        uint64_t loop_time = p_time_since(loop_start);
+        double loop_time_sec = p_time_sec(loop_time);
         if (vsync && loop_time_sec < dt) {
             unsigned long sleep_time = (unsigned long)((dt - loop_time_sec) * 1000.0f);
-            ptime_sleep(sleep_time);
+            p_time_sleep(sleep_time);
         }
 
         pe_arena_clear(&temp_arena);
