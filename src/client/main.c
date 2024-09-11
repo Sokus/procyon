@@ -161,6 +161,8 @@ void pe_send_packets(peArena *temp_arena, peInput input) {
     pe_arena_temp_end(send_packets_arena_temp);
 }
 
+static pVec2 last_nonzero_gamepad_input = { 0.0f, 1.0f };
+
 peInput pe_get_input(peCamera camera) {
     pVec2 gamepad_input = {
         .x = pe_input_gamepad_axis(peGamepadAxis_LeftX),
@@ -188,6 +190,12 @@ peInput pe_get_input(peCamera camera) {
             pVec3 relative_collision_point = p_vec3_sub(client.camera.target, collision_point);
             look_angle = atan2f(relative_collision_point.x, relative_collision_point.z);
         }
+#endif
+#if defined(__PSP__)
+        if (gamepad_input.x != 0.0f || gamepad_input.y != 0.0f) {
+            last_nonzero_gamepad_input = gamepad_input;
+        }
+        look_angle = atan2f(-last_nonzero_gamepad_input.x, -last_nonzero_gamepad_input.y);
 #endif
     }
 
