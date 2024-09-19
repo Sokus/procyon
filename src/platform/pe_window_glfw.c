@@ -1,7 +1,14 @@
-#include "pe_window_glfw.h"
+#include "platform/pe_window.h"
 
-#include "pe_input_glfw.h"
 #include "core/p_assert.h"
+#include "graphics/pe_graphics.h"
+#include "platform/pe_input.h"
+#include "utility/pe_trace.h"
+#if defined(_WIN32)
+    #include "graphics/pe_graphics_win32.h"
+#endif
+
+#include <stdbool.h>
 
 #define GLFW_INCLUDE_NONE
 #include "GLFW/glfw3.h"
@@ -10,39 +17,25 @@
     #define GLFW_EXPOSE_NATIVE_WIN32
     #include "GLFW/glfw3native.h"
 
-    #include "graphics/pe_graphics_win32.h"
+    #define COBJMACROS
+    #include <dxgi1_2.h>
+    #include <d3d11.h>
 #elif defined(__linux__)
 	#include "glad/glad.h"
-
-	#include "graphics/pe_graphics_linux.h"
 #endif
-
-#include <stdbool.h>
 
 struct peWindowGLFW {
     GLFWwindow *window;
-    peWindowFramebufferSizeCallback *framebuffer_size_callback;
-    peWindowKeyCallback *key_callback;
-    peWindowCursorPositionCallback *cursor_position_callback;
+    bool should_quit;
 };
 struct peWindowGLFW window_state_glfw = {0};
 
-static void pe_framebuffer_size_callback_glfw(GLFWwindow *window, int width, int height) {
-    P_ASSERT(window_state_glfw.framebuffer_size_callback != NULL);
-    window_state_glfw.framebuffer_size_callback(width, height);
-}
+static void pe_window_close_callback(GLFWwindow *window);
+static void pe_window_framebuffer_size_callback(GLFWwindow *window, int width, int height);
+static void pe_window_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
+static void pe_window_cursor_position_callback(GLFWwindow *window, double pos_x, double pos_y);
 
-static void pe_window_key_callback_glfw(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    P_ASSERT(window_state_glfw.key_callback != NULL);
-    window_state_glfw.key_callback(key, action);
-}
-
-static void pe_cursor_position_callback_glfw(GLFWwindow *window, double pos_x, double pos_y) {
-    P_ASSERT(window_state_glfw.cursor_position_callback != NULL);
-    window_state_glfw.cursor_position_callback(pos_x, pos_y);
-}
-
-void pe_window_init_glfw(int window_width, int window_height, const char *window_name) {
+void pe_window_platform_init(int window_width, int window_height, const char *window_name) {
     glfwInit();
 
     // set window hints
@@ -63,55 +56,62 @@ void pe_window_init_glfw(int window_width, int window_height, const char *window
     window_state_glfw.window = glfwCreateWindow(window_width, window_height, window_name, NULL, NULL);
 
     // init graphics
-    {
-#if defined(__linux__)
-        glfwMakeContextCurrent(window_state_glfw.window);
+#if defined(_WIN32)
+    pe_hwnd = glfwGetWin32Window(window_state_glfw.window);
 #endif
-    }
+#if defined(__linux__)
+    glfwMakeContextCurrent(window_state_glfw.window);
+    gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+#endif
+
+    glfwSetWindowCloseCallback(window_state_glfw.window, pe_window_close_callback);
+    glfwSetFramebufferSizeCallback(window_state_glfw.window, pe_window_framebuffer_size_callback);
+    glfwSetKeyCallback(window_state_glfw.window, pe_window_key_callback);
+    glfwSetCursorPosCallback(window_state_glfw.window, pe_window_cursor_position_callback);
 }
 
-void pe_window_shutdown_glfw(void) {
+void pe_window_platform_shutdown(void) {
     glfwDestroyWindow(window_state_glfw.window);
     glfwTerminate();
 }
 
-void pe_window_set_framebuffer_size_callback_glfw(peWindowFramebufferSizeCallback *cb) {
-    window_state_glfw.framebuffer_size_callback = cb;
-    glfwSetFramebufferSizeCallback(window_state_glfw.window, pe_framebuffer_size_callback_glfw);
+bool pe_window_should_quit(void) {
+    return window_state_glfw.should_quit;
 }
 
-void pe_window_set_key_callback_glfw(peWindowKeyCallback *cb) {
-    window_state_glfw.key_callback = cb;
-    glfwSetKeyCallback(window_state_glfw.window, pe_window_key_callback_glfw);
-}
-
-void pe_window_set_cursor_position_callback_glfw(peWindowCursorPositionCallback *cb) {
-    window_state_glfw.cursor_position_callback = cb;
-    glfwSetCursorPosCallback(window_state_glfw.window, pe_cursor_position_callback_glfw);
-}
-
-bool pe_window_should_quit_glfw(void) {
-    return glfwWindowShouldClose(window_state_glfw.window);
-}
-
-void pe_window_poll_events_glfw(void) {
+void pe_window_poll_events(void) {
     glfwPollEvents();
 }
 
+void pe_window_swap_buffers(bool vsync) {
+    PE_TRACE_FUNCTION_BEGIN();
 #if defined(_WIN32)
-HWND pe_window_get_win32_window_glfw(void) {
-    return glfwGetWin32Window(window_state_glfw.window);
-}
+    UINT sync_interval = (vsync ? 1 : 0);
+    IDXGISwapChain1_Present(pe_d3d.swapchain, sync_interval, 0);
+    ID3D11DeviceContext_OMSetRenderTargets(pe_d3d.context, 1, &pe_d3d.render_target_view, pe_d3d.depth_stencil_view);
 #endif
-
 #if defined(__linux__)
-void *pe_window_get_proc_address_glfw(const char *name) {
-    return glfwGetProcAddress(name);
-}
-
-void pe_window_swap_buffers_glfw(bool vsync) {
-	int interval = (vsync ? 1 : 0);
+    int interval = (vsync ? 1 : 0);
 	glfwSwapInterval(interval);
 	glfwSwapBuffers(window_state_glfw.window);
-}
 #endif
+    PE_TRACE_FUNCTION_END();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+static void pe_window_close_callback(GLFWwindow *window) {
+    window_state_glfw.should_quit = true;
+}
+
+static void pe_window_framebuffer_size_callback(GLFWwindow *window, int width, int height) {
+    pe_graphics_set_framebuffer_size(width, height);
+}
+
+static void pe_window_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+    pe_input_key_callback(key, action);
+}
+
+static void pe_window_cursor_position_callback(GLFWwindow *window, double pos_x, double pos_y) {
+    pe_input_cursor_position_callback(pos_x, pos_y);
+}

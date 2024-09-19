@@ -142,11 +142,12 @@ typedef struct peCamera {
 
 void pe_graphics_init(peArena *temp_arena, int window_width, int window_height);
 void pe_graphics_shutdown(void);
+void pe_graphics_set_framebuffer_size(int width, int height);
 int pe_screen_width(void);
 int pe_screen_height(void);
 void pe_clear_background(peColor color);
 void pe_graphics_frame_begin(void);
-void pe_graphics_frame_end(bool vsync);
+void pe_graphics_frame_end(void);
 void pe_graphics_mode_3d_begin(peCamera camera);
 void pe_graphics_mode_3d_end(void);
 

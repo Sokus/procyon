@@ -5,7 +5,6 @@
 #include "core/p_arena.h"
 #include "core/p_file.h"
 #include "math/p_math.h"
-#include "platform/pe_window.h"
 #include "utility/pe_trace.h"
 
 #include "glad/glad.h"
@@ -16,7 +15,6 @@
 
 peOpenGL pe_opengl = {0};
 peDynamicDrawStateOpenGL dynamic_draw_opengl = {0};
-
 peTexture default_texture;
 
 //
@@ -26,8 +24,6 @@ peTexture default_texture;
 void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) {
     pe_opengl.framebuffer_width = window_width;
     pe_opengl.framebuffer_height = window_height;
-
-    gladLoadGLLoader((GLADloadproc)&pe_window_get_proc_address);
 
 #if !defined(NDEBUG) && defined(GL_ARB_debug_output)
     if (glDebugMessageCallbackARB) {
@@ -108,12 +104,26 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
 		uint32_t texture_data[] = { 0xFFFFFFFF };
 		default_texture = pe_texture_create(temp_arena, texture_data, 1, 1);
 	}
-
-    pe_window_set_framebuffer_size_callback(&pe_framebuffer_size_callback_linux);
 }
 
 void pe_graphics_shutdown(void) {
     // do nothing (we only need this for the PSP)
+}
+
+void pe_graphics_set_framebuffer_size(int width, int height) {
+    glViewport(0, 0, width, height);
+    pe_opengl.framebuffer_width = width;
+    pe_opengl.framebuffer_height = height;
+
+    P_ASSERT(pe_graphics.mode == peGraphicsMode_2D);
+    pe_graphics.matrix_mode = peMatrixMode_Projection;
+    pMat4 matrix_orthographic = pe_matrix_orthographic(
+        0, (float)width,
+        (float)height, 0,
+        0.0f, 1000.0f
+    );
+    pe_graphics_matrix_set(&matrix_orthographic);
+    pe_graphics_matrix_update();
 }
 
 int pe_screen_width(void) {
@@ -139,12 +149,7 @@ void pe_graphics_frame_begin(void) {
     pe_graphics_matrix_update();
 }
 
-void pe_graphics_frame_end(bool vsync) {
-	PE_TRACE_FUNCTION_BEGIN();
-	pe_graphics_dynamic_draw_draw_batches();
-	pe_window_swap_buffers(vsync);
-	pe_graphics_dynamic_draw_clear();
-	PE_TRACE_FUNCTION_END();
+void pe_graphics_frame_end(void) {
 }
 
 void pe_graphics_set_depth_test(bool enable) {
@@ -380,22 +385,6 @@ GLuint pe_shader_create_from_file(peArena *temp_arena, const char *source_file_p
     glDeleteShader(fragment_shader);
 
     return shader_program;
-}
-
-void pe_framebuffer_size_callback_linux(int width, int height) {
-    glViewport(0, 0, width, height);
-    pe_opengl.framebuffer_width = width;
-    pe_opengl.framebuffer_height = height;
-
-    P_ASSERT(pe_graphics.mode == peGraphicsMode_2D);
-    pe_graphics.matrix_mode = peMatrixMode_Projection;
-    pMat4 matrix_orthographic = pe_matrix_orthographic(
-        0, (float)width,
-        (float)height, 0,
-        0.0f, 1000.0f
-    );
-    pe_graphics_matrix_set(&matrix_orthographic);
-    pe_graphics_matrix_update();
 }
 
 void pe_shader_set_vec3(GLuint shader_program, const GLchar *name, pVec3 value) {

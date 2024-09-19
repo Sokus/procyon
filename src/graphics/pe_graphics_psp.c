@@ -107,19 +107,14 @@ void pe_graphics_frame_begin(void) {
     sceGuStart(GU_DIRECT, list);
 }
 
-void pe_graphics_frame_end(bool vsync) {
-	PE_TRACE_FUNCTION_BEGIN();
-	pe_graphics_dynamic_draw_draw_batches();
+void pe_graphics_frame_end(void) {
+    // TODO: check if sceGuFinish is even worth tracing
+	peTraceMark tm_finish = PE_TRACE_MARK_BEGIN("sceGuFinish");
     sceGuFinish();
+    PE_TRACE_MARK_END(tm_finish);
 	peTraceMark tm_sync = PE_TRACE_MARK_BEGIN("sceGuSync");
     sceGuSync(0, 0);
 	PE_TRACE_MARK_END(tm_sync);
-    if (vsync) {
-        sceDisplayWaitVblankStart();
-    }
-    sceGuSwapBuffers();
-    pe_graphics_dynamic_draw_clear();
-	PE_TRACE_FUNCTION_END();
 }
 
 void pe_graphics_set_depth_test(bool enable) {

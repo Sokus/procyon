@@ -30,8 +30,6 @@ void gl_debug_message_proc(
 typedef struct peArena peArena;
 GLuint pe_shader_create_from_file(peArena *temp_arena, const char *source_file_path);
 
-void pe_framebuffer_size_callback_linux(int width, int height);
-
 typedef union pVec3 pVec3;
 typedef union pMat4 pMat4;
 void pe_shader_set_vec3(GLuint shader_program, const GLchar *name, pVec3 value);

@@ -10,7 +10,6 @@
 #include "math/p_math.h"
 #include "graphics/pe_math.h"
 #include "platform/pe_net.h"
-#include "platform/pe_platform.h"
 #include "platform/pe_window.h"
 #include "graphics/pe_graphics.h"
 #include "graphics/pe_model.h"
@@ -47,14 +46,6 @@ struct peClientState {
     uint64_t last_packet_send_time;
     uint64_t last_packet_receive_time;
 } client = {0};
-
-bool pe_client_should_quit(void) {
-    bool should_quit = (
-        pe_platform_should_quit() ||
-        pe_window_should_quit()
-    );
-    return should_quit;
-}
 
 void pe_client_process_message(peMessage message) {
     PE_TRACE_FUNCTION_BEGIN();
@@ -216,13 +207,11 @@ int main(int argc, char* argv[]) {
         pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
     }
 
-    pe_platform_init();
     pe_net_init();
     pe_trace_init();
 
-    pe_window_init(960, 540, "Procyon");
-    pe_graphics_init(&temp_arena, 960, 540);
-    pe_input_init();
+    pe_window_set_target_fps(60);
+    pe_window_init(&temp_arena, 960, 540, "Procyon");
 
     pe_socket_create(peAddressFamily_IPv4, &client.socket);
     pe_socket_set_nonblocking(client.socket);
@@ -255,15 +244,9 @@ int main(int argc, char* argv[]) {
         entity->mesh = peEntityMesh_Cube;
     }
 
-    // TODO: Fix Your Timestep!
-    float dt = 1.0f/60.0f;
+    float dt = pe_window_delta_time();
 
-    while(!pe_client_should_quit()) {
-        uint64_t loop_start = p_time_now();
-
-        pe_window_poll_events();
-        pe_input_update();
-
+    while(!pe_window_should_quit()) {
         if (multiplayer) {
             pe_net_update();
             pe_receive_packets(&temp_arena, client.socket);
@@ -298,7 +281,7 @@ int main(int argc, char* argv[]) {
             pe_update_entities(dt, client.client_input);
         }
 
-        pe_graphics_frame_begin();
+        pe_window_frame_begin();
         pe_clear_background((peColor){ 20, 20, 20, 255 });
 
 
@@ -333,25 +316,16 @@ int main(int argc, char* argv[]) {
         pe_graphics_draw_rectangle(55.0f, 55.0f, 70.0f, 70.0f, (peColor){ 0, 0, 255, 64 });
 
         bool vsync = true;
-        pe_graphics_frame_end(vsync);
-        uint64_t loop_time = p_time_since(loop_start);
-        double loop_time_sec = p_time_sec(loop_time);
-        if (vsync && loop_time_sec < dt) {
-            unsigned long sleep_time = (unsigned long)((dt - loop_time_sec) * 1000.0f);
-            p_time_sleep(sleep_time);
-        }
-
+        pe_window_frame_end(vsync);
         pe_arena_clear(&temp_arena);
     }
 
-    pe_graphics_shutdown();
     pe_window_shutdown();
 
     pe_socket_destroy(client.socket);
     pe_net_shutdown();
 
     pe_trace_shutdown();
-    pe_platform_shutdown();
 
     return 0;
 }

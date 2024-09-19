@@ -23,6 +23,7 @@
 
 #include <stdio.h>
 
+void* pe_hwnd = NULL;
 peDirect3D pe_d3d = {0};
 peDynamicDrawStateD3D dynamic_draw_d3d = {0};
 peShaderConstantBuffersD3D constant_buffers_d3d;
@@ -99,7 +100,7 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
             .AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED,
             .Flags = 0,
         };
-        HWND hwnd = pe_window_get_win32_window();
+        HWND hwnd = pe_hwnd;
         hr = IDXGIFactory2_CreateSwapChainForHwnd(factory, (IUnknown*)pe_d3d.device, hwnd, &desc, NULL, NULL, &pe_d3d.swapchain);
         IDXGIFactory2_Release(factory);
         IDXGIAdapter_Release(dxgi_adapter);
@@ -302,12 +303,22 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
 
     pe_d3d.framebuffer_width = window_width;
     pe_d3d.framebuffer_height = window_height;
-
-    pe_window_set_framebuffer_size_callback(&pe_framebuffer_size_callback_win32);
 }
 
 void pe_graphics_shutdown(void) {
     // do nothing (we only need this for the PSP)
+}
+
+void pe_graphics_set_framebuffer_size(int width, int height) {
+    ID3D11DeviceContext_Flush(pe_d3d.context);
+    pe_destroy_swapchain_resources();
+    HRESULT hr = IDXGISwapChain1_ResizeBuffers(pe_d3d.swapchain, 0, (UINT)width, (UINT)height, DXGI_FORMAT_UNKNOWN, 0);
+    pe_create_swapchain_resources();
+
+    d3d11_set_viewport(width, height);
+
+    pe_d3d.framebuffer_width = width;
+    pe_d3d.framebuffer_height = height;
 }
 
 int pe_screen_width(void) {
@@ -333,14 +344,7 @@ void pe_graphics_frame_begin(void) {
     pe_graphics_matrix_update();
 }
 
-void pe_graphics_frame_end(bool vsync) {
-	PE_TRACE_FUNCTION_BEGIN();
-    pe_graphics_dynamic_draw_draw_batches();
-    UINT sync_interval = (vsync ? 1 : 0);
-    IDXGISwapChain1_Present(pe_d3d.swapchain, sync_interval, 0);
-    ID3D11DeviceContext_OMSetRenderTargets(pe_d3d.context, 1, &pe_d3d.render_target_view, pe_d3d.depth_stencil_view);
-    pe_graphics_dynamic_draw_clear();
-	PE_TRACE_FUNCTION_END();
+void pe_graphics_frame_end(void) {
 }
 
 void pe_graphics_set_depth_test(bool enable) {
@@ -562,7 +566,7 @@ void pe_texture_bind_default(void) {
 // INTERNAL IMPLEMENTATIONS
 //
 
-void pe_create_swapchain_resources(void) {
+static void pe_create_swapchain_resources(void) {
     HRESULT hr;
 
     ID3D11Texture2D *render_target;
@@ -600,7 +604,7 @@ static void pe_destroy_swapchain_resources(void) {
     pe_d3d.render_target_view = NULL;
 }
 
-void d3d11_set_viewport(int width, int height) {
+static void d3d11_set_viewport(int width, int height) {
     D3D11_VIEWPORT viewport = {
         .TopLeftX = 0.0f, .TopLeftY = 0.0f,
         .Width = (float)width, .Height = (float)height,

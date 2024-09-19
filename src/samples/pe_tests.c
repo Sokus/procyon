@@ -2,7 +2,6 @@
 #include "core/p_time.h"
 #include "graphics/pe_graphics.h"
 #include "graphics/pe_model.h"
-#include "platform/pe_platform.h"
 #include "platform/pe_input.h"
 #include "platform/pe_window.h"
 #include "utility/pe_trace.h"
@@ -18,10 +17,7 @@ int main(int argc, char *argv[]) {
         pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
     }
 
-    pe_platform_init();
-    pe_window_init(960, 540, "Procyon");
-    pe_graphics_init(&temp_arena, 960, 540);
-    pe_input_init();
+    pe_window_init(&temp_arena, 960, 540, "Procyon");
     pe_trace_init();
 
 #if !defined(PSP)
@@ -47,24 +43,14 @@ int main(int argc, char *argv[]) {
 
     float average_frame_duration = 0.0f;
 
-    while(true) {
-        bool should_quit = (
-            pe_platform_should_quit() ||
-            pe_window_should_quit()
-        );
-        if (should_quit) {
-            break;
-        }
-
+    while(pe_window_should_quit()) {
         uint64_t frame_start_time = p_time_now();
         peTraceMark tm_game_loop = PE_TRACE_MARK_BEGIN("game loop");
 
-        pe_window_poll_events();
-        pe_input_update();
 
         // pe_camera_update(camera);
 
-        pe_graphics_frame_begin();
+        pe_window_frame_begin();
         pe_clear_background((peColor){ 20, 20, 20, 255 });
 
         {
@@ -88,7 +74,7 @@ int main(int argc, char *argv[]) {
 
         // pe_model_draw(&model, &temp_arena, HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 0.0f, 0.0f));
 
-        pe_graphics_frame_end(false);
+        pe_window_frame_end(false);
 
         pe_arena_clear(&temp_arena);
 
@@ -99,11 +85,9 @@ int main(int argc, char *argv[]) {
         // printf("average frame duration: %6.3f\n", average_frame_duration);
     }
 
-
     pe_trace_shutdown();
     pe_graphics_shutdown();
     pe_window_shutdown();
-    pe_platform_shutdown();
 
     return 0;
 }

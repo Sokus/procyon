@@ -25,6 +25,8 @@ typedef enum D3D11_USAGE D3D11_USAGE;
 typedef enum D3D11_CPU_ACCESS_FLAG D3D11_CPU_ACCESS_FLAG;
 typedef unsigned int UINT;
 
+extern void* pe_hwnd;
+
 typedef struct peDirect3D {
     int framebuffer_width;
     int framebuffer_height;
@@ -88,8 +90,9 @@ typedef __declspec(align(16)) struct peShaderConstant_Skeleton {
     pMat4 matrix_bone[256];
 } peShaderConstant_Skeleton;
 
-void pe_create_swapchain_resources(void);
-void d3d11_set_viewport(int width, int height);
+static void pe_create_swapchain_resources(void);
+static void pe_destroy_swapchain_resources(void);
+static void d3d11_set_viewport(int width, int height);
 
 bool pe_vertex_shader_create(ID3D11Device *device, wchar_t *wchar_file_name, ID3D11VertexShader **vertex_shader, ID3D10Blob **vertex_shader_blob);
 bool pe_pixel_shader_create(ID3D11Device *device, wchar_t *wchar_file_name, ID3D11PixelShader **pixel_shader, ID3D10Blob **pixel_shader_blob);

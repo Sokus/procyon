@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 
+// FIXME
 typedef enum peKeyboardKey {
 	peKeyboardKey_Down,
 	peKeyboardKey_Right,
@@ -57,5 +58,8 @@ bool pe_input_gamepad_was_down(peGamepadButton button);
 bool pe_input_gamepad_pressed(peGamepadButton button);
 bool pe_input_gamepad_released(peGamepadButton button);
 float pe_input_gamepad_axis(peGamepadAxis axis);
+
+void pe_input_key_callback(int key, int action);
+void pe_input_cursor_position_callback(double pos_x, double pos_y);
 
 #endif // PE_INPUT_H
