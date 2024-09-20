@@ -10,10 +10,10 @@
 #include "math/p_math.h"
 #include "graphics/pe_math.h"
 #include "platform/pe_net.h"
-#include "platform/pe_window.h"
+#include "platform/p_window.h"
 #include "graphics/pe_graphics.h"
 #include "graphics/pe_model.h"
-#include "platform/pe_input.h"
+#include "platform/p_input.h"
 #include "utility/pe_trace.h"
 
 #include "pe_config.h"

@@ -32,29 +32,29 @@ endif()
 # PLATFORM LIBRARY
 
 add_library(platform STATIC
-    src/platform/pe_input.c
+    src/platform/p_input.c
     src/platform/pe_net.c
-    src/platform/pe_window.c
+    src/platform/p_window.c
 )
 target_link_libraries(platform PRIVATE settings core)
 target_link_libraries(platform PRIVATE graphics) # TODO: remove this
 if(WIN32)
     target_sources(platform PRIVATE
-        src/platform/pe_window_glfw.c
-        src/platform/pe_input_glfw.c
+        src/platform/p_window_glfw.c
+        src/platform/p_input_glfw.c
     )
     target_link_libraries(platform PRIVATE glfw)
 elseif(LINUX)
     target_sources(platform PRIVATE
-        src/platform/pe_window_glfw.c
-        src/platform/pe_input_glfw.c
+        src/platform/p_window_glfw.c
+        src/platform/p_input_glfw.c
     )
     target_link_libraries(platform PRIVATE glfw)
     target_link_libraries(platform PUBLIC glad)
 elseif(PSP)
     target_sources(platform PRIVATE
-        src/platform/pe_window_psp.c
-        src/platform/pe_input_psp.c
+        src/platform/p_window_psp.c
+        src/platform/p_input_psp.c
     )
     target_link_libraries(platform PUBLIC
         pspnet pspnet_apctl pspnet_resolver

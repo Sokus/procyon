@@ -1,10 +1,10 @@
-#include "pe_window.h"
+#include "p_window.h"
 
 #include "core/p_arena.h"
 #include "core/p_assert.h"
 #include "core/p_time.h"
 
-#include "platform/pe_input.h"
+#include "platform/p_input.h"
 #include "graphics/pe_graphics.h"
 
 #include <stdbool.h>

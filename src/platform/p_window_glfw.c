@@ -1,8 +1,8 @@
-#include "platform/pe_window.h"
+#include "platform/p_window.h"
 
 #include "core/p_assert.h"
 #include "graphics/pe_graphics.h"
-#include "platform/pe_input.h"
+#include "platform/p_input.h"
 #include "utility/pe_trace.h"
 #if defined(_WIN32)
     #include "graphics/pe_graphics_win32.h"

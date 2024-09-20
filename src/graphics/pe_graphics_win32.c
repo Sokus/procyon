@@ -3,7 +3,6 @@
 
 #include "core/p_defines.h"
 #include "core/p_assert.h"
-#include "platform/pe_window.h"
 #include "utility/pe_trace.h"
 
 #define WIN32_LEAN_AND_MEAN
