@@ -19,6 +19,8 @@ typedef struct peFileHandle {
     SceUID fd_psp;
 #elif defined(_WIN32)
     HANDLE handle_win32;
+#elif defined(__linux__)
+    int fd_linux;
 #else
     int dummy;
 #endif
@@ -91,6 +93,15 @@ bool pe_file_open(const char *file_path, peFileHandle *result) {
             .handle_win32 = handle_win32
         };
     }
+#elif defined(__linux__)
+    int flags_linux = O_WRONLY | O_CREAT | O_TRUNC | O_APPEND;
+    int fd_linux = open(file_path, flags_linux);
+    if (fd_linux >= 0) {
+        success = true;
+        *result = (peFileHandle){
+            .fd_linux = fd_linux
+        };
+    }
 #else
     P_UNIMPLEMENTED();
 #endif
@@ -100,10 +111,13 @@ bool pe_file_open(const char *file_path, peFileHandle *result) {
 bool pe_file_close(peFileHandle file) {
     bool success = false;
 #if defined(__PSP__)
-    int sce_rc = sceIoClose(file.fd_psp);
-    success = (sce_rc >= 0);
+    int rc_sce = sceIoClose(file.fd_psp);
+    success = (rc_sce >= 0);
 #elif defined(_WIN32)
     success = CloseHandle(file.handle_win32);
+#elif defined(__linux__)
+    int rc_linux = close(file.fd_linux);
+    success = (rc_linux >= 0);
 #else
     P_UNIMPLEMENTED();
 #endif
@@ -120,6 +134,12 @@ bool pe_file_write_async(peFileHandle file, void *data, size_t data_size) {
 #elif defined(_WIN32)
     // TODO: Actually do async writing
     success = WriteFile(file.handle_win32, data, (DWORD)data_size, NULL, NULL);
+#elif defined(__linux__)
+    // TOOD: Actually do async writing
+    ssize_t rc_linux = write(file.fd_linux, data, data_size);
+    if (rc_linux >= 0) {
+        success = (size_t)rc_linux == data_size;
+    }
 #else
     P_UNIMPLEMENTED();
 #endif
@@ -136,7 +156,7 @@ bool pe_file_poll(peFileHandle file, bool *result) {
         case 1: success = true; *result = true; break;
         default: break;
     }
-#elif defined(_WIN32)
+#elif defined(_WIN32) || defined(__linux__)
     // we don't have async writing yet so we can assume
     // the operation is always done
     success = true;
@@ -155,7 +175,7 @@ bool pe_file_wait(peFileHandle file) {
     if (sce_rc >= 0) {
         success = true;
     }
-#elif  defined(_WIN32)
+#elif  defined(_WIN32) || defined(__linux__)
     // we don't have async writing yet so we can assume
     // the operation is always done
     success = true;

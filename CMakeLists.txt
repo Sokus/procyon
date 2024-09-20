@@ -13,6 +13,7 @@ target_include_directories(settings INTERFACE src)
 if(MSVC)
     target_compile_options(settings INTERFACE -W3 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127)
 endif()
+target_compile_definitions(settings INTERFACE PE_TRACE_ENABLED)
 
 # CORE LIBRARY:
 
@@ -67,6 +68,7 @@ add_library(graphics STATIC
     src/graphics/pe_graphics.c
     src/graphics/pe_model.c
     src/graphics/pe_math.c
+    src/graphics/p_pbm.c
 )
 target_link_libraries(graphics PRIVATE
     settings core math
@@ -116,6 +118,7 @@ add_executable(client
 )
 target_link_libraries(client PRIVATE
     settings core math platform graphics utility game
+    psp-stb
 )
 
 # COMPILE SERVER:

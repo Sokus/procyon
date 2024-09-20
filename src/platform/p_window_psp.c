@@ -1,5 +1,6 @@
 #include "platform/p_window.h"
 
+#include "core/p_assert.h"
 #include "utility/pe_trace.h"
 
 #include <pspkernel.h>
@@ -16,6 +17,7 @@ static int p_window_exit_callback_thread(SceSize args, void *argp);
 
 void p_window_platform_init(int, int, const char *) {
     int thid = sceKernelCreateThread("update_thread", p_window_exit_callback_thread, 0x11, 0xFA0, 0, 0);
+    P_ASSERT(thid >= 0);
 	if (thid >= 0) {
 		sceKernelStartThread(thid, 0, 0);
 	}
@@ -52,5 +54,5 @@ static int p_window_exit_callback_thread(SceSize args, void *argp) {
     int cbid = sceKernelCreateCallback("Exit Callback", p_window_exit_callback, NULL);
 	sceKernelRegisterExitCallback(cbid);
 	sceKernelSleepThreadCB();
-	return 0;
+	return cbid;
 }

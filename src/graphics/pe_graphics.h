@@ -47,6 +47,13 @@ typedef union peColor {
     struct { uint32_t rgba; };
 } peColor;
 
+typedef struct peRect {
+    float x;
+    float y;
+    float width;
+    float height;
+} peRect;
+
 #if defined(_WIN32)
 typedef struct ID3D11ShaderResourceView ID3D11ShaderResourceView;
 #elif defined(__linux__)
@@ -69,6 +76,7 @@ typedef struct peTexture {
 	int power_of_two_height;
 	bool vram;
 	int format;
+	bool swizzle;
 #endif
 } peTexture;
 
@@ -76,6 +84,7 @@ typedef enum pePrimitive {
     pePrimitive_Points,
     pePrimitive_Lines,
     pePrimitive_Triangles,
+    pePrimitive_TriangleStrip,
     pePrimitive_Count
 } pePrimitive;
 
@@ -107,10 +116,10 @@ typedef struct peDynamicDrawBatch {
 } peDynamicDrawBatch;
 
 #if defined(__PSP__)
-#define PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT 512
+#define PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT 2024
 #define PE_MAX_DYNAMIC_DRAW_BATCH_COUNT 256
 #else
-#define PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT 1024
+#define PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT 2024
 #define PE_MAX_DYNAMIC_DRAW_BATCH_COUNT 512
 #endif
 
@@ -122,10 +131,10 @@ typedef struct peDynamicDrawState {
     peColor color;
     bool do_lighting;
 
-    peDynamicDrawVertex vertex[PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT];
+    peDynamicDrawVertex *vertex;
     int vertex_used;
 
-    peDynamicDrawBatch batch[PE_MAX_DYNAMIC_DRAW_BATCH_COUNT];
+    peDynamicDrawBatch *batch;
     int batch_current;
     int batch_drawn_count;
 } peDynamicDrawState;
@@ -181,6 +190,7 @@ void pe_texture_bind_default(void);
 // DYNAMIC DRAW
 
 int pe_graphics_primitive_vertex_count(pePrimitive primitive);
+bool pe_graphics_primitive_can_continue(pePrimitive primitive);
 
 bool pe_graphics_dynamic_draw_vertex_reserve(int count);
 void pe_graphics_dynamic_draw_new_batch(void);
@@ -204,7 +214,8 @@ void pe_graphics_draw_point(pVec2 position, peColor color);
 void pe_graphics_draw_point_int(int pos_x, int pos_y, peColor color);
 void pe_graphics_draw_line(pVec2 start_position, pVec2 end_position, peColor color);
 void pe_graphics_draw_rectangle(float x, float y, float width, float height, peColor color);
-void pe_graphics_draw_texture(peTexture *texture, float x, float y, peColor tint);
+void pe_graphics_draw_texture(peTexture *texture, float x, float y, float scale, peColor tint);
+void pe_graphics_draw_texture_ex(peTexture *texture, peRect src, peRect dst, peColor tint);
 
 void pe_graphics_draw_point_3D(pVec3 position, peColor color);
 void pe_graphics_draw_line_3D(pVec3 start_position, pVec3 end_position, peColor color);

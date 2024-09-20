@@ -72,13 +72,13 @@ static void pe_trace_event_add(const char *name, uint64_t timestamp, uint64_t du
 peTraceMark pe_trace_mark_begin_internal(const char *name) {
     peTraceMark result = {
         .name = name,
-        .timestamp = ptime_now()
+        .timestamp = p_time_now()
     };
     return result;
 }
 
 void pe_trace_mark_end_internal(peTraceMark trace_mark) {
-    uint64_t trace_mark_duration = pe_time_since(trace_mark.timestamp);
+    uint64_t trace_mark_duration = p_time_since(trace_mark.timestamp);
     pe_trace_event_add(
         trace_mark.name,
         trace_mark.timestamp,
@@ -93,9 +93,9 @@ static void pe_trace_data_flush(void) {
         uint64_t write_async_wait_start;
         uint64_t write_async_wait_duration;
         if (file_poll_success && wait_for_write_async) {
-            write_async_wait_start = pe_time_now();
+            write_async_wait_start = p_time_now();
             pe_file_wait(pe_trace_state.output_file);
-            write_async_wait_duration = pe_time_since(write_async_wait_start);
+            write_async_wait_duration = p_time_since(write_async_wait_start);
         }
 
         pe_file_write_async(

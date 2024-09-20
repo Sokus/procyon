@@ -1,6 +1,7 @@
 #include "pe_graphics.h"
 #include "pe_graphics_linux.h"
 
+#include "core/p_heap.h"
 #include "core/p_assert.h"
 #include "core/p_arena.h"
 #include "core/p_file.h"
@@ -47,14 +48,22 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
     pe_opengl.shader_program = pe_shader_create_from_file(temp_arena, "res/shader.glsl");
     glUseProgram(pe_opengl.shader_program);
 
-    // init dynamic draw
+    // init dynamic_draw
     {
+        size_t vertex_buffer_size = PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT * sizeof(peDynamicDrawVertex);
+        size_t batch_buffer_size = PE_MAX_DYNAMIC_DRAW_BATCH_COUNT * sizeof(peDynamicDrawBatch);
+    
+        dynamic_draw.vertex = pe_heap_alloc(vertex_buffer_size);
+        dynamic_draw.batch = pe_heap_alloc(batch_buffer_size);
+        memset(dynamic_draw.vertex, 0, vertex_buffer_size);
+        memset(dynamic_draw.batch, 0, batch_buffer_size);
+
         glGenVertexArrays(1, &dynamic_draw_opengl.vertex_array_object);
         glBindVertexArray(dynamic_draw_opengl.vertex_array_object);
 
         glGenBuffers(1, &dynamic_draw_opengl.vertex_buffer_object);
         glBindBuffer(GL_ARRAY_BUFFER, dynamic_draw_opengl.vertex_buffer_object);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(dynamic_draw.vertex), NULL, GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vertex_buffer_size, NULL, GL_DYNAMIC_DRAW);
 
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(peDynamicDrawVertex), (void*)offsetof(peDynamicDrawVertex, position));
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(peDynamicDrawVertex), (void*)offsetof(peDynamicDrawVertex, normal));
@@ -107,7 +116,8 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
 }
 
 void pe_graphics_shutdown(void) {
-    // do nothing (we only need this for the PSP)
+    pe_heap_free(dynamic_draw.vertex);
+    pe_heap_free(dynamic_draw.batch);
 }
 
 void pe_graphics_set_framebuffer_size(int width, int height) {
@@ -196,7 +206,7 @@ pMat4 pe_matrix_orthographic(float left, float right, float bottom, float top, f
 }
 
 void pe_graphics_dynamic_draw_draw_batches(void) {
-    if (dynamic_draw.vertex_used > 0) {
+    if (dynamic_draw.batch[dynamic_draw.batch_drawn_count].vertex_count > 0) {
         peMatrixMode old_matrix_mode = pe_graphics.matrix_mode;
         pMat4 old_matrix_model = pe_graphics.matrix[pe_graphics.mode][peMatrixMode_Model];
         bool old_matrix_model_is_identity = pe_graphics.matrix_model_is_identity[pe_graphics.mode];
@@ -230,6 +240,7 @@ void pe_graphics_dynamic_draw_draw_batches(void) {
                 case pePrimitive_Points: primitive_gl = GL_POINTS; break;
                 case pePrimitive_Lines: primitive_gl = GL_LINES; break;
                 case pePrimitive_Triangles: primitive_gl = GL_TRIANGLES; break;
+                case pePrimitive_TriangleStrip: primitive_gl = GL_TRIANGLE_STRIP; break;
                 default: P_PANIC(); break;
             }
 
@@ -261,8 +272,10 @@ void pe_graphics_dynamic_draw_push_vec3(pVec3 position) {
     pePrimitive batch_primitive = dynamic_draw.batch[dynamic_draw.batch_current].primitive;
     int batch_vertex_count = dynamic_draw.batch[dynamic_draw.batch_current].vertex_count;
     int primitive_vertex_count = pe_graphics_primitive_vertex_count(batch_primitive);
-    int primitive_vertex_left = primitive_vertex_count - (batch_vertex_count % primitive_vertex_count);
-    pe_graphics_dynamic_draw_vertex_reserve(primitive_vertex_left);
+    if (primitive_vertex_count > 0) {
+        int primitive_vertex_left = primitive_vertex_count - (batch_vertex_count % primitive_vertex_count);
+        pe_graphics_dynamic_draw_vertex_reserve(primitive_vertex_left);
+    }
     peDynamicDrawVertex *vertex = &dynamic_draw.vertex[dynamic_draw.vertex_used];
     vertex->position = position;
     vertex->normal = dynamic_draw.normal;
