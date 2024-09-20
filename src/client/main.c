@@ -7,6 +7,7 @@
 #include "core/p_assert.h"
 #include "core/p_heap.h"
 #include "core/p_time.h"
+#include "core/p_arena.h"
 #include "math/p_math.h"
 #include "graphics/pe_math.h"
 #include "platform/pe_net.h"
@@ -19,6 +20,9 @@
 #include "pe_config.h"
 #include "game/pe_protocol.h"
 #include "game/pe_entity.h"
+
+#include "core/p_file.h"
+#include "graphics/p_pbm.h"
 
 #define CONNECTION_REQUEST_TIME_OUT 20.0f // seconds
 #define CONNECTION_REQUEST_SEND_RATE 1.0f // requests per second
@@ -200,6 +204,71 @@ peInput pe_get_input(peCamera camera) {
     return result;
 }
 
+#include "stb_image.h"
+
+void pe_graphics_draw_texture_strip(peTexture *texture, float x, float y, peColor tint) {
+    pe_graphics_dynamic_draw_begin_primitive_textured(pePrimitive_TriangleStrip, texture);
+    pe_graphics_dynamic_draw_set_color(tint);
+
+    pVec2 positions[4] = {
+        p_vec2(x, y), // top left
+        p_vec2(x + texture->width/4, y), // top right
+        p_vec2(x, y + texture->height/4), // bottom left
+        p_vec2(x + texture->width/4, y + texture->height/4) // bottom_right
+    };
+    pVec2 texcoords[4] = {
+        p_vec2(0.0f, 0.0f), // top left
+        p_vec2(1.0f, 0.0f), // top right
+        p_vec2(0.0f, 1.0f), // bottom left
+        p_vec2(1.0f, 1.0f), // bottom right
+    };
+    int indices[6] = { 2, 3, 0, 1 };
+
+    for (int i = 0; i < 6; i += 1) {
+        pe_graphics_dynamic_draw_set_texcoord(texcoords[indices[i]]);
+        pe_graphics_dynamic_draw_push_vec2(positions[indices[i]]);
+    }
+}
+
+static void pe_graphics_draw_rectangle_strip(float x, float y, float width, float height, peColor color) {
+    pe_graphics_dynamic_draw_begin_primitive(pePrimitive_TriangleStrip);
+    pe_graphics_dynamic_draw_set_color(color);
+
+    pVec2 positions[4] = {
+        p_vec2(x, y), // top left
+        p_vec2(x + width, y), // top right
+        p_vec2(x, y + height), // bottom left
+        p_vec2(x + width, y + height) // bottom_right
+    };
+    int indices[6] = { 2, 3, 0, 1 };
+
+    for (int i = 0; i < 4; i += 1) {
+        pe_graphics_dynamic_draw_push_vec2(positions[indices[i]]);
+    }
+}
+
+peTexture pe_texture_create_indexed_t8(peArena *temp_arena);
+peTexture pe_texture_create_indexed_t4(peArena *temp_arena);
+
+peTexture codepage = {0};
+
+void pe_graphics_draw_text(char *text, int pos_x, int pos_y, peColor color) {
+    peRect dst = { (float)pos_x, (float)pos_y, 9.0f, 16.0f };
+    for (char *p = text; *p; p += 1) {
+        char c = P_MIN(*p, 255);
+        int column = (int)(c % 28);
+        int row = (int)(c / 28);
+        peRect src = {
+            .x = (float)(column * 9),
+            .y = (float)(row * 16),
+            .width = 9.0f,
+            .height = 16.0f,
+        };
+        pe_graphics_draw_texture_ex(&codepage, src, dst, color);
+        dst.x += 9.0f;
+    }
+}
+
 int main(int argc, char* argv[]) {
 	peArena temp_arena;
     {
@@ -224,6 +293,62 @@ int main(int argc, char* argv[]) {
     #define PE_MODEL_EXTENSION ".pp3d"
 #endif
     client.model = pe_model_load(&temp_arena, "./res/assets/fox" PE_MODEL_EXTENSION);
+
+    {
+        peArenaTemp pbm_arena_temp = pe_arena_temp_begin(&temp_arena);
+        peFileContents pbm_file_contents = pe_file_read_contents(&temp_arena, "./res/cp437.pbm", false);
+        pbmFile pbm_file;
+        bool pbm_parse_result = pbm_parse(pbm_file_contents.data, pbm_file_contents.size, &pbm_file);
+
+
+        // peFileHandle pbm_file;
+        // pe_file_open("./res/cp437.pbm", &pbm_file);
+
+        // int w, h, channels;
+        // stbi_uc *stbi_data = stbi_load("./res/CP437.png", &w, &h, &channels, STBI_rgb_alpha);
+
+        // pbmStaticInfo pbm_static_info = {
+        //     .extension_magic = " PBM",
+        //     .palette_format = (int8_t)pbmColorFormat_5551,
+        //     .palette_length = 2,
+        //     .width = (int16_t)w,
+        //     .height = (int16_t)h,
+        //     .bits_per_pixel = 4,
+        // };
+        // pe_file_write_async(pbm_file, &pbm_static_info, sizeof(pbm_static_info));
+
+        // uint16_t pbm_palette[2] = { 0x0000, 0xFFFF };
+        // pe_file_write_async(pbm_file, pbm_palette, sizeof(pbm_palette));
+
+        // int index_count = 2 * ((w * h + 1) / 2);
+        // uint8_t *index = pe_arena_alloc(&temp_arena, index_count/2 * sizeof(uint8_t));
+        // memset(index, 0x0, index_count/2 * sizeof(uint8_t));
+
+        // uint8_t index_value = 0x0;
+        // int p;
+        // for (p = 0; p < w*h; p += 1) {
+        //     uint8_t index_value_pixel = (((uint32_t*)stbi_data)[p] ? 0x1 : 0x0);
+        //     if (p % 2 == 0) {
+        //         index_value = index_value_pixel;
+        //     } else {
+        //         index_value |= index_value_pixel << 4;
+        //         index[p/2] = index_value;
+        //         index_value = 0x0;
+        //     }
+        // }
+        // if (index_value) {
+        //     index[p/2] = index_value;
+        // }
+        // pe_file_write_async(pbm_file, index, index_count/2 * sizeof(uint8_t));
+
+        codepage = pe_texture_create_pbm(&temp_arena, &pbm_file);
+        // codepage = pe_texture_create(&temp_arena, stbi_data, w, h);
+        pe_arena_temp_end(pbm_arena_temp);
+        // stbi_image_free(stbi_data);
+        // codepage = pe_texture_create_indexed_t4(&temp_arena);
+
+        // pe_file_close(pbm_file);
+    }
 
     client.camera = (peCamera){
         .target = {0.0f, 0.7f, 0.0f},
@@ -296,9 +421,9 @@ int main(int argc, char* argv[]) {
 
         pe_graphics_mode_3d_begin(client.camera);
         {
-            pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.25f, 0.0f, 0.0f), PE_COLOR_RED);
-            pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.0f, 0.25f, 0.0f), PE_COLOR_GREEN);
-            pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.0f, 0.0f, 0.25f), PE_COLOR_BLUE);
+            // pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.25f, 0.0f, 0.0f), PE_COLOR_RED);
+            // pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.0f, 0.25f, 0.0f), PE_COLOR_GREEN);
+            // pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.0f, 0.0f, 0.25f), PE_COLOR_BLUE);
 
             pe_graphics_draw_grid_3D(10, 1.0f);
 
@@ -311,9 +436,29 @@ int main(int argc, char* argv[]) {
         }
         pe_graphics_mode_3d_end();
 
-        pe_graphics_draw_rectangle(5.0f, 5.0f, 70.0f, 70.0f, (peColor){ 255, 0, 0, 64 });
-        pe_graphics_draw_rectangle(30.0f, 30.0f, 70.0f, 70.0f, (peColor){ 0, 255, 0, 64 });
-        pe_graphics_draw_rectangle(55.0f, 55.0f, 70.0f, 70.0f, (peColor){ 0, 0, 255, 64 });
+        // pe_graphics_draw_texture(&client.model.material[0].diffuse_map, 10.0f, 10.0f, PE_COLOR_WHITE);
+        float w = 252.0f*0.25f;
+        float h = 160.0f*0.25f;
+        peColor colors[] = {
+            { 255, 0, 0, 64 },
+            { 255, 255, 0, 64 },
+            { 0, 255, 0, 64 },
+            { 0, 255, 255, 64 },
+            { 0, 0, 255, 64 },
+            { 255, 255, 255, 64 },
+        };
+        peTraceMark tm_issue_rectangles = PE_TRACE_MARK_BEGIN("issue rectangles");
+        // pe_graphics_draw_texture(&codepage, 0.0f, 0.0f, 1.0f, PE_COLOR_WHITE);
+        pe_graphics_draw_text("Hello, World!", 5, 5, PE_COLOR_WHITE);
+        for (int y = 0; y < 6; y += 1) {
+            for (int x = 0; x < 5; x += 1) {
+                peColor color = colors[(y*5+x)%P_COUNT_OF(colors)];
+                // pe_graphics_draw_texture_strip(&codepage, x*w, y*h, PE_COLOR_WHITE);
+                // pe_graphics_draw_texture(&codepage, x*w, y*h, 0.25f, PE_COLOR_WHITE);
+                // pe_graphics_draw_rectangle_strip(x*w+x*5.0f, y*h+y*5.0f, w, h, color);
+            }
+        }
+        PE_TRACE_MARK_END(tm_issue_rectangles);
 
         bool vsync = true;
         p_window_frame_end(vsync);

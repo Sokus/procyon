@@ -2,6 +2,7 @@
 #include "pe_graphics_psp.h"
 #include "core/p_assert.h"
 #include "core/p_arena.h"
+#include "core/p_heap.h"
 #include "utility/pe_trace.h"
 
 #include <pspge.h>
@@ -82,10 +83,15 @@ void pe_graphics_init(peArena *, int, int) {
 
     pe_graphics_matrix_update();
 
+    dynamic_draw.vertex = pe_heap_alloc(PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT * sizeof(peDynamicDrawVertex));
+    dynamic_draw.batch = pe_heap_alloc(PE_MAX_DYNAMIC_DRAW_BATCH_COUNT * sizeof(peDynamicDrawBatch));
+
     gu_initialized = true;
 }
 
 void pe_graphics_shutdown(void) {
+    pe_heap_free(dynamic_draw.vertex);
+    pe_heap_free(dynamic_draw.batch);
 	sceGuTerm();
 }
 
@@ -164,20 +170,30 @@ pMat4 pe_matrix_orthographic(float left, float right, float bottom, float top, f
     return p_orthographic_rh_no(left, right, bottom, top, near_z, far_z);
 }
 
+static void copy_texture_data_2(void *dest, const void *src, const int rows, size_t pitch, size_t pitch_pow2) {
+    for (int r = 0; r < rows; r += 1) {
+        memcpy((uint8_t*)dest + r * pitch_pow2, (uint8_t*)src + r * pitch, pitch);
+    }
+}
+
 peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int height) {
     const int format = GU_PSM_8888;
-	int power_of_two_width = closest_greater_power_of_two(width);
-	int power_of_two_height = closest_greater_power_of_two(height);
-	unsigned int size = power_of_two_width * power_of_two_height * bytes_per_pixel(format);
+	int pow2_width = closest_greater_power_of_two(width);
+	int pow2_height = closest_greater_power_of_two(height);
+	int block_height = 8 * ((height + 7) / 8);
+
+	int byte_width = p_pixel_bytes(width, format);
+	int pow2_byte_width = p_pixel_bytes(pow2_width, format);
+	int size = p_pixel_bytes(pow2_width * block_height, format);
 
 	peArenaTemp temp_arena_memory = pe_arena_temp_begin(temp_arena);
 
-	unsigned int *data_buffer = pe_arena_alloc_align(temp_arena, size, 16);
-	copy_texture_data(data_buffer, data, power_of_two_width, width, height);
+    unsigned int *data_buffer = pe_arena_alloc_align(temp_arena, size, 16);
+    copy_texture_data_2(data_buffer, data, height, byte_width, pow2_byte_width);
 
     unsigned int* swizzled_pixels = pe_arena_alloc_align(&edram_arena, size, 16);
-    swizzle_fast((u8*)swizzled_pixels, data, power_of_two_width*bytes_per_pixel(format), power_of_two_height);
-	sceKernelDcacheWritebackRange(swizzled_pixels, size);
+    swizzle_fast((u8*)swizzled_pixels, (u8*)data_buffer, pow2_width*bytes_per_pixel(format), block_height);
+    sceKernelDcacheWritebackRange(swizzled_pixels, size);
 
 	pe_arena_temp_end(temp_arena_memory);
 
@@ -185,9 +201,63 @@ peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int heig
 		.data = swizzled_pixels,
 		.width = width,
 		.height = height,
+		.power_of_two_width = pow2_width,
+		.power_of_two_height = pow2_height,
+		.format = format,
+		.swizzle = true,
+	};
+    return texture;
+}
+
+#include "graphics/p_pbm.h"
+
+peTexture pe_texture_create_pbm(peArena *temp_arena, pbmFile *pbm) {
+    int width = pbm->static_info->width;
+    int height = pbm->static_info->height;
+    int power_of_two_width = closest_greater_power_of_two(width);
+    int power_of_two_height = closest_greater_power_of_two(height);
+	int block_size_height = 8 * ((height + 7) / 8);
+
+	int pixel_format = (pbm->static_info->bits_per_pixel == 8 ? GU_PSM_T8 : GU_PSM_T4);
+	int byte_width = p_pixel_bytes(width, pixel_format);
+	int power_of_two_byte_width = p_pixel_bytes(power_of_two_width, pixel_format);
+	int pixel_size = p_pixel_bytes(power_of_two_width * block_size_height, pixel_format);
+
+    peArenaTemp temp_arena_memory = pe_arena_temp_begin(temp_arena);
+    unsigned int *data_buffer = pe_arena_alloc_align(temp_arena, pixel_size, 16);
+    copy_texture_data_2(data_buffer, pbm->index, height, byte_width, power_of_two_byte_width);
+    unsigned int* swizzled_pixels = pe_arena_alloc_align(&edram_arena, pixel_size, 16);
+    swizzle_fast((u8*)swizzled_pixels, (u8*)data_buffer, power_of_two_byte_width, block_size_height);
+    sceKernelDcacheWritebackRange(swizzled_pixels, pixel_size);
+    pe_arena_temp_end(temp_arena_memory);
+
+    int palette_format = 0;
+    switch (pbm->static_info->palette_format) {
+        case pbmColorFormat_5650: palette_format = GU_PSM_5650; break;
+        case pbmColorFormat_5551: palette_format = GU_PSM_5551; break;
+        case pbmColorFormat_4444: palette_format = GU_PSM_4444; break;
+        case pbmColorFormat_8888: palette_format = GU_PSM_8888; break;
+        default: P_PANIC(); break;
+    }
+
+    int palette_padded_length = 8 * ((pbm->static_info->palette_length + 7) / 8);
+    int palette_size = p_pixel_bytes(palette_padded_length, palette_format);
+    void *palette = pe_arena_alloc_align(&edram_arena, palette_size, 16);
+    memcpy(palette, pbm->palette, palette_size);
+    sceKernelDcacheWritebackRange(palette, palette_size);
+
+	peTexture texture = {
+		.data = swizzled_pixels,
+		.format = pixel_format,
+		.width = width,
+		.height = height,
 		.power_of_two_width = power_of_two_width,
 		.power_of_two_height = power_of_two_height,
-		.format = format
+		.swizzle = true,
+		.palette = palette,
+		.palette_length = pbm->static_info->palette_length,
+		.palette_padded_length = palette_padded_length,
+		.palette_format = palette_format,
 	};
     return texture;
 }
@@ -195,14 +265,34 @@ peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int heig
 void pe_texture_bind(peTexture texture) {
     PE_TRACE_FUNCTION_BEGIN();
 	sceGuEnable(GU_TEXTURE_2D);
- 	sceGuTexMode(texture.format, 0, 0, 1);
+    sceGuTexMode(texture.format, 0, 0, texture.swizzle);
+    // sceGuTexMode(texture.format, 0, 0, 0);
 	sceGuTexImage(0, texture.power_of_two_width, texture.power_of_two_height, texture.power_of_two_width, texture.data);
 	//sceGuTexEnvColor(0x00FFFFFF);
 	sceGuTexFunc(GU_TFX_MODULATE, GU_TCC_RGBA);
 	//sceGuTexFilter(GU_LINEAR,GU_LINEAR);
 	sceGuTexFilter(GU_NEAREST,GU_NEAREST);
-    sceGuTexScale(1.0f,1.0f);
+	float tex_scale_u = (float)texture.width/(float)texture.power_of_two_width;
+    float tex_scale_v = (float)texture.height/(float)texture.power_of_two_height;
+    // float tex_scale_v = 1.0f;
+    sceGuTexScale(tex_scale_u, tex_scale_v);
 	sceGuTexOffset(0.0f,0.0f);
+
+    if (texture.palette_length != 0) {
+        P_ASSERT(texture.palette_length > 0);
+        P_ASSERT(texture.palette_length <= texture.palette_padded_length);
+        P_ASSERT(texture.palette_padded_length % 8 == 0);
+        P_ASSERT(texture.format == GU_PSM_T4 || texture.format == GU_PSM_T8);
+        int max_palette_length = (
+            texture.format == GU_PSM_T4 ? 16 :
+            texture.format == GU_PSM_T8 ? 256 : 0
+        );
+        P_ASSERT(texture.palette_length <= max_palette_length);
+        sceGuClutMode(texture.palette_format, 0, 0xFF, 0);
+        int palette_num_blocks = texture.palette_padded_length / 8;
+        sceGuClutLoad(palette_num_blocks, texture.palette);
+    }
+
 	PE_TRACE_FUNCTION_END();
 }
 
@@ -212,6 +302,7 @@ void pe_texture_bind_default(void) {
 
 void pe_graphics_dynamic_draw_draw_batches(void) {
     if (dynamic_draw.vertex_used > 0) {
+        PE_TRACE_FUNCTION_BEGIN();
         peMatrixMode old_matrix_mode = pe_graphics.matrix_mode;
         pMat4 old_matrix_model = pe_graphics.matrix[pe_graphics.mode][peMatrixMode_Model];
         bool old_matrix_model_is_identity = pe_graphics.matrix_model_is_identity[pe_graphics.mode];
@@ -223,6 +314,7 @@ void pe_graphics_dynamic_draw_draw_batches(void) {
         sceKernelDcacheWritebackRange(dynamic_draw.vertex, sizeof(peDynamicDrawVertex)*PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT);
 
         for (int b = dynamic_draw.batch_drawn_count; b <= dynamic_draw.batch_current; b += 1) {
+            peTraceMark tm_draw_batch = PE_TRACE_MARK_BEGIN("draw batch");
             P_ASSERT(dynamic_draw.batch[b].vertex_count > 0);
 
             if (dynamic_draw.batch[b].texture) {
@@ -236,10 +328,12 @@ void pe_graphics_dynamic_draw_draw_batches(void) {
                 case pePrimitive_Points: primitive_sce = GU_POINTS; break;
                 case pePrimitive_Lines: primitive_sce = GU_LINES; break;
                 case pePrimitive_Triangles: primitive_sce = GU_TRIANGLES; break;
+                case pePrimitive_TriangleStrip: primitive_sce = GU_TRIANGLE_STRIP; break;
                 default: break;
             }
+            int gu_transform = pe_graphics.mode == peGraphicsMode_3D ? GU_TRANSFORM_3D : GU_TRANSFORM_3D;
             int vertex_type = (
-                GU_TEXTURE_32BITF|GU_COLOR_8888|GU_NORMAL_32BITF|GU_VERTEX_32BITF|GU_TRANSFORM_3D
+                GU_TEXTURE_32BITF|GU_COLOR_8888|GU_NORMAL_32BITF|GU_VERTEX_32BITF|gu_transform
             );
             sceGuDrawArray(
                 primitive_sce,
@@ -248,6 +342,7 @@ void pe_graphics_dynamic_draw_draw_batches(void) {
                 NULL,
                 dynamic_draw.vertex + dynamic_draw.batch[b].vertex_offset
             );
+            PE_TRACE_MARK_END(tm_draw_batch);
         }
 
         pe_graphics_matrix_set(&old_matrix_model);
@@ -256,6 +351,7 @@ void pe_graphics_dynamic_draw_draw_batches(void) {
         pe_graphics.matrix_model_is_identity[pe_graphics.mode] = old_matrix_model_is_identity;
 
         dynamic_draw.batch_drawn_count = dynamic_draw.batch_current + 1;
+        PE_TRACE_FUNCTION_END();
     }
 }
 
@@ -269,8 +365,10 @@ void pe_graphics_dynamic_draw_push_vec3(pVec3 position) {
     pePrimitive batch_primitive = dynamic_draw.batch[dynamic_draw.batch_current].primitive;
     int batch_vertex_count = dynamic_draw.batch[dynamic_draw.batch_current].vertex_count;
     int primitive_vertex_count = pe_graphics_primitive_vertex_count(batch_primitive);
-    int primitive_vertex_left = primitive_vertex_count - (batch_vertex_count % primitive_vertex_count);
-    pe_graphics_dynamic_draw_vertex_reserve(primitive_vertex_left);
+    if (primitive_vertex_count > 0) {
+        int primitive_vertex_left = primitive_vertex_count - (batch_vertex_count % primitive_vertex_count);
+        pe_graphics_dynamic_draw_vertex_reserve(primitive_vertex_left);
+    }
     peDynamicDrawVertex *vertex = &dynamic_draw.vertex[dynamic_draw.vertex_used];
     vertex->texcoord = dynamic_draw.texcoord;
     vertex->color = pe_color_to_8888(dynamic_draw.color);
@@ -284,6 +382,30 @@ void pe_graphics_dynamic_draw_push_vec3(pVec3 position) {
 // INTERNAL IMPLEMENTATIONS
 //
 
+int p_pixel_bytes(int count, int format) {
+    P_ASSERT(count >= 0);
+    int result = 0;
+	switch (format)
+	{
+        case GU_PSM_T4: result = count / 2; break;
+		case GU_PSM_T8: result = count; break;
+
+		case GU_PSM_5650:
+		case GU_PSM_5551:
+		case GU_PSM_4444:
+		case GU_PSM_T16:
+			result = 2 * count; break;
+
+		case GU_PSM_8888:
+		case GU_PSM_T32:
+			result = 4 * count; break;
+
+		default: P_PANIC_MSG("Unsupported pixel format: %d", format); break;
+	}
+    return result;
+}
+
+// TODO: remove this
 unsigned int bytes_per_pixel(unsigned int psm) {
 	switch (psm) {
 		case GU_PSM_T4: return 0; // FIXME: It's actually 4 bits
@@ -312,29 +434,21 @@ unsigned int closest_greater_power_of_two(unsigned int value) {
 	return power_of_two;
 }
 
-void copy_texture_data(void *dest, const void *src, const int pW, const int width, const int height) {
-    for (unsigned int y = 0; y < height; y++) {
-        for (unsigned int x = 0; x < width; x++) {
-            ((unsigned int*)dest)[x + y * pW] = ((unsigned int *)src)[x + y * width];
-        }
-    }
-}
+void swizzle_fast(void *out, void *in, int width, int height) {
+	int width_blocks = width / 16;
+	int height_blocks = height / 8;
 
-void swizzle_fast(u8 *out, const u8 *in, unsigned int width, unsigned int height) {
-	unsigned int width_blocks = (width / 16);
-	unsigned int height_blocks = (height / 8);
+	int src_pitch = (width - 16) / 4;
+	int src_row = width * 8;
 
-	unsigned int src_pitch = (width - 16) / 4;
-	unsigned int src_row = width * 8;
+	uint8_t *ysrc = in;
+	uint32_t *dst = (uint32_t *)out;
 
-	const u8 *ysrc = in;
-	u32 *dst = (u32 *)out;
-
-	for (unsigned int blocky = 0; blocky < height_blocks; ++blocky) {
-		const u8 *xsrc = ysrc;
-		for (unsigned int blockx = 0; blockx < width_blocks; ++blockx) {
-			const u32 *src = (u32 *)xsrc;
-			for (unsigned int j = 0; j < 8; ++j)
+	for (int blocky = 0; blocky < height_blocks; ++blocky) {
+		uint8_t *xsrc = ysrc;
+		for (int blockx = 0; blockx < width_blocks; ++blockx) {
+			uint32_t *src = (uint32_t *)xsrc;
+			for (int j = 0; j < 8; ++j)
 			{
 				*(dst++) = *(src++);
 				*(dst++) = *(src++);

@@ -3,6 +3,7 @@
 
 #include "core/p_defines.h"
 #include "core/p_assert.h"
+#include "core/p_heap.h"
 #include "utility/pe_trace.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -235,6 +236,9 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
 
     // init dynamic_draw
     {
+        dynamic_draw.vertex = pe_heap_alloc(PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT * sizeof(peDynamicDrawVertex));
+        dynamic_draw.batch = pe_heap_alloc(PE_MAX_DYNAMIC_DRAW_BATCH_COUNT * sizeof(peDynamicDrawBatch));
+
     	dynamic_draw_d3d.vertex_buffer = pe_d3d11_create_buffer(
             dynamic_draw.vertex,
             PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT*sizeof(peDynamicDrawVertex),
@@ -265,6 +269,7 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
             ID3D10Blob_GetBufferSize(pe_d3d.vs_blob),
             &dynamic_draw_d3d.input_layout
         );
+
     }
 
     // init matrices
@@ -305,7 +310,8 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
 }
 
 void pe_graphics_shutdown(void) {
-    // do nothing (we only need this for the PSP)
+    pe_heap_free(dynamic_draw.vertex);
+    pe_heap_free(dynamic_draw.batch);
 }
 
 void pe_graphics_set_framebuffer_size(int width, int height) {
@@ -400,6 +406,7 @@ pMat4 pe_matrix_orthographic(float left, float right, float bottom, float top, f
 }
 
 void pe_graphics_dynamic_draw_draw_batches(void) {
+    PE_TRACE_FUNCTION_BEGIN();
     if (dynamic_draw.vertex_used > 0) {
         peMatrixMode old_matrix_mode = pe_graphics.matrix_mode;
         pMat4 old_matrix_model = pe_graphics.matrix[pe_graphics.mode][peMatrixMode_Model];
@@ -449,6 +456,7 @@ void pe_graphics_dynamic_draw_draw_batches(void) {
                 case pePrimitive_Points: primitive_d3d11 = D3D11_PRIMITIVE_TOPOLOGY_POINTLIST; break;
                 case pePrimitive_Lines: primitive_d3d11 = D3D11_PRIMITIVE_TOPOLOGY_LINELIST; break;
                 case pePrimitive_Triangles: primitive_d3d11 = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST; break;
+                case pePrimitive_TriangleStrip: primitive_d3d11 = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP; break;
                 default: primitive_d3d11 = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED; break;
             }
 
@@ -468,6 +476,7 @@ void pe_graphics_dynamic_draw_draw_batches(void) {
 
         dynamic_draw.batch_drawn_count = dynamic_draw.batch_current + 1;
     }
+    PE_TRACE_FUNCTION_END();
 }
 
 void pe_graphics_dynamic_draw_push_vec3(pVec3 position) {
@@ -480,8 +489,10 @@ void pe_graphics_dynamic_draw_push_vec3(pVec3 position) {
     pePrimitive batch_primitive = dynamic_draw.batch[dynamic_draw.batch_current].primitive;
     int batch_vertex_count = dynamic_draw.batch[dynamic_draw.batch_current].vertex_count;
     int primitive_vertex_count = pe_graphics_primitive_vertex_count(batch_primitive);
-    int primitive_vertex_left = primitive_vertex_count - (batch_vertex_count % primitive_vertex_count);
-    pe_graphics_dynamic_draw_vertex_reserve(primitive_vertex_left);
+    if (primitive_vertex_count > 0) {
+        int primitive_vertex_left = primitive_vertex_count - (batch_vertex_count % primitive_vertex_count);
+        pe_graphics_dynamic_draw_vertex_reserve(primitive_vertex_left);
+    }
     peDynamicDrawVertex *vertex = &dynamic_draw.vertex[dynamic_draw.vertex_used];
     vertex->position = position;
     vertex->normal = dynamic_draw.normal;

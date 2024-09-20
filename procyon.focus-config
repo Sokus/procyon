@@ -1,0 +1,44 @@
+[16]  # Version number. Do not delete.
+
+[[workspace]]
+# These directories and files will be scanned when a workspace is opened so that search etc. works.
+C:\Users\Sokus\Dev\procyon
+
+[ignore]
+# Files and directories matching the following wildcards will not be loaded or descended into
+# Example:
+# *.js - will ignore all files with a '.js' extension
+# tmp* - will ignore any files or directories which start with 'tmp'
+# C:/project/dirname/** - will ignore everything under `dirname`
+# C:/project/dirname/*  - will ignore all files under `dirname`, but not recursively
+.git
+build
+psp_build
+linux_build
+glfw
+glad-gl-4.2-core
+HandmadeMath
+psp-stb
+
+[[build commands]]
+error_regex:                       ^[\s]*(?P<file>.*)\((?P<line>[0-9]+),(?P<col>[0-9]+)\): (?P<type>.\S*)[^:]+ (?P<msg>.*)$
+build_working_dir:                 C:\Users\Sokus\Dev\procyon
+open_panel_on_build:               true
+close_panel_on_success:            false
+clear_build_output_before_running: true
+
+[Desktop (Debug)]
+build_command: pwsh -Command "cmake -B build && cmake --build build --config Debug"
+key_binding: F9
+
+[Desktop (Release)]
+build_command: pwsh -Command "cmake -B build && cmake --build build --config Release"
+
+[PSP (Debug)]
+error_regex:   ^\/mnt\/c\/Users\/Sokus\/Dev\/procyon\/(?P<file>.*):(?P<line>[0-9]+):(?P<col>[0-9]+): (?P<type>error|warning): (?P<msg>.*)$
+build_command: pwsh -Command "scripts/build_psp.ps1" -BuildType Debug
+
+[PSP (Release)]
+error_regex:   ^\/mnt\/c\/Users\/Sokus\/Dev\/procyon\/(?P<file>.*):(?P<line>[0-9]+):(?P<col>[0-9]+): (?P<type>error|warning): (?P<msg>.*)$
+build_command: pwsh -Command "scripts/build_psp.ps1" -BuildType Release
+

@@ -47,35 +47,49 @@ typedef union peColor {
     struct { uint32_t rgba; };
 } peColor;
 
+typedef struct peRect {
+    float x;
+    float y;
+    float width;
+    float height;
+} peRect;
+
+// peTexture
 #if defined(_WIN32)
 typedef struct ID3D11ShaderResourceView ID3D11ShaderResourceView;
-#elif defined(__linux__)
-typedef unsigned int GLuint;
-#endif
 typedef struct peTexture {
-#if defined(_WIN32)
 	struct ID3D11ShaderResourceView *texture_resource;
 	int width;
 	int height;
-#elif defined(__linux__)
-	GLuint texture_object; // GLuint
-	int width;
-	int height;
-#elif defined(PSP)
-	void *data;
-	int width;
-	int height;
-	int power_of_two_width;
-	int power_of_two_height;
-	bool vram;
-	int format;
-#endif
 } peTexture;
+#elif defined(__linux__)
+typedef unsigned int GLuint;
+typedef struct peTexture {
+	GLuint texture_object;
+	int width;
+	int height;
+} peTexture;
+#elif defined(__PSP__)
+typedef struct peTexture {
+    void *data;
+    int format;
+    int width;
+    int height;
+    int power_of_two_width;
+    int power_of_two_height;
+    bool swizzle;
+    void *palette;
+    int palette_length;
+    int palette_padded_length;
+    int palette_format;
+} peTexture;
+#endif
 
 typedef enum pePrimitive {
     pePrimitive_Points,
     pePrimitive_Lines,
     pePrimitive_Triangles,
+    pePrimitive_TriangleStrip,
     pePrimitive_Count
 } pePrimitive;
 
@@ -107,10 +121,10 @@ typedef struct peDynamicDrawBatch {
 } peDynamicDrawBatch;
 
 #if defined(__PSP__)
-#define PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT 512
+#define PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT 2024
 #define PE_MAX_DYNAMIC_DRAW_BATCH_COUNT 256
 #else
-#define PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT 1024
+#define PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT 2024
 #define PE_MAX_DYNAMIC_DRAW_BATCH_COUNT 512
 #endif
 
@@ -122,10 +136,10 @@ typedef struct peDynamicDrawState {
     peColor color;
     bool do_lighting;
 
-    peDynamicDrawVertex vertex[PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT];
+    peDynamicDrawVertex *vertex;
     int vertex_used;
 
-    peDynamicDrawBatch batch[PE_MAX_DYNAMIC_DRAW_BATCH_COUNT];
+    peDynamicDrawBatch *batch;
     int batch_current;
     int batch_drawn_count;
 } peDynamicDrawState;
@@ -174,13 +188,16 @@ uint32_t pe_color_to_8888(peColor color);
 
 // TEXTURE
 
+typedef struct pbmFile pbmFile;
 peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int height);
+peTexture pe_texture_create_pbm(peArena *temp_arena, pbmFile *pbm);
 void pe_texture_bind(peTexture texture);
 void pe_texture_bind_default(void);
 
 // DYNAMIC DRAW
 
 int pe_graphics_primitive_vertex_count(pePrimitive primitive);
+bool pe_graphics_primitive_can_continue(pePrimitive primitive);
 
 bool pe_graphics_dynamic_draw_vertex_reserve(int count);
 void pe_graphics_dynamic_draw_new_batch(void);
@@ -204,7 +221,8 @@ void pe_graphics_draw_point(pVec2 position, peColor color);
 void pe_graphics_draw_point_int(int pos_x, int pos_y, peColor color);
 void pe_graphics_draw_line(pVec2 start_position, pVec2 end_position, peColor color);
 void pe_graphics_draw_rectangle(float x, float y, float width, float height, peColor color);
-void pe_graphics_draw_texture(peTexture *texture, float x, float y, peColor tint);
+void pe_graphics_draw_texture(peTexture *texture, float x, float y, float scale, peColor tint);
+void pe_graphics_draw_texture_ex(peTexture *texture, peRect src, peRect dst, peColor tint);
 
 void pe_graphics_draw_point_3D(pVec3 position, peColor color);
 void pe_graphics_draw_line_3D(pVec3 start_position, pVec3 end_position, peColor color);

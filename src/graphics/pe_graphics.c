@@ -87,6 +87,20 @@ int pe_graphics_primitive_vertex_count(pePrimitive primitive) {
     return result;
 }
 
+bool pe_graphics_primitive_can_continue(pePrimitive primitive) {
+    P_ASSERT(primitive >= 0);
+    P_ASSERT(primitive < pePrimitive_Count);
+    bool result = false;
+    switch (primitive) {
+        case pePrimitive_Points: result = true; break;
+        case pePrimitive_Lines: result = true; break;
+        case pePrimitive_Triangles: result = true; break;
+        case pePrimitive_TriangleStrip: result = false; break;
+        default: P_PANIC(); break;
+    }
+    return result;
+}
+
 bool pe_graphics_dynamic_draw_vertex_reserve(int count) {
     bool can_fit = (dynamic_draw.vertex_used + count <= PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT);
     P_ASSERT(can_fit);
@@ -98,11 +112,14 @@ void pe_graphics_dynamic_draw_new_batch(void) {
     if (dynamic_draw.batch[dynamic_draw.batch_current].vertex_count > 0) {
         dynamic_draw.batch_current += 1;
     }
-    dynamic_draw.batch[dynamic_draw.batch_current].primitive = dynamic_draw.primitive;
-    dynamic_draw.batch[dynamic_draw.batch_current].texture = dynamic_draw.texture;
-    dynamic_draw.batch[dynamic_draw.batch_current].vertex_offset = dynamic_draw.vertex_used;
-    dynamic_draw.batch[dynamic_draw.batch_current].vertex_count = 0;
+    if (dynamic_draw.batch_current < PE_MAX_DYNAMIC_DRAW_BATCH_COUNT) {
+        dynamic_draw.batch[dynamic_draw.batch_current].primitive = dynamic_draw.primitive;
+        dynamic_draw.batch[dynamic_draw.batch_current].texture = dynamic_draw.texture;
+        dynamic_draw.batch[dynamic_draw.batch_current].vertex_offset = dynamic_draw.vertex_used;
+        dynamic_draw.batch[dynamic_draw.batch_current].vertex_count = 0;
+    }
 }
+
 
 void pe_graphics_dynamic_draw_clear(void) {
     if (dynamic_draw.vertex_used > 0) {
@@ -118,7 +135,8 @@ void pe_graphics_dynamic_draw_clear(void) {
 
 void pe_graphics_dynamic_draw_set_primitive(pePrimitive primitive) {
     dynamic_draw.primitive = primitive;
-    if (dynamic_draw.batch[dynamic_draw.batch_current].primitive != primitive) {
+    pePrimitive current_primitive = dynamic_draw.batch[dynamic_draw.batch_current].primitive;
+    if (current_primitive != primitive || !pe_graphics_primitive_can_continue(current_primitive)) {
         pe_graphics_dynamic_draw_new_batch();
     }
 }
@@ -152,6 +170,7 @@ void pe_graphics_dynamic_draw_do_lighting(bool do_lighting) {
 void pe_graphics_dynamic_draw_begin_primitive(pePrimitive primitive) {
     pe_graphics_dynamic_draw_set_primitive(primitive);
     pe_graphics_dynamic_draw_set_texture(NULL);
+    pe_graphics_dynamic_draw_set_texcoord(p_vec2(0.0f, 0.0f));
     pe_graphics_dynamic_draw_set_color(PE_COLOR_WHITE);
     pe_graphics_dynamic_draw_do_lighting(false);
 }
@@ -159,6 +178,7 @@ void pe_graphics_dynamic_draw_begin_primitive(pePrimitive primitive) {
 void pe_graphics_dynamic_draw_begin_primitive_textured(pePrimitive primitive, peTexture *texture) {
     pe_graphics_dynamic_draw_set_primitive(primitive);
     pe_graphics_dynamic_draw_set_texture(texture);
+    pe_graphics_dynamic_draw_set_texcoord(p_vec2(0.0f, 0.0f));
     pe_graphics_dynamic_draw_set_color(PE_COLOR_WHITE);
     pe_graphics_dynamic_draw_do_lighting(false);
 }
@@ -203,21 +223,41 @@ void pe_graphics_draw_rectangle(float x, float y, float width, float height, peC
     }
 }
 
-void pe_graphics_draw_texture(peTexture *texture, float x, float y, peColor tint) {
+void pe_graphics_draw_texture(peTexture *texture, float x, float y, float scale, peColor tint) {
+    float tw = (float)texture->width;
+    float th = (float)texture->height;
+    peRect src = {
+        .x = 0.0f, .y = 0.0f,
+        .width = tw, .height = th,
+    };
+    peRect dst = {
+        .x = x, .y = y,
+        .width = scale*tw, .height = scale*th,
+    };
+    pe_graphics_draw_texture_ex(texture, src, dst, tint);
+}
+
+void pe_graphics_draw_texture_ex(peTexture *texture, peRect src, peRect dst, peColor tint) {
     pe_graphics_dynamic_draw_begin_primitive_textured(pePrimitive_Triangles, texture);
     pe_graphics_dynamic_draw_set_color(tint);
 
     pVec2 positions[4] = {
-        p_vec2(x, y), // top left
-        p_vec2(x + texture->width, y), // top right
-        p_vec2(x, y + texture->height), // bottom left
-        p_vec2(x + texture->width, y + texture->height) // bottom_right
+        p_vec2(          dst.x,            dst.y), // top left
+        p_vec2(dst.x+dst.width,            dst.y), // top right
+        p_vec2(          dst.x, dst.y+dst.height), // bottom left
+        p_vec2(dst.x+dst.width, dst.y+dst.height), // bottom_right
+    };
+    peRect tc_rect = {
+        .x = src.x / (float)texture->width,
+        .y = src.y / (float)texture->height,
+        .width = src.width / (float)texture->width,
+        .height = src.height / (float)texture->height
     };
     pVec2 texcoords[4] = {
-        p_vec2(0.0f, 0.0f), // top left
-        p_vec2(1.0f, 0.0f), // top right
-        p_vec2(0.0f, 1.0f), // bottom left
-        p_vec2(1.0f, 1.0f), // bottom right
+        p_vec2(              tc_rect.x,                tc_rect.y), // top left
+        p_vec2(tc_rect.x+tc_rect.width,                tc_rect.y), // top right
+        p_vec2(              tc_rect.x, tc_rect.y+tc_rect.height), // bottom left
+        p_vec2(tc_rect.x+tc_rect.width, tc_rect.y+tc_rect.height), // bottom right
     };
     int indices[6] = { 0, 2, 3, 0, 3, 1 };
 
