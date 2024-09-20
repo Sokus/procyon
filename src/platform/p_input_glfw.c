@@ -24,8 +24,8 @@ typedef struct pInputGLFW {
         double y;
     } mouse;
     struct {
-        bool button[peGamepadButton_Count];
-        float axis[peGamepadAxis_Count];
+        bool button[pGamepadButton_Count];
+        float axis[pGamepadAxis_Count];
     } gamepad;
 } pInputGLFW;
 
@@ -34,15 +34,15 @@ struct pInputStateGLFW {
     int input_current;
 } p_input_state_glfw = {0};
 
-static peGamepadButton p_input_gamepad_button_map(int button_glfw);
-static peGamepadAxis p_input_gamepad_axis_map(int axis_glfw);
-static int p_input_key_map_glfw(peKeyboardKey key);
+static pGamepadButton p_input_gamepad_button_map(int button_glfw);
+static pGamepadAxis p_input_gamepad_axis_map(int axis_glfw);
+static int p_input_key_map_glfw(pKeyboardKey key);
 
-void pe_input_init(void) {
+void p_input_init(void) {
 
 }
 
-void pe_input_update(void) {
+void p_input_update(void) {
     pInputGLFW *input_current, *input_last;
     {
         int input_last_index = p_input_state_glfw.input_current;
@@ -70,30 +70,30 @@ void pe_input_update(void) {
                 continue;
             }
             for (int button_glfw = 0; button_glfw <= GLFW_GAMEPAD_BUTTON_LAST; button_glfw += 1) {
-                peGamepadButton button = p_input_gamepad_button_map(button_glfw);
+                pGamepadButton button = p_input_gamepad_button_map(button_glfw);
                 input_current->gamepad.button[button] |= glfw_gamepad_state.buttons[button_glfw];
             }
             for (int axis_glfw = 0; axis_glfw <= GLFW_GAMEPAD_AXIS_LAST; axis_glfw += 1) {
-                peGamepadAxis axis = p_input_gamepad_axis_map(axis_glfw);
+                pGamepadAxis axis = p_input_gamepad_axis_map(axis_glfw);
                 input_current->gamepad.axis[axis] += glfw_gamepad_state.axes[axis_glfw];
             }
         }
 
-        for (int axis = 0; axis < peGamepadAxis_Count; axis += 1) {
+        for (int axis = 0; axis < pGamepadAxis_Count; axis += 1) {
             input_current->gamepad.axis[axis] = P_CLAMP(input_current->gamepad.axis[axis], -1.0f, 1.0f);
         }
     }
 }
 
-bool pe_input_key_is_down(peKeyboardKey key) {
-    P_ASSERT(key >= 0 && key < peKeyboardKey_Count);
+bool p_input_key_is_down(pKeyboardKey key) {
+    P_ASSERT(key >= 0 && key < pKeyboardKey_Count);
     int key_glfw = p_input_key_map_glfw(key);
     int input_current = p_input_state_glfw.input_current;
     return p_input_state_glfw.input[input_current].keyboard.button[key_glfw];
 }
 
-bool pe_input_key_was_down(peKeyboardKey key) {
-    P_ASSERT(key >= 0 && key < peKeyboardKey_Count);
+bool p_input_key_was_down(pKeyboardKey key) {
+    P_ASSERT(key >= 0 && key < pKeyboardKey_Count);
     int key_glfw = p_input_key_map_glfw(key);
     int input_current = p_input_state_glfw.input_current;
     int input_last = (p_input_state_glfw.input_current + 1) % 2;
@@ -105,8 +105,8 @@ bool pe_input_key_was_down(peKeyboardKey key) {
     return ended_down_last_frame || was_down_this_frame;
 }
 
-bool pe_input_key_pressed(peKeyboardKey key) {
-    P_ASSERT(key >= 0 && key < peKeyboardKey_Count);
+bool p_input_key_pressed(pKeyboardKey key) {
+    P_ASSERT(key >= 0 && key < pKeyboardKey_Count);
     int key_glfw = p_input_key_map_glfw(key);
     int input_current = p_input_state_glfw.input_current;
     bool key_down = p_input_state_glfw.input[input_current].keyboard.button[key_glfw];
@@ -114,8 +114,8 @@ bool pe_input_key_pressed(peKeyboardKey key) {
     return (key_down && key_state_changes > 0) || (key_state_changes >= 2);
 }
 
-bool pe_input_key_released(peKeyboardKey key) {
-    P_ASSERT(key >= 0 && key < peKeyboardKey_Count);
+bool p_input_key_released(pKeyboardKey key) {
+    P_ASSERT(key >= 0 && key < pKeyboardKey_Count);
     int key_glfw = p_input_key_map_glfw(key);
     int input_current = p_input_state_glfw.input_current;
     bool key_down = p_input_state_glfw.input[input_current].keyboard.button[key_glfw];
@@ -123,31 +123,31 @@ bool pe_input_key_released(peKeyboardKey key) {
     return (!key_down && key_state_changes > 0) || (key_state_changes >= 2);
 }
 
-void pe_input_mouse_positon(float *pos_x, float *pos_y) {
+void p_input_mouse_positon(float *pos_x, float *pos_y) {
     int input_current = p_input_state_glfw.input_current;
     *pos_x = (float)p_input_state_glfw.input[input_current].mouse.x;
     *pos_y = (float)p_input_state_glfw.input[input_current].mouse.y;
 }
 
-bool pe_input_gamepad_is_down(peGamepadButton button) {
-    P_ASSERT(button >= 0 && button < peGamepadButton_Count);
+bool p_input_gamepad_is_down(pGamepadButton button) {
+    P_ASSERT(button >= 0 && button < pGamepadButton_Count);
     int input_current = p_input_state_glfw.input_current;
     return p_input_state_glfw.input[input_current].gamepad.button[button];
 }
 
-bool pe_input_gamepad_was_down(peGamepadButton button) {
-    P_ASSERT(button >= 0 && button < peGamepadButton_Count);
+bool p_input_gamepad_was_down(pGamepadButton button) {
+    P_ASSERT(button >= 0 && button < pGamepadButton_Count);
     int input_last = (p_input_state_glfw.input_current + 1) % 2;
     return p_input_state_glfw.input[input_last].gamepad.button[button];
 }
 
-float pe_input_gamepad_axis(peGamepadAxis axis) {
-    P_ASSERT(axis >= 0 && axis < peGamepadAxis_Count);
+float p_input_gamepad_axis(pGamepadAxis axis) {
+    P_ASSERT(axis >= 0 && axis < pGamepadAxis_Count);
     int input_current = p_input_state_glfw.input_current;
     return p_input_state_glfw.input[input_current].gamepad.axis[axis];
 }
 
-void pe_input_key_callback(int key, int action) {
+void p_input_key_callback(int key, int action) {
     if (action != GLFW_PRESS && action != GLFW_RELEASE) {
         return;
     }
@@ -159,7 +159,7 @@ void pe_input_key_callback(int key, int action) {
     input_current->keyboard.state_changes[key] += 1;
 }
 
-void pe_input_cursor_position_callback(double pos_x, double pos_y) {
+void p_input_cursor_position_callback(double pos_x, double pos_y) {
     int input_current = p_input_state_glfw.input_current;
     p_input_state_glfw.input[input_current].mouse.x = pos_x;
     p_input_state_glfw.input[input_current].mouse.y = pos_y;
@@ -167,51 +167,51 @@ void pe_input_cursor_position_callback(double pos_x, double pos_y) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static peGamepadButton p_input_gamepad_button_map(int button_glfw) {
-    peGamepadButton result = 0;
+static pGamepadButton p_input_gamepad_button_map(int button_glfw) {
+    pGamepadButton result = 0;
     switch (button_glfw) {
-        case GLFW_GAMEPAD_BUTTON_A: result = peGamepadButton_ActionDown; break;
-        case GLFW_GAMEPAD_BUTTON_B: result = peGamepadButton_ActionRight; break;
-        case GLFW_GAMEPAD_BUTTON_X: result = peGamepadButton_ActionLeft; break;
-        case GLFW_GAMEPAD_BUTTON_Y: result = peGamepadButton_ActionUp; break;
-        case GLFW_GAMEPAD_BUTTON_LEFT_BUMPER: result = peGamepadButton_LeftBumper; break;
-        case GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER: result = peGamepadButton_RightBumper; break;
-        case GLFW_GAMEPAD_BUTTON_BACK: result = peGamepadButton_Select; break;
-        case GLFW_GAMEPAD_BUTTON_START: result = peGamepadButton_Start; break;
-        case GLFW_GAMEPAD_BUTTON_GUIDE: result = peGamepadButton_Guide; break;
-        case GLFW_GAMEPAD_BUTTON_LEFT_THUMB: result = peGamepadButton_LeftThumb; break;
-        case GLFW_GAMEPAD_BUTTON_RIGHT_THUMB: result = peGamepadButton_RightThumb; break;
-        case GLFW_GAMEPAD_BUTTON_DPAD_DOWN: result = peGamepadButton_DpadDown; break;
-        case GLFW_GAMEPAD_BUTTON_DPAD_RIGHT: result = peGamepadButton_DpadRight; break;
-        case GLFW_GAMEPAD_BUTTON_DPAD_LEFT: result = peGamepadButton_DpadLeft; break;
-        case GLFW_GAMEPAD_BUTTON_DPAD_UP: result = peGamepadButton_DpadUp; break;
+        case GLFW_GAMEPAD_BUTTON_A: result = pGamepadButton_ActionDown; break;
+        case GLFW_GAMEPAD_BUTTON_B: result = pGamepadButton_ActionRight; break;
+        case GLFW_GAMEPAD_BUTTON_X: result = pGamepadButton_ActionLeft; break;
+        case GLFW_GAMEPAD_BUTTON_Y: result = pGamepadButton_ActionUp; break;
+        case GLFW_GAMEPAD_BUTTON_LEFT_BUMPER: result = pGamepadButton_LeftBumper; break;
+        case GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER: result = pGamepadButton_RightBumper; break;
+        case GLFW_GAMEPAD_BUTTON_BACK: result = pGamepadButton_Select; break;
+        case GLFW_GAMEPAD_BUTTON_START: result = pGamepadButton_Start; break;
+        case GLFW_GAMEPAD_BUTTON_GUIDE: result = pGamepadButton_Guide; break;
+        case GLFW_GAMEPAD_BUTTON_LEFT_THUMB: result = pGamepadButton_LeftThumb; break;
+        case GLFW_GAMEPAD_BUTTON_RIGHT_THUMB: result = pGamepadButton_RightThumb; break;
+        case GLFW_GAMEPAD_BUTTON_DPAD_DOWN: result = pGamepadButton_DpadDown; break;
+        case GLFW_GAMEPAD_BUTTON_DPAD_RIGHT: result = pGamepadButton_DpadRight; break;
+        case GLFW_GAMEPAD_BUTTON_DPAD_LEFT: result = pGamepadButton_DpadLeft; break;
+        case GLFW_GAMEPAD_BUTTON_DPAD_UP: result = pGamepadButton_DpadUp; break;
         default: break;
     }
     return result;
 }
 
-static peGamepadAxis p_input_gamepad_axis_map(int axis_glfw) {
-    peGamepadAxis result = 0;
+static pGamepadAxis p_input_gamepad_axis_map(int axis_glfw) {
+    pGamepadAxis result = 0;
     switch (axis_glfw) {
-        case GLFW_GAMEPAD_AXIS_LEFT_X: result = peGamepadAxis_LeftX; break;
-        case GLFW_GAMEPAD_AXIS_LEFT_Y: result = peGamepadAxis_LeftY; break;
-        case GLFW_GAMEPAD_AXIS_RIGHT_X: result = peGamepadAxis_RightX; break;
-        case GLFW_GAMEPAD_AXIS_RIGHT_Y: result = peGamepadAxis_RightY; break;
-        case GLFW_GAMEPAD_AXIS_LEFT_TRIGGER: result = peGamepadAxis_LeftTrigger; break;
-        case GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER: result = peGamepadAxis_RightTrigger; break;
+        case GLFW_GAMEPAD_AXIS_LEFT_X: result = pGamepadAxis_LeftX; break;
+        case GLFW_GAMEPAD_AXIS_LEFT_Y: result = pGamepadAxis_LeftY; break;
+        case GLFW_GAMEPAD_AXIS_RIGHT_X: result = pGamepadAxis_RightX; break;
+        case GLFW_GAMEPAD_AXIS_RIGHT_Y: result = pGamepadAxis_RightY; break;
+        case GLFW_GAMEPAD_AXIS_LEFT_TRIGGER: result = pGamepadAxis_LeftTrigger; break;
+        case GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER: result = pGamepadAxis_RightTrigger; break;
         default: break;
     }
     return result;
 }
 
 // FIXME
-static int p_input_key_map_glfw(peKeyboardKey key) {
+static int p_input_key_map_glfw(pKeyboardKey key) {
     switch (key) {
-	    case peKeyboardKey_Down: return GLFW_KEY_S;
-	    case peKeyboardKey_Right: return GLFW_KEY_D;
-	    case peKeyboardKey_Left: return GLFW_KEY_A;
-	    case peKeyboardKey_Up: return GLFW_KEY_W;
-        case peKeyboardKey_O: return GLFW_KEY_O;
+	    case pKeyboardKey_Down: return GLFW_KEY_S;
+	    case pKeyboardKey_Right: return GLFW_KEY_D;
+	    case pKeyboardKey_Left: return GLFW_KEY_A;
+	    case pKeyboardKey_Up: return GLFW_KEY_W;
+        case pKeyboardKey_O: return GLFW_KEY_O;
         default: break;
     }
     return 0;

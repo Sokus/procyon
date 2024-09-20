@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
         pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
     }
 
-    pe_window_init(&temp_arena, 960, 540, "Procyon");
+    p_window_init(&temp_arena, 960, 540, "Procyon");
     pe_trace_init();
 
 #if !defined(PSP)
@@ -43,14 +43,14 @@ int main(int argc, char *argv[]) {
 
     float average_frame_duration = 0.0f;
 
-    while(pe_window_should_quit()) {
+    while(p_window_should_quit()) {
         uint64_t frame_start_time = p_time_now();
         peTraceMark tm_game_loop = PE_TRACE_MARK_BEGIN("game loop");
 
 
         // pe_camera_update(camera);
 
-        pe_window_frame_begin();
+        p_window_frame_begin();
         pe_clear_background((peColor){ 20, 20, 20, 255 });
 
         {
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
 
         // pe_model_draw(&model, &temp_arena, HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 0.0f, 0.0f));
 
-        pe_window_frame_end(false);
+        p_window_frame_end(false);
 
         pe_arena_clear(&temp_arena);
 
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
 
     pe_trace_shutdown();
     pe_graphics_shutdown();
-    pe_window_shutdown();
+    p_window_shutdown();
 
     return 0;
 }

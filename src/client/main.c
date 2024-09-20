@@ -156,14 +156,14 @@ static pVec2 last_nonzero_gamepad_input = { 0.0f, 1.0f };
 
 peInput pe_get_input(peCamera camera) {
     pVec2 gamepad_input = {
-        .x = pe_input_gamepad_axis(peGamepadAxis_LeftX),
-        .y = pe_input_gamepad_axis(peGamepadAxis_LeftY)
+        .x = p_input_gamepad_axis(pGamepadAxis_LeftX),
+        .y = p_input_gamepad_axis(pGamepadAxis_LeftY)
     };
 
-    bool right_is_down = pe_input_key_is_down(peKeyboardKey_Right);
-    bool left_is_down = pe_input_key_is_down(peKeyboardKey_Left);
-    bool down_is_down = pe_input_key_is_down(peKeyboardKey_Down);
-    bool up_is_down = pe_input_key_is_down(peKeyboardKey_Up);
+    bool right_is_down = p_input_key_is_down(pKeyboardKey_Right);
+    bool left_is_down = p_input_key_is_down(pKeyboardKey_Left);
+    bool down_is_down = p_input_key_is_down(pKeyboardKey_Down);
+    bool up_is_down = p_input_key_is_down(pKeyboardKey_Up);
     pVec2 keyboard_input = {
         .x = (float)right_is_down - (float)left_is_down,
         .y = (float)down_is_down - (float)up_is_down
@@ -173,7 +173,7 @@ peInput pe_get_input(peCamera camera) {
     {
 #if defined(_WIN32) || defined(__linux__)
         float pos_x, pos_y;
-        pe_input_mouse_positon(&pos_x, &pos_y);
+        p_input_mouse_positon(&pos_x, &pos_y);
         peRay ray = pe_get_mouse_ray(p_vec2(pos_x, pos_y), client.camera);
 
         pVec3 collision_point;
@@ -210,8 +210,8 @@ int main(int argc, char* argv[]) {
     pe_net_init();
     pe_trace_init();
 
-    pe_window_set_target_fps(60);
-    pe_window_init(&temp_arena, 960, 540, "Procyon");
+    p_window_set_target_fps(60);
+    p_window_init(&temp_arena, 960, 540, "Procyon");
 
     pe_socket_create(peAddressFamily_IPv4, &client.socket);
     pe_socket_set_nonblocking(client.socket);
@@ -244,17 +244,17 @@ int main(int argc, char* argv[]) {
         entity->mesh = peEntityMesh_Cube;
     }
 
-    float dt = pe_window_delta_time();
+    float dt = p_window_delta_time();
 
-    while(!pe_window_should_quit()) {
+    while(!p_window_should_quit()) {
         if (multiplayer) {
             pe_net_update();
             pe_receive_packets(&temp_arena, client.socket);
         } else {
                 client.server_address = pe_address4(127, 0, 0, 1, SERVER_PORT);
             if (
-                pe_input_key_pressed(peKeyboardKey_O)
-                || pe_input_gamepad_pressed(peGamepadButton_ActionUp)
+                p_input_key_pressed(pKeyboardKey_O)
+                || p_input_gamepad_pressed(pGamepadButton_ActionUp)
             ) {
                 multiplayer = true;
             }
@@ -281,7 +281,7 @@ int main(int argc, char* argv[]) {
             pe_update_entities(dt, client.client_input);
         }
 
-        pe_window_frame_begin();
+        p_window_frame_begin();
         pe_clear_background((peColor){ 20, 20, 20, 255 });
 
 
@@ -316,11 +316,11 @@ int main(int argc, char* argv[]) {
         pe_graphics_draw_rectangle(55.0f, 55.0f, 70.0f, 70.0f, (peColor){ 0, 0, 255, 64 });
 
         bool vsync = true;
-        pe_window_frame_end(vsync);
+        p_window_frame_end(vsync);
         pe_arena_clear(&temp_arena);
     }
 
-    pe_window_shutdown();
+    p_window_shutdown();
 
     pe_socket_destroy(client.socket);
     pe_net_shutdown();

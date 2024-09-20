@@ -1,65 +1,65 @@
-#ifndef PE_INPUT_H
-#define PE_INPUT_H
+#ifndef P_INPUT_HEADER_GUARD
+#define P_INPUT_HEADER_GUARD
 
 #include <stdbool.h>
 
 // FIXME
-typedef enum peKeyboardKey {
-	peKeyboardKey_Down,
-	peKeyboardKey_Right,
-	peKeyboardKey_Left,
-	peKeyboardKey_Up,
-	peKeyboardKey_O, // temporary
-	peKeyboardKey_Count,
-} peKeyboardKey;
+typedef enum pKeyboardKey {
+	pKeyboardKey_Down,
+	pKeyboardKey_Right,
+	pKeyboardKey_Left,
+	pKeyboardKey_Up,
+	pKeyboardKey_O, // temporary
+	pKeyboardKey_Count,
+} pKeyboardKey;
 
-typedef enum peGamepadButton {
-	peGamepadButton_ActionDown,
-	peGamepadButton_ActionRight,
-	peGamepadButton_ActionLeft,
-	peGamepadButton_ActionUp,
-	peGamepadButton_LeftBumper,
-	peGamepadButton_RightBumper,
-	peGamepadButton_Select,
-	peGamepadButton_Start,
-	peGamepadButton_Guide,
-	peGamepadButton_LeftThumb,
-	peGamepadButton_RightThumb,
-	peGamepadButton_DpadDown,
-	peGamepadButton_DpadRight,
-	peGamepadButton_DpadLeft,
-	peGamepadButton_DpadUp,
-	peGamepadButton_Count,
-} peGamepadButton;
+typedef enum pGamepadButton {
+	pGamepadButton_ActionDown,
+	pGamepadButton_ActionRight,
+	pGamepadButton_ActionLeft,
+	pGamepadButton_ActionUp,
+	pGamepadButton_LeftBumper,
+	pGamepadButton_RightBumper,
+	pGamepadButton_Select,
+	pGamepadButton_Start,
+	pGamepadButton_Guide,
+	pGamepadButton_LeftThumb,
+	pGamepadButton_RightThumb,
+	pGamepadButton_DpadDown,
+	pGamepadButton_DpadRight,
+	pGamepadButton_DpadLeft,
+	pGamepadButton_DpadUp,
+	pGamepadButton_Count,
+} pGamepadButton;
 
-typedef enum peGamepadAxis {
-	peGamepadAxis_LeftX,
-	peGamepadAxis_LeftY,
-	peGamepadAxis_RightX,
-	peGamepadAxis_RightY,
-	peGamepadAxis_LeftTrigger,
-	peGamepadAxis_RightTrigger,
-	peGamepadAxis_Count,
-} peGamepadAxis;
+typedef enum pGamepadAxis {
+	pGamepadAxis_LeftX,
+	pGamepadAxis_LeftY,
+	pGamepadAxis_RightX,
+	pGamepadAxis_RightY,
+	pGamepadAxis_LeftTrigger,
+	pGamepadAxis_RightTrigger,
+	pGamepadAxis_Count,
+} pGamepadAxis;
 
 
-void pe_input_init(void);
-void pe_input_update(void);
+void p_input_init(void);
+void p_input_update(void);
 
-bool pe_input_key_is_down(peKeyboardKey key);
-bool pe_input_key_was_down(peKeyboardKey key);
-bool pe_input_key_pressed(peKeyboardKey key);
-bool pe_input_key_released(peKeyboardKey key);
+bool p_input_key_is_down(pKeyboardKey key);
+bool p_input_key_was_down(pKeyboardKey key);
+bool p_input_key_pressed(pKeyboardKey key);
+bool p_input_key_released(pKeyboardKey key);
 
-void pe_input_mouse_positon(float *pos_x, float *pos_y);
+void p_input_mouse_positon(float *pos_x, float *pos_y);
 
-bool pe_input_gamepad_is_down(peGamepadButton button);
-bool pe_input_gamepad_was_down(peGamepadButton button);
-bool pe_input_gamepad_pressed(peGamepadButton button);
-bool pe_input_gamepad_released(peGamepadButton button);
-float pe_input_gamepad_axis(peGamepadAxis axis);
+bool p_input_gamepad_is_down(pGamepadButton button);
+bool p_input_gamepad_was_down(pGamepadButton button);
+bool p_input_gamepad_pressed(pGamepadButton button);
+bool p_input_gamepad_released(pGamepadButton button);
+float p_input_gamepad_axis(pGamepadAxis axis);
 
-void pe_input_key_callback(int key, int action);
-void pe_input_cursor_position_callback(double pos_x, double pos_y);
+void p_input_key_callback(int key, int action);
+void p_input_cursor_position_callback(double pos_x, double pos_y);
 
-#endif // PE_INPUT_H
+#endif // P_INPUT_HEADER_GUARD

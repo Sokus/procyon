@@ -24,18 +24,17 @@
 	#include "glad/glad.h"
 #endif
 
-struct peWindowGLFW {
+struct pWindowStateGLFW {
     GLFWwindow *window;
     bool should_quit;
-};
-struct peWindowGLFW window_state_glfw = {0};
+} p_window_state_glfw = {0};
 
-static void pe_window_close_callback(GLFWwindow *window);
-static void pe_window_framebuffer_size_callback(GLFWwindow *window, int width, int height);
-static void pe_window_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
-static void pe_window_cursor_position_callback(GLFWwindow *window, double pos_x, double pos_y);
+static void p_window_close_callback(GLFWwindow *window);
+static void p_window_framebuffer_size_callback(GLFWwindow *window, int width, int height);
+static void p_window_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
+static void p_window_cursor_position_callback(GLFWwindow *window, double pos_x, double pos_y);
 
-void pe_window_platform_init(int window_width, int window_height, const char *window_name) {
+void p_window_platform_init(int window_width, int window_height, const char *window_name) {
     glfwInit();
 
     // set window hints
@@ -53,37 +52,37 @@ void pe_window_platform_init(int window_width, int window_height, const char *wi
 #endif
     }
 
-    window_state_glfw.window = glfwCreateWindow(window_width, window_height, window_name, NULL, NULL);
+    p_window_state_glfw.window = glfwCreateWindow(window_width, window_height, window_name, NULL, NULL);
 
     // init graphics
 #if defined(_WIN32)
-    pe_hwnd = glfwGetWin32Window(window_state_glfw.window);
+    pe_hwnd = glfwGetWin32Window(p_window_state_glfw.window);
 #endif
 #if defined(__linux__)
-    glfwMakeContextCurrent(window_state_glfw.window);
+    glfwMakeContextCurrent(p_window_state_glfw.window);
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 #endif
 
-    glfwSetWindowCloseCallback(window_state_glfw.window, pe_window_close_callback);
-    glfwSetFramebufferSizeCallback(window_state_glfw.window, pe_window_framebuffer_size_callback);
-    glfwSetKeyCallback(window_state_glfw.window, pe_window_key_callback);
-    glfwSetCursorPosCallback(window_state_glfw.window, pe_window_cursor_position_callback);
+    glfwSetWindowCloseCallback(p_window_state_glfw.window, p_window_close_callback);
+    glfwSetFramebufferSizeCallback(p_window_state_glfw.window, p_window_framebuffer_size_callback);
+    glfwSetKeyCallback(p_window_state_glfw.window, p_window_key_callback);
+    glfwSetCursorPosCallback(p_window_state_glfw.window, p_window_cursor_position_callback);
 }
 
-void pe_window_platform_shutdown(void) {
-    glfwDestroyWindow(window_state_glfw.window);
+void p_window_platform_shutdown(void) {
+    glfwDestroyWindow(p_window_state_glfw.window);
     glfwTerminate();
 }
 
-bool pe_window_should_quit(void) {
-    return window_state_glfw.should_quit;
+bool p_window_should_quit(void) {
+    return p_window_state_glfw.should_quit;
 }
 
-void pe_window_poll_events(void) {
+void p_window_poll_events(void) {
     glfwPollEvents();
 }
 
-void pe_window_swap_buffers(bool vsync) {
+void p_window_swap_buffers(bool vsync) {
     PE_TRACE_FUNCTION_BEGIN();
 #if defined(_WIN32)
     UINT sync_interval = (vsync ? 1 : 0);
@@ -93,25 +92,25 @@ void pe_window_swap_buffers(bool vsync) {
 #if defined(__linux__)
     int interval = (vsync ? 1 : 0);
 	glfwSwapInterval(interval);
-	glfwSwapBuffers(window_state_glfw.window);
+	glfwSwapBuffers(p_window_state_glfw.window);
 #endif
     PE_TRACE_FUNCTION_END();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static void pe_window_close_callback(GLFWwindow *window) {
-    window_state_glfw.should_quit = true;
+static void p_window_close_callback(GLFWwindow *window) {
+    p_window_state_glfw.should_quit = true;
 }
 
-static void pe_window_framebuffer_size_callback(GLFWwindow *window, int width, int height) {
+static void p_window_framebuffer_size_callback(GLFWwindow *window, int width, int height) {
     pe_graphics_set_framebuffer_size(width, height);
 }
 
-static void pe_window_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    pe_input_key_callback(key, action);
+static void p_window_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
+    p_input_key_callback(key, action);
 }
 
-static void pe_window_cursor_position_callback(GLFWwindow *window, double pos_x, double pos_y) {
-    pe_input_cursor_position_callback(pos_x, pos_y);
+static void p_window_cursor_position_callback(GLFWwindow *window, double pos_x, double pos_y) {
+    p_input_cursor_position_callback(pos_x, pos_y);
 }

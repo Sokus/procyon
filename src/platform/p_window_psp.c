@@ -10,29 +10,29 @@ PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER|THREAD_ATTR_VFPU);
 
 struct peWindowStatePSP {
     bool should_quit;
-} p_window_state_psp;
+} p_window_state_psp = {0};
 
-static int pe_exit_callback_thread(SceSize args, void *argp);
+static int p_window_exit_callback_thread(SceSize args, void *argp);
 
-void pe_window_platform_init(int, int, const char *) {
-    int thid = sceKernelCreateThread("update_thread", pe_exit_callback_thread, 0x11, 0xFA0, 0, 0);
+void p_window_platform_init(int, int, const char *) {
+    int thid = sceKernelCreateThread("update_thread", p_window_exit_callback_thread, 0x11, 0xFA0, 0, 0);
 	if (thid >= 0) {
 		sceKernelStartThread(thid, 0, 0);
 	}
 }
 
-void pe_window_platform_shutdown(void) {
+void p_window_platform_shutdown(void) {
     sceKernelExitGame();
 }
 
-bool pe_window_should_quit(void) {
+bool p_window_should_quit(void) {
     return p_window_state_psp.should_quit;
 }
 
-void pe_window_poll_events(void) {
+void p_window_poll_events(void) {
 }
 
-void pe_window_swap_buffers(bool vsync) {
+void p_window_swap_buffers(bool vsync) {
     PE_TRACE_FUNCTION_BEGIN();
     if (vsync) {
         sceDisplayWaitVblankStart();
@@ -43,13 +43,13 @@ void pe_window_swap_buffers(bool vsync) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static int pe_exit_callback(int/*arg1*/, int/*arg2*/, void*/*common*/) {
+static int p_window_exit_callback(int/*arg1*/, int/*arg2*/, void*/*common*/) {
     p_window_state_psp.should_quit = true;
     return 0;
 }
 
-static int pe_exit_callback_thread(SceSize args, void *argp) {
-    int cbid = sceKernelCreateCallback("Exit Callback", pe_exit_callback, NULL);
+static int p_window_exit_callback_thread(SceSize args, void *argp) {
+    int cbid = sceKernelCreateCallback("Exit Callback", p_window_exit_callback, NULL);
 	sceKernelRegisterExitCallback(cbid);
 	sceKernelSleepThreadCB();
 	return 0;
