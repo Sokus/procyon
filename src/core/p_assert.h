@@ -5,6 +5,12 @@
 #include <stdarg.h>
 #include <malloc.h>
 
+#ifndef P_STATIC_ASSERT
+#define P_STATIC_ASSERT3(cond, msg) typedef char p_static_assert_##msg[(cond)?1:-1]
+#define P_STATIC_ASSERT2(cond, msg) P_STATIC_ASSERT3(cond, msg)
+#define P_STATIC_ASSERT(cond) P_STATIC_ASSERT2(cond, __LINE__)
+#endif
+
 #ifndef P_DEBUG_TRAP
 	#if defined(__PSP__)
 		#define P_DEBUG_TRAP() p_debug_trap()

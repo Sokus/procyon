@@ -30,11 +30,11 @@ static unsigned int __attribute__((aligned(16))) list[262144];
 void pe_graphics_init(peArena *, int, int) {
 	pe_arena_init(&edram_arena, sceGeEdramGetAddr(), sceGeEdramGetSize());
 
-	unsigned int framebuffer_size = PSP_BUFF_W * PSP_SCREEN_H * bytes_per_pixel(GU_PSM_5650);
+	unsigned int framebuffer_size = p_pixel_bytes(PSP_BUFF_W*PSP_SCREEN_H, GU_PSM_5650);
 	void *framebuffer0 = pe_arena_alloc_align(&edram_arena, framebuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
 	void *framebuffer1 = pe_arena_alloc_align(&edram_arena, framebuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
 
-    unsigned int depthbuffer_size = PSP_BUFF_W * PSP_SCREEN_H * bytes_per_pixel(GU_PSM_4444);
+    unsigned int depthbuffer_size = p_pixel_bytes(PSP_BUFF_W*PSP_SCREEN_H, GU_PSM_4444);
 	void *depthbuffer = pe_arena_alloc_align(&edram_arena, depthbuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
 
 	sceGuInit();
@@ -170,12 +170,6 @@ pMat4 pe_matrix_orthographic(float left, float right, float bottom, float top, f
     return p_orthographic_rh_no(left, right, bottom, top, near_z, far_z);
 }
 
-static void copy_texture_data_2(void *dest, const void *src, const int rows, size_t pitch, size_t pitch_pow2) {
-    for (int r = 0; r < rows; r += 1) {
-        memcpy((uint8_t*)dest + r * pitch_pow2, (uint8_t*)src + r * pitch, pitch);
-    }
-}
-
 peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int height) {
     const int format = GU_PSM_8888;
 	int pow2_width = closest_greater_power_of_two(width);
@@ -186,16 +180,9 @@ peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int heig
 	int pow2_byte_width = p_pixel_bytes(pow2_width, format);
 	int size = p_pixel_bytes(pow2_width * block_height, format);
 
-	peArenaTemp temp_arena_memory = pe_arena_temp_begin(temp_arena);
-
-    unsigned int *data_buffer = pe_arena_alloc_align(temp_arena, size, 16);
-    copy_texture_data_2(data_buffer, data, height, byte_width, pow2_byte_width);
-
     unsigned int* swizzled_pixels = pe_arena_alloc_align(&edram_arena, size, 16);
-    swizzle_fast((u8*)swizzled_pixels, (u8*)data_buffer, pow2_width*bytes_per_pixel(format), block_height);
+    p_swizzle(swizzled_pixels, data, byte_width, pow2_byte_width, height);
     sceKernelDcacheWritebackRange(swizzled_pixels, size);
-
-	pe_arena_temp_end(temp_arena_memory);
 
 	peTexture texture = {
 		.data = swizzled_pixels,
@@ -223,13 +210,9 @@ peTexture pe_texture_create_pbm(peArena *temp_arena, pbmFile *pbm) {
 	int power_of_two_byte_width = p_pixel_bytes(power_of_two_width, pixel_format);
 	int pixel_size = p_pixel_bytes(power_of_two_width * block_size_height, pixel_format);
 
-    peArenaTemp temp_arena_memory = pe_arena_temp_begin(temp_arena);
-    unsigned int *data_buffer = pe_arena_alloc_align(temp_arena, pixel_size, 16);
-    copy_texture_data_2(data_buffer, pbm->index, height, byte_width, power_of_two_byte_width);
     unsigned int* swizzled_pixels = pe_arena_alloc_align(&edram_arena, pixel_size, 16);
-    swizzle_fast((u8*)swizzled_pixels, (u8*)data_buffer, power_of_two_byte_width, block_size_height);
+    p_swizzle(swizzled_pixels, pbm->index, byte_width, power_of_two_byte_width, height);
     sceKernelDcacheWritebackRange(swizzled_pixels, pixel_size);
-    pe_arena_temp_end(temp_arena_memory);
 
     int palette_format = 0;
     switch (pbm->static_info->palette_format) {
@@ -405,26 +388,6 @@ int p_pixel_bytes(int count, int format) {
     return result;
 }
 
-// TODO: remove this
-unsigned int bytes_per_pixel(unsigned int psm) {
-	switch (psm) {
-		case GU_PSM_T4: return 0; // FIXME: It's actually 4 bits
-		case GU_PSM_T8: return 1;
-
-		case GU_PSM_5650:
-		case GU_PSM_5551:
-		case GU_PSM_4444:
-		case GU_PSM_T16:
-			return 2;
-
-		case GU_PSM_8888:
-		case GU_PSM_T32:
-			return 4;
-
-		default: return 0;
-	}
-}
-
 unsigned int closest_greater_power_of_two(unsigned int value) {
 	if (value == 0 || value > (1 << 31))
 		return 0;
@@ -434,7 +397,91 @@ unsigned int closest_greater_power_of_two(unsigned int value) {
 	return power_of_two;
 }
 
-void swizzle_fast(void *out, void *in, int width, int height) {
+/*
+    ####################. .:. . . .:
+    #  B0  |   B1  |   B2  :   B3  :
+    #      |       |   #. .:. . . .:
+    #------|-------|---#---:-------:
+    #  B4  |   B5  |   B6 .:. .B7 .:
+    ####################   :       :
+    . . . .:. . . .:. . . .:. . . .:
+*/
+void p_swizzle(void *out, void *in, int byte_width, int pow2_byte_width, int height) {
+    PE_TRACE_FUNCTION_BEGIN();
+    const int BLOCK_WIDTH = 16;
+    const int BLOCK_HEIGHT = 8;
+    int full_block_count_x = byte_width / BLOCK_WIDTH;
+    int full_block_count_y = height / BLOCK_HEIGHT;
+    int block_count_x = pow2_byte_width / BLOCK_WIDTH;
+    int block_count_y = (height + BLOCK_HEIGHT-1) / BLOCK_HEIGHT;
+    int right_block_width = byte_width % BLOCK_WIDTH;
+    int bottom_block_height = height % BLOCK_HEIGHT;
+
+    struct Block_Data_Row {
+        uint8_t buffer[BLOCK_WIDTH];
+    };
+    P_STATIC_ASSERT(sizeof(struct Block_Data_Row) == BLOCK_WIDTH);
+
+    uint8_t *out_ptr = out;
+    uint8_t *in_row_ptr = in;
+    for (int block_y = 0; block_y < full_block_count_y; block_y += 1) {
+        uint8_t *in_col_ptr = in_row_ptr;
+        for (int block_x = 0; block_x < full_block_count_x; block_x += 1) {
+            uint8_t *in_block_ptr = in_col_ptr;
+            for (int block_row = 0; block_row < BLOCK_HEIGHT; block_row += 1) {
+                memcpy(out_ptr, in_block_ptr, BLOCK_WIDTH);
+                out_ptr += BLOCK_WIDTH;
+                in_block_ptr += byte_width;
+            }
+            in_col_ptr += BLOCK_WIDTH;
+        }
+        if (full_block_count_x < block_count_x) {
+            uint8_t *in_block_ptr = in_col_ptr;
+            for (int block_row = 0; block_row < BLOCK_HEIGHT; block_row += 1) {
+                memcpy(out_ptr, in_block_ptr, right_block_width);
+                out_ptr += BLOCK_WIDTH;
+                in_block_ptr += byte_width;
+            }
+            out_ptr += (block_count_x-full_block_count_x-1)*BLOCK_WIDTH*BLOCK_HEIGHT;
+        }
+        in_row_ptr += byte_width*BLOCK_HEIGHT;
+    }
+    for (int block_y = full_block_count_y; block_y < block_count_y; block_y += 1) {
+        uint8_t *in_col_ptr = in_row_ptr;
+        for (int block_x = 0; block_x < full_block_count_x; block_x += 1) {
+            uint8_t *in_block_ptr = in_col_ptr;
+            for (int block_row = 0; block_row < bottom_block_height; block_row += 1) {
+                memcpy(out_ptr, in_block_ptr, BLOCK_WIDTH);
+                out_ptr += BLOCK_WIDTH;
+                in_block_ptr += byte_width;
+            }
+            out_ptr += (BLOCK_HEIGHT - bottom_block_height) * BLOCK_WIDTH;
+            in_col_ptr += BLOCK_WIDTH;
+        }
+        if (full_block_count_x < block_count_x) {
+            uint8_t *in_block_ptr = in_col_ptr;
+            for (int block_row = 0; block_row < bottom_block_height; block_row += 1) {
+                memcpy(out_ptr, in_block_ptr, right_block_width);
+                out_ptr += BLOCK_WIDTH;
+                in_block_ptr += byte_width;
+            }
+            out_ptr += (BLOCK_HEIGHT - bottom_block_height) * BLOCK_WIDTH;
+            in_col_ptr += BLOCK_WIDTH;
+        }
+    }
+    PE_TRACE_FUNCTION_END();
+}
+
+static void copy_texture_data(void *dest, const void *src, const int rows, size_t pitch, size_t pitch_pow2) {
+    PE_TRACE_FUNCTION_BEGIN();
+    for (int r = 0; r < rows; r += 1) {
+        memcpy((uint8_t*)dest + r * pitch_pow2, (uint8_t*)src + r * pitch, pitch);
+    }
+    PE_TRACE_FUNCTION_END();
+}
+
+static void swizzle_fast(void *out, void *in, int width, int height) {
+    PE_TRACE_FUNCTION_BEGIN();
 	int width_blocks = width / 16;
 	int height_blocks = height / 8;
 
@@ -460,4 +507,5 @@ void swizzle_fast(void *out, void *in, int width, int height) {
 		}
 		ysrc += src_row;
 	}
+	PE_TRACE_FUNCTION_END();
 }

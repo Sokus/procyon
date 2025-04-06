@@ -5,8 +5,6 @@
 #include <stdint.h>
 
 int p_pixel_bytes(int count, int format);
-unsigned int bytes_per_pixel(unsigned int psm);
 unsigned int closest_greater_power_of_two(unsigned int value);
-void swizzle_fast(void *out, void *in, int width, int height);
-
+void p_swizzle(void *out, void *in, int byte_width, int pow2_byte_width, int height);
 #endif // PE_GRAPHICS_PSP_H_HEADER_GUARD

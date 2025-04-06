@@ -206,50 +206,6 @@ peInput pe_get_input(peCamera camera) {
 
 #include "stb_image.h"
 
-void pe_graphics_draw_texture_strip(peTexture *texture, float x, float y, peColor tint) {
-    pe_graphics_dynamic_draw_begin_primitive_textured(pePrimitive_TriangleStrip, texture);
-    pe_graphics_dynamic_draw_set_color(tint);
-
-    pVec2 positions[4] = {
-        p_vec2(x, y), // top left
-        p_vec2(x + texture->width/4, y), // top right
-        p_vec2(x, y + texture->height/4), // bottom left
-        p_vec2(x + texture->width/4, y + texture->height/4) // bottom_right
-    };
-    pVec2 texcoords[4] = {
-        p_vec2(0.0f, 0.0f), // top left
-        p_vec2(1.0f, 0.0f), // top right
-        p_vec2(0.0f, 1.0f), // bottom left
-        p_vec2(1.0f, 1.0f), // bottom right
-    };
-    int indices[6] = { 2, 3, 0, 1 };
-
-    for (int i = 0; i < 6; i += 1) {
-        pe_graphics_dynamic_draw_set_texcoord(texcoords[indices[i]]);
-        pe_graphics_dynamic_draw_push_vec2(positions[indices[i]]);
-    }
-}
-
-static void pe_graphics_draw_rectangle_strip(float x, float y, float width, float height, peColor color) {
-    pe_graphics_dynamic_draw_begin_primitive(pePrimitive_TriangleStrip);
-    pe_graphics_dynamic_draw_set_color(color);
-
-    pVec2 positions[4] = {
-        p_vec2(x, y), // top left
-        p_vec2(x + width, y), // top right
-        p_vec2(x, y + height), // bottom left
-        p_vec2(x + width, y + height) // bottom_right
-    };
-    int indices[6] = { 2, 3, 0, 1 };
-
-    for (int i = 0; i < 4; i += 1) {
-        pe_graphics_dynamic_draw_push_vec2(positions[indices[i]]);
-    }
-}
-
-peTexture pe_texture_create_indexed_t8(peArena *temp_arena);
-peTexture pe_texture_create_indexed_t4(peArena *temp_arena);
-
 peTexture codepage = {0};
 
 void pe_graphics_draw_text(char *text, int pos_x, int pos_y, peColor color) {
@@ -300,7 +256,6 @@ int main(int argc, char* argv[]) {
         pbmFile pbm_file;
         bool pbm_parse_result = pbm_parse(pbm_file_contents.data, pbm_file_contents.size, &pbm_file);
 
-
         // peFileHandle pbm_file;
         // pe_file_open("./res/cp437.pbm", &pbm_file);
 
@@ -345,7 +300,6 @@ int main(int argc, char* argv[]) {
         // codepage = pe_texture_create(&temp_arena, stbi_data, w, h);
         pe_arena_temp_end(pbm_arena_temp);
         // stbi_image_free(stbi_data);
-        // codepage = pe_texture_create_indexed_t4(&temp_arena);
 
         // pe_file_close(pbm_file);
     }
@@ -465,12 +419,9 @@ int main(int argc, char* argv[]) {
         pe_arena_clear(&temp_arena);
     }
 
-    p_window_shutdown();
-
     pe_socket_destroy(client.socket);
     pe_net_shutdown();
-
     pe_trace_shutdown();
-
+    p_window_shutdown();
     return 0;
 }

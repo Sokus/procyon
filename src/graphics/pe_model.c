@@ -244,7 +244,7 @@ peModel pe_model_load(peArena *temp_arena, char *file_path) {
 
     pe_model_load_static_info(&model, p3d.static_info);
     pe_model_load_materials(&model, temp_arena, file_path, p3d.static_info, p3d.material);
-	pe_model_load_skeleton(&model, &p3d);
+    pe_model_load_skeleton(&model, &p3d);
     pe_model_load_animations(&model, p3d.static_info, p3d.animation, p3d.animation_joint);
     pe_model_load_mesh_data(&model, temp_arena, &p3d);
     pe_model_load_writeback_arena(&model_arena);
