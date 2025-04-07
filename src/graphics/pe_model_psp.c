@@ -114,12 +114,12 @@ void pe_model_draw_meshes(peModel *model, pMat4 *final_bone_matrix) {
         peMaterial *mesh_material = &model->material[model->mesh_material[m]];
 
 		if (mesh_material->has_diffuse_map) {
-            pe_texture_bind(mesh_material->diffuse_map);
+            p_texture_bind(mesh_material->diffuse_map);
 		} else {
-            pe_texture_bind_default();
+            p_texture_bind_default();
 		}
 
-		pe_graphics_set_diffuse_color(mesh_material->diffuse_color);
+		p_graphics_set_diffuse_color(mesh_material->diffuse_color);
 
         peTraceMark tm_assign_matrices = PE_TRACE_MARK_BEGIN("assign matrices");
         peSubskeleton *subskeleton = &model->subskeleton[model->mesh_subskeleton[m]];

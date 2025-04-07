@@ -18,9 +18,9 @@ typedef unsigned int GLuint;
 #endif
 
 typedef struct peMaterial {
-    peColor diffuse_color;
+    pColor diffuse_color;
     bool has_diffuse_map;
-    peTexture diffuse_map;
+    pTexture diffuse_map;
 } peMaterial;
 
 typedef struct peMesh {

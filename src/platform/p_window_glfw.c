@@ -56,7 +56,7 @@ void p_window_platform_init(int window_width, int window_height, const char *win
 
     // init graphics
 #if defined(_WIN32)
-    pe_hwnd = glfwGetWin32Window(p_window_state_glfw.window);
+    p_hwnd = glfwGetWin32Window(p_window_state_glfw.window);
 #endif
 #if defined(__linux__)
     glfwMakeContextCurrent(p_window_state_glfw.window);
@@ -86,8 +86,8 @@ void p_window_swap_buffers(bool vsync) {
     PE_TRACE_FUNCTION_BEGIN();
 #if defined(_WIN32)
     UINT sync_interval = (vsync ? 1 : 0);
-    IDXGISwapChain1_Present(pe_d3d.swapchain, sync_interval, 0);
-    ID3D11DeviceContext_OMSetRenderTargets(pe_d3d.context, 1, &pe_d3d.render_target_view, pe_d3d.depth_stencil_view);
+    IDXGISwapChain1_Present(p_d3d.swapchain, sync_interval, 0);
+    ID3D11DeviceContext_OMSetRenderTargets(p_d3d.context, 1, &p_d3d.render_target_view, p_d3d.depth_stencil_view);
 #endif
 #if defined(__linux__)
     int interval = (vsync ? 1 : 0);
@@ -104,7 +104,7 @@ static void p_window_close_callback(GLFWwindow *window) {
 }
 
 static void p_window_framebuffer_size_callback(GLFWwindow *window, int width, int height) {
-    pe_graphics_set_framebuffer_size(width, height);
+    p_graphics_set_framebuffer_size(width, height);
 }
 
 static void p_window_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {

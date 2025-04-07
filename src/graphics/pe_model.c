@@ -13,7 +13,7 @@
 
 peMaterial pe_default_material(void) {
     peMaterial result = {
-		.diffuse_color = PE_COLOR_WHITE,
+		.diffuse_color = P_COLOR_WHITE,
 		.has_diffuse_map = false
 	};
 	return result;
@@ -184,7 +184,7 @@ peVertexSkinned pe_vertex_skinned_from_p3d(p3dVertex vertex_p3d, float scale) {
     for (int e = 0; e < 2; e += 1) {
         result.texcoord[e] = pe_int16_to_float(vertex_p3d.texcoord[e], -1.0f, 1.0f);
     }
-    result.color = PE_COLOR_WHITE.rgba;
+    result.color = P_COLOR_WHITE.rgba;
     for (int e = 0; e < 4; e += 1) {
         result.bone_index[e] = (uint32_t)vertex_p3d.bone_index[e];
         result.bone_weight[e] = pe_uint16_to_float(vertex_p3d.bone_weight[e], 0.0f, 1.0f);
@@ -216,7 +216,7 @@ static void pe_model_load_materials(peModel *model, pArena *temp_arena, char *fi
 
 			int w, h, channels;
 			stbi_uc *stbi_data = stbi_load(diffuse_texture_path, &w, &h, &channels, STBI_rgb_alpha);
-			model->material[m].diffuse_map = pe_texture_create(temp_arena, stbi_data, w, h);
+			model->material[m].diffuse_map = p_texture_create(temp_arena, stbi_data, w, h);
 			stbi_image_free(stbi_data);
 		}
 	}
@@ -262,13 +262,13 @@ bool last_frame_time_initialized = false;
 
 void pe_model_draw_set_model_matrix(peModel *model, pVec3 position, pVec3 rotation) {
     PE_TRACE_FUNCTION_BEGIN();
-    pe_graphics_matrix_mode(peMatrixMode_Model);
+    p_graphics_matrix_mode(pMatrixMode_Model);
     pMat4 translate = p_translate(position);
     pMat4 rotate = p_rotate_xyz(rotation);
     pMat4 scale = p_scale(p_vec3(model->scale, model->scale, model->scale));
     pMat4 model_matrix = p_mat4_mul(translate, p_mat4_mul(rotate, scale));
-    pe_graphics_matrix_set(&model_matrix);
-    pe_graphics_matrix_update();
+    p_graphics_matrix_set(&model_matrix);
+    p_graphics_matrix_update();
     PE_TRACE_FUNCTION_END();
 }
 
@@ -318,8 +318,8 @@ void pe_model_draw(peModel *model, pArena *temp_arena, pVec3 position, pVec3 rot
 
 	pe_model_draw_set_model_matrix(model, position, rotation);
 
-    pe_graphics_set_lighting(true);
-    pe_graphics_set_light_vector(PE_LIGHT_VECTOR_DEFAULT);
+    p_graphics_set_lighting(true);
+    p_graphics_set_light_vector(P_LIGHT_VECTOR_DEFAULT);
 
     peAnimationJoint *model_space_joints = pe_model_draw_get_model_space_animation_joints(model, temp_arena);
     pMat4 *final_bone_matrix = pe_model_draw_get_final_bone_matrix(model, temp_arena, model_space_joints);

@@ -37,7 +37,7 @@ void p_window_init(pArena *temp_arena, int window_width, int window_height, cons
     p_window_state.time.last_tick = time_now;
 
     p_window_platform_init(window_width, window_height, window_name);
-    pe_graphics_init(temp_arena, window_width, window_height);
+    p_graphics_init(temp_arena, window_width, window_height);
     p_input_init();
 
     p_window_state.initialized = true;
@@ -45,7 +45,7 @@ void p_window_init(pArena *temp_arena, int window_width, int window_height, cons
 
 void p_window_shutdown(void) {
     P_ASSERT(p_window_state.initialized);
-    pe_graphics_shutdown();
+    p_graphics_shutdown();
     p_window_platform_shutdown();
     p_window_state.initialized = false;
 }
@@ -55,7 +55,7 @@ void p_window_frame_begin(void) {
     p_window_state.time.update_ticks = p_time_diff(time_now, p_window_state.time.last_tick);
     p_window_state.time.last_tick = time_now;
 
-    pe_graphics_frame_begin();
+    p_graphics_frame_begin();
 }
 
 static void p_window_frame_sync(bool vsync) {
@@ -70,10 +70,10 @@ static void p_window_frame_sync(bool vsync) {
 }
 
 void p_window_frame_end(bool vsync) {
-	pe_graphics_dynamic_draw_draw_batches();
-	pe_graphics_frame_end();
+	p_graphics_dynamic_draw_draw_batches();
+	p_graphics_frame_end();
 	p_window_swap_buffers(vsync);
-	pe_graphics_dynamic_draw_clear();
+	p_graphics_dynamic_draw_clear();
 
     uint64_t time_now = p_time_now();
     p_window_state.time.draw_ticks = p_time_diff(time_now, p_window_state.time.last_tick);

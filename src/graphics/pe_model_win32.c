@@ -46,11 +46,11 @@ void pe_model_load_mesh_data(peModel *model, pArena *temp_arena, p3dFile *p3d) {
             vertex_buffer[v] = pe_vertex_skinned_from_p3d(p3d->desktop.vertex[v+vertex_offset], p3d->static_info->scale);
         }
 
-        model->mesh[m].vertex_buffer = pe_d3d11_create_buffer(vertex_buffer, (UINT)vertex_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0);
+        model->mesh[m].vertex_buffer = p_d3d11_create_buffer(vertex_buffer, (UINT)vertex_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0);
 
         if (p3d->mesh[m].num_index > 0) {
             size_t mesh_index_size = p3d->mesh[m].num_index * sizeof(uint32_t);
-            model->mesh[m].index_buffer = pe_d3d11_create_buffer(p3d->desktop.index+index_offset, (UINT)mesh_index_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER, 0);
+            model->mesh[m].index_buffer = p_d3d11_create_buffer(p3d->desktop.index+index_offset, (UINT)mesh_index_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER, 0);
         } else {
             model->mesh[m].index_buffer = NULL;
         }
@@ -101,35 +101,35 @@ void pe_model_load_writeback_arena(pArena *model_arena) {
 
 void pe_model_draw_meshes(peModel *model, pMat4 *final_bone_matrix) {
     PE_TRACE_FUNCTION_BEGIN();
-    peShaderConstant_Skeleton *constant_skeleton = pe_shader_constant_begin_map(pe_d3d.context, constant_buffers_d3d.skeleton);
+    pShaderConstant_Skeleton *constant_skeleton = p_shader_constant_begin_map(p_d3d.context, constant_buffers_d3d.skeleton);
     constant_skeleton->has_skeleton = true;
     memcpy(constant_skeleton->matrix_bone, final_bone_matrix, model->num_bone * sizeof(pMat4));
-    pe_shader_constant_end_map(pe_d3d.context, constant_buffers_d3d.skeleton);
+    p_shader_constant_end_map(p_d3d.context, constant_buffers_d3d.skeleton);
 
     for (int m = 0; m < model->num_mesh; m += 1) {
         peTraceMark tm_draw_mesh = PE_TRACE_MARK_BEGIN("draw mesh");
         peMaterial *mesh_material = &model->material[model->mesh_material[m]];
 
 		if (mesh_material->has_diffuse_map) {
-            pe_texture_bind(mesh_material->diffuse_map);
+            p_texture_bind(mesh_material->diffuse_map);
 		} else {
-            pe_texture_bind_default();
+            p_texture_bind_default();
 		}
 
-		pe_graphics_set_diffuse_color(mesh_material->diffuse_color);
+		p_graphics_set_diffuse_color(mesh_material->diffuse_color);
 
-        ID3D11DeviceContext_IASetPrimitiveTopology(pe_d3d.context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        ID3D11DeviceContext_IASetPrimitiveTopology(p_d3d.context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         ID3D11Buffer *buffs[] = { model->mesh[m].vertex_buffer };
         uint32_t strides[] = { sizeof(peVertexSkinned) };
         uint32_t offsets[] = {0};
         P_ASSERT(P_COUNT_OF(buffs) == P_COUNT_OF(strides));
         P_ASSERT(P_COUNT_OF(buffs) == P_COUNT_OF(offsets));
-        ID3D11DeviceContext_IASetVertexBuffers(pe_d3d.context, 0, P_COUNT_OF(buffs), buffs, strides, offsets);
+        ID3D11DeviceContext_IASetVertexBuffers(p_d3d.context, 0, P_COUNT_OF(buffs), buffs, strides, offsets);
         if (model->mesh[m].num_index > 0) {
-            ID3D11DeviceContext_IASetIndexBuffer(pe_d3d.context, model->mesh[m].index_buffer, DXGI_FORMAT_R32_UINT, 0);
-            ID3D11DeviceContext_DrawIndexed(pe_d3d.context, model->mesh[m].num_index, 0, 0);
+            ID3D11DeviceContext_IASetIndexBuffer(p_d3d.context, model->mesh[m].index_buffer, DXGI_FORMAT_R32_UINT, 0);
+            ID3D11DeviceContext_DrawIndexed(p_d3d.context, model->mesh[m].num_index, 0, 0);
         } else {
-            ID3D11DeviceContext_Draw(pe_d3d.context, model->mesh[m].num_vertex, 0);
+            ID3D11DeviceContext_Draw(p_d3d.context, model->mesh[m].num_vertex, 0);
         }
 		PE_TRACE_MARK_END(tm_draw_mesh);
     }

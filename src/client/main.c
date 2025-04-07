@@ -37,7 +37,7 @@ typedef enum peClientNetworkState {
 } peClientNetworkState;
 
 struct peClientState {
-    peCamera camera;
+    pCamera camera;
     pVec3 camera_offset;
     peModel model;
 
@@ -158,7 +158,7 @@ void p_send_packets(pArena *temp_arena, pInput input) {
 
 static pVec2 last_nonzero_gamepad_input = { 0.0f, 1.0f };
 
-pInput pe_get_input(peCamera camera) {
+pInput pe_get_input(pCamera camera) {
     pVec2 gamepad_input = {
         .x = p_input_gamepad_axis(pGamepadAxis_LeftX),
         .y = p_input_gamepad_axis(pGamepadAxis_LeftY)
@@ -178,7 +178,7 @@ pInput pe_get_input(peCamera camera) {
 #if defined(_WIN32) || defined(__linux__)
         float pos_x, pos_y;
         p_input_mouse_positon(&pos_x, &pos_y);
-        peRay ray = pe_get_mouse_ray(p_vec2(pos_x, pos_y), client.camera);
+        pRay ray = p_get_mouse_ray(p_vec2(pos_x, pos_y), client.camera);
 
         pVec3 collision_point;
         if (pe_collision_ray_plane(ray, (pVec3){.y = 1.0f}, 0.0f, &collision_point)) {
@@ -206,21 +206,21 @@ pInput pe_get_input(peCamera camera) {
 
 #include "stb_image.h"
 
-peTexture codepage = {0};
+pTexture codepage = {0};
 
-void pe_graphics_draw_text(char *text, int pos_x, int pos_y, peColor color) {
-    peRect dst = { (float)pos_x, (float)pos_y, 9.0f, 16.0f };
+void p_graphics_draw_text(char *text, int pos_x, int pos_y, pColor color) {
+    pRect dst = { (float)pos_x, (float)pos_y, 9.0f, 16.0f };
     for (char *p = text; *p; p += 1) {
         char c = P_MIN(*p, 255);
         int column = (int)(c % 28);
         int row = (int)(c / 28);
-        peRect src = {
+        pRect src = {
             .x = (float)(column * 9),
             .y = (float)(row * 16),
             .width = 9.0f,
             .height = 16.0f,
         };
-        pe_graphics_draw_texture_ex(&codepage, src, dst, color);
+        p_graphics_draw_texture_ex(&codepage, src, dst, color);
         dst.x += 9.0f;
     }
 }
@@ -296,15 +296,15 @@ int main(int argc, char* argv[]) {
         // }
         // p_file_write_async(pbm_file, index, index_count/2 * sizeof(uint8_t));
 
-        codepage = pe_texture_create_pbm(&temp_arena, &pbm_file);
-        // codepage = pe_texture_create(&temp_arena, stbi_data, w, h);
+        codepage = p_texture_create_pbm(&temp_arena, &pbm_file);
+        // codepage = p_texture_create(&temp_arena, stbi_data, w, h);
         p_arena_temp_end(pbm_arena_temp);
         // stbi_image_free(stbi_data);
 
         // p_file_close(pbm_file);
     }
 
-    client.camera = (peCamera){
+    client.camera = (pCamera){
         .target = {0.0f, 0.7f, 0.0f},
         .up = {0.0f, 1.0f, 0.0f},
         .fovy = 55.0f,
@@ -361,25 +361,25 @@ int main(int argc, char* argv[]) {
         }
 
         p_window_frame_begin();
-        pe_clear_background((peColor){ 20, 20, 20, 255 });
+        p_clear_background((pColor){ 20, 20, 20, 255 });
 
 
-        // pe_graphics_draw_point_int(3, 2, PE_COLOR_BLUE);
+        // p_graphics_draw_point_int(3, 2, P_COLOR_BLUE);
 
         for (int i = 0; i < 160; i += 1) {
             float position_x = 5.0f * (float)i;
-            // pe_graphics_draw_line(p_vec2(position_x, 0.0f), p_vec2(position_x+4.0f, 4.0f), PE_COLOR_RED);
+            // p_graphics_draw_line(p_vec2(position_x, 0.0f), p_vec2(position_x+4.0f, 4.0f), P_COLOR_RED);
         }
 
-        // pe_graphics_draw_texture(&client.model.material[0].diffuse_map, 100.0f, 100.0f, PE_COLOR_WHITE);
+        // p_graphics_draw_texture(&client.model.material[0].diffuse_map, 100.0f, 100.0f, P_COLOR_WHITE);
 
-        pe_graphics_mode_3d_begin(client.camera);
+        p_graphics_mode_3d_begin(client.camera);
         {
-            // pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.25f, 0.0f, 0.0f), PE_COLOR_RED);
-            // pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.0f, 0.25f, 0.0f), PE_COLOR_GREEN);
-            // pe_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.0f, 0.0f, 0.25f), PE_COLOR_BLUE);
+            // p_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.25f, 0.0f, 0.0f), P_COLOR_RED);
+            // p_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.0f, 0.25f, 0.0f), P_COLOR_GREEN);
+            // p_graphics_draw_line_3D(p_vec3(0.0f, 0.0f, 0.0f), p_vec3(0.0f, 0.0f, 0.25f), P_COLOR_BLUE);
 
-            pe_graphics_draw_grid_3D(10, 1.0f);
+            p_graphics_draw_grid_3D(10, 1.0f);
 
             for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
                 pEntity *entity = &entities[e];
@@ -388,12 +388,12 @@ int main(int argc, char* argv[]) {
                 pe_model_draw(&client.model, &temp_arena, entity->position, p_vec3(0.0f, entity->angle, 0.0f));
             }
         }
-        pe_graphics_mode_3d_end();
+        p_graphics_mode_3d_end();
 
-        // pe_graphics_draw_texture(&client.model.material[0].diffuse_map, 10.0f, 10.0f, PE_COLOR_WHITE);
+        // p_graphics_draw_texture(&client.model.material[0].diffuse_map, 10.0f, 10.0f, P_COLOR_WHITE);
         float w = 252.0f*0.25f;
         float h = 160.0f*0.25f;
-        peColor colors[] = {
+        pColor colors[] = {
             { 255, 0, 0, 64 },
             { 255, 255, 0, 64 },
             { 0, 255, 0, 64 },
@@ -402,14 +402,14 @@ int main(int argc, char* argv[]) {
             { 255, 255, 255, 64 },
         };
         peTraceMark tm_issue_rectangles = PE_TRACE_MARK_BEGIN("issue rectangles");
-        // pe_graphics_draw_texture(&codepage, 0.0f, 0.0f, 1.0f, PE_COLOR_WHITE);
-        pe_graphics_draw_text("Hello, World!", 5, 5, PE_COLOR_WHITE);
+        // p_graphics_draw_texture(&codepage, 0.0f, 0.0f, 1.0f, P_COLOR_WHITE);
+        p_graphics_draw_text("Hello, World!", 5, 5, P_COLOR_WHITE);
         for (int y = 0; y < 6; y += 1) {
             for (int x = 0; x < 5; x += 1) {
-                peColor color = colors[(y*5+x)%P_COUNT_OF(colors)];
-                // pe_graphics_draw_texture_strip(&codepage, x*w, y*h, PE_COLOR_WHITE);
-                // pe_graphics_draw_texture(&codepage, x*w, y*h, 0.25f, PE_COLOR_WHITE);
-                // pe_graphics_draw_rectangle_strip(x*w+x*5.0f, y*h+y*5.0f, w, h, color);
+                pColor color = colors[(y*5+x)%P_COUNT_OF(colors)];
+                // p_graphics_draw_texture_strip(&codepage, x*w, y*h, P_COLOR_WHITE);
+                // p_graphics_draw_texture(&codepage, x*w, y*h, 0.25f, P_COLOR_WHITE);
+                // p_graphics_draw_rectangle_strip(x*w+x*5.0f, y*h+y*5.0f, w, h, color);
             }
         }
         PE_TRACE_MARK_END(tm_issue_rectangles);

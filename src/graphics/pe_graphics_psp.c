@@ -27,7 +27,7 @@ static unsigned int __attribute__((aligned(16))) list[262144];
 // GENERAL IMPLEMENTATIONS
 //
 
-void pe_graphics_init(pArena *, int, int) {
+void p_graphics_init(pArena *, int, int) {
 	p_arena_init(&edram_arena, sceGeEdramGetAddr(), sceGeEdramGetSize());
 
 	unsigned int framebuffer_size = p_pixel_bytes(PSP_BUFF_W*PSP_SCREEN_H, GU_PSM_5650);
@@ -64,56 +64,56 @@ void pe_graphics_init(pArena *, int, int) {
 	sceGumMatrixMode(GU_MODEL);
 	sceGumLoadIdentity();
 
-	pe_graphics.mode = peGraphicsMode_2D;
-    pe_graphics.matrix_mode = peMatrixMode_Projection;
+	p_graphics.mode = pGraphicsMode_2D;
+    p_graphics.matrix_mode = pMatrixMode_Projection;
 
-    for (int gm = 0; gm < peGraphicsMode_Count; gm += 1) {
-        for (int mm = 0; mm < peMatrixMode_Count; mm += 1) {
-            pe_graphics.matrix[gm][mm] = p_mat4_i();
-            pe_graphics.matrix_dirty[gm][mm] = true;
+    for (int gm = 0; gm < pGraphicsMode_Count; gm += 1) {
+        for (int mm = 0; mm < pMatrixMode_Count; mm += 1) {
+            p_graphics.matrix[gm][mm] = p_mat4_i();
+            p_graphics.matrix_dirty[gm][mm] = true;
         }
-        pe_graphics.matrix_model_is_identity[gm] = true;
+        p_graphics.matrix_model_is_identity[gm] = true;
     }
 
-    pe_graphics.matrix[peGraphicsMode_2D][peMatrixMode_Projection] = pe_matrix_orthographic(
-        0, (float)pe_screen_width(),
-        (float)pe_screen_height(), 0,
+    p_graphics.matrix[pGraphicsMode_2D][pMatrixMode_Projection] = p_matrix_orthographic(
+        0, (float)p_screen_width(),
+        (float)p_screen_height(), 0,
         0.0f, 1000.0f
     );
 
-    pe_graphics_matrix_update();
+    p_graphics_matrix_update();
 
-    dynamic_draw.vertex = p_heap_alloc(PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT * sizeof(peDynamicDrawVertex));
-    dynamic_draw.batch = p_heap_alloc(PE_MAX_DYNAMIC_DRAW_BATCH_COUNT * sizeof(peDynamicDrawBatch));
+    dynamic_draw.vertex = p_heap_alloc(P_MAX_DYNAMIC_DRAW_VERTEX_COUNT * sizeof(pDynamicDrawVertex));
+    dynamic_draw.batch = p_heap_alloc(P_MAX_DYNAMIC_DRAW_BATCH_COUNT * sizeof(pDynamicDrawBatch));
 
     gu_initialized = true;
 }
 
-void pe_graphics_shutdown(void) {
+void p_graphics_shutdown(void) {
     p_heap_free(dynamic_draw.vertex);
     p_heap_free(dynamic_draw.batch);
 	sceGuTerm();
 }
 
-int pe_screen_width(void) {
+int p_screen_width(void) {
     return PSP_SCREEN_W;
 }
 
-int pe_screen_height(void) {
+int p_screen_height(void) {
     return PSP_SCREEN_H;
 }
 
-void pe_clear_background(peColor color) {
-	sceGuClearColor(pe_color_to_8888(color));
+void p_clear_background(pColor color) {
+	sceGuClearColor(p_color_to_8888(color));
 	sceGuClearDepth(0);
 	sceGuClear(GU_COLOR_BUFFER_BIT|GU_DEPTH_BUFFER_BIT);
 }
 
-void pe_graphics_frame_begin(void) {
+void p_graphics_frame_begin(void) {
     sceGuStart(GU_DIRECT, list);
 }
 
-void pe_graphics_frame_end(void) {
+void p_graphics_frame_end(void) {
     // TODO: check if sceGuFinish is even worth tracing
 	peTraceMark tm_finish = PE_TRACE_MARK_BEGIN("sceGuFinish");
     sceGuFinish();
@@ -123,7 +123,7 @@ void pe_graphics_frame_end(void) {
 	PE_TRACE_MARK_END(tm_sync);
 }
 
-void pe_graphics_set_depth_test(bool enable) {
+void p_graphics_set_depth_test(bool enable) {
     if (enable) {
         sceGuEnable(GU_DEPTH_TEST);
     } else {
@@ -131,46 +131,46 @@ void pe_graphics_set_depth_test(bool enable) {
     }
 }
 
-void pe_graphics_set_lighting(bool enable) {
+void p_graphics_set_lighting(bool enable) {
 
 }
 
-void pe_graphics_set_light_vector(pVec3 light_vector) {
+void p_graphics_set_light_vector(pVec3 light_vector) {
 
 }
 
-void pe_graphics_set_diffuse_color(peColor color) {
+void p_graphics_set_diffuse_color(pColor color) {
     // TODO: change only the diffuse color and not everything
     sceGuColor(color.rgba);
 }
 
-void pe_graphics_matrix_update(void) {
-    int gu_matrix_modes[peMatrixMode_Count];
+void p_graphics_matrix_update(void) {
+    int gu_matrix_modes[pMatrixMode_Count];
     {
-        gu_matrix_modes[peMatrixMode_Projection] = GU_PROJECTION;
-        gu_matrix_modes[peMatrixMode_View] = GU_VIEW;
-        gu_matrix_modes[peMatrixMode_Model] = GU_MODEL;
+        gu_matrix_modes[pMatrixMode_Projection] = GU_PROJECTION;
+        gu_matrix_modes[pMatrixMode_View] = GU_VIEW;
+        gu_matrix_modes[pMatrixMode_Model] = GU_MODEL;
     }
-    for (int matrix_mode = 0; matrix_mode < peMatrixMode_Count; matrix_mode += 1) {
-        if (pe_graphics.matrix_dirty[pe_graphics.mode][matrix_mode]) {
-            pMat4 *matrix = &pe_graphics.matrix[pe_graphics.mode][matrix_mode];
+    for (int matrix_mode = 0; matrix_mode < pMatrixMode_Count; matrix_mode += 1) {
+        if (p_graphics.matrix_dirty[p_graphics.mode][matrix_mode]) {
+            pMat4 *matrix = &p_graphics.matrix[p_graphics.mode][matrix_mode];
             sceGumMatrixMode(gu_matrix_modes[matrix_mode]);
             sceGumLoadMatrix(&matrix->_sce);
-            pe_graphics.matrix_dirty[pe_graphics.mode][matrix_mode] = false;
+            p_graphics.matrix_dirty[p_graphics.mode][matrix_mode] = false;
         }
     }
     sceGumUpdateMatrix();
 }
 
-pMat4 pe_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z) {
+pMat4 p_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z) {
 	return p_perspective_rh_no(fovy * P_DEG2RAD, aspect_ratio, near_z, far_z);
 }
 
-pMat4 pe_matrix_orthographic(float left, float right, float bottom, float top, float near_z, float far_z) {
+pMat4 p_matrix_orthographic(float left, float right, float bottom, float top, float near_z, float far_z) {
     return p_orthographic_rh_no(left, right, bottom, top, near_z, far_z);
 }
 
-peTexture pe_texture_create(pArena *temp_arena, void *data, int width, int height) {
+pTexture p_texture_create(pArena *temp_arena, void *data, int width, int height) {
     const int format = GU_PSM_8888;
 	int pow2_width = closest_greater_power_of_two(width);
 	int pow2_height = closest_greater_power_of_two(height);
@@ -184,7 +184,7 @@ peTexture pe_texture_create(pArena *temp_arena, void *data, int width, int heigh
     p_swizzle(swizzled_pixels, data, byte_width, pow2_byte_width, height);
     sceKernelDcacheWritebackRange(swizzled_pixels, size);
 
-	peTexture texture = {
+	pTexture texture = {
 		.data = swizzled_pixels,
 		.width = width,
 		.height = height,
@@ -198,7 +198,7 @@ peTexture pe_texture_create(pArena *temp_arena, void *data, int width, int heigh
 
 #include "graphics/p_pbm.h"
 
-peTexture pe_texture_create_pbm(pArena *temp_arena, pbmFile *pbm) {
+pTexture p_texture_create_pbm(pArena *temp_arena, pbmFile *pbm) {
     int width = pbm->static_info->width;
     int height = pbm->static_info->height;
     int power_of_two_width = closest_greater_power_of_two(width);
@@ -229,7 +229,7 @@ peTexture pe_texture_create_pbm(pArena *temp_arena, pbmFile *pbm) {
     memcpy(palette, pbm->palette, palette_size);
     sceKernelDcacheWritebackRange(palette, palette_size);
 
-	peTexture texture = {
+	pTexture texture = {
 		.data = swizzled_pixels,
 		.format = pixel_format,
 		.width = width,
@@ -245,7 +245,7 @@ peTexture pe_texture_create_pbm(pArena *temp_arena, pbmFile *pbm) {
     return texture;
 }
 
-void pe_texture_bind(peTexture texture) {
+void p_texture_bind(pTexture texture) {
     PE_TRACE_FUNCTION_BEGIN();
 	sceGuEnable(GU_TEXTURE_2D);
     sceGuTexMode(texture.format, 0, 0, texture.swizzle);
@@ -279,42 +279,42 @@ void pe_texture_bind(peTexture texture) {
 	PE_TRACE_FUNCTION_END();
 }
 
-void pe_texture_bind_default(void) {
+void p_texture_bind_default(void) {
 	sceGuDisable(GU_TEXTURE_2D);
 }
 
-void pe_graphics_dynamic_draw_draw_batches(void) {
+void p_graphics_dynamic_draw_draw_batches(void) {
     if (dynamic_draw.vertex_used > 0) {
         PE_TRACE_FUNCTION_BEGIN();
-        peMatrixMode old_matrix_mode = pe_graphics.matrix_mode;
-        pMat4 old_matrix_model = pe_graphics.matrix[pe_graphics.mode][peMatrixMode_Model];
-        bool old_matrix_model_is_identity = pe_graphics.matrix_model_is_identity[pe_graphics.mode];
+        pMatrixMode old_matrix_mode = p_graphics.matrix_mode;
+        pMat4 old_matrix_model = p_graphics.matrix[p_graphics.mode][pMatrixMode_Model];
+        bool old_matrix_model_is_identity = p_graphics.matrix_model_is_identity[p_graphics.mode];
 
-        pe_graphics_matrix_mode(peMatrixMode_Model);
-        pe_graphics_matrix_identity();
-        pe_graphics_matrix_update();
+        p_graphics_matrix_mode(pMatrixMode_Model);
+        p_graphics_matrix_identity();
+        p_graphics_matrix_update();
 
-        sceKernelDcacheWritebackRange(dynamic_draw.vertex, sizeof(peDynamicDrawVertex)*PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT);
+        sceKernelDcacheWritebackRange(dynamic_draw.vertex, sizeof(pDynamicDrawVertex)*P_MAX_DYNAMIC_DRAW_VERTEX_COUNT);
 
         for (int b = dynamic_draw.batch_drawn_count; b <= dynamic_draw.batch_current; b += 1) {
             peTraceMark tm_draw_batch = PE_TRACE_MARK_BEGIN("draw batch");
             P_ASSERT(dynamic_draw.batch[b].vertex_count > 0);
 
             if (dynamic_draw.batch[b].texture) {
-                pe_texture_bind(*dynamic_draw.batch[b].texture);
+                p_texture_bind(*dynamic_draw.batch[b].texture);
             } else {
-                pe_texture_bind_default();
+                p_texture_bind_default();
             }
 
             int primitive_sce;
             switch (dynamic_draw.batch[b].primitive) {
-                case pePrimitive_Points: primitive_sce = GU_POINTS; break;
-                case pePrimitive_Lines: primitive_sce = GU_LINES; break;
-                case pePrimitive_Triangles: primitive_sce = GU_TRIANGLES; break;
-                case pePrimitive_TriangleStrip: primitive_sce = GU_TRIANGLE_STRIP; break;
+                case pPrimitive_Points: primitive_sce = GU_POINTS; break;
+                case pPrimitive_Lines: primitive_sce = GU_LINES; break;
+                case pPrimitive_Triangles: primitive_sce = GU_TRIANGLES; break;
+                case pPrimitive_TriangleStrip: primitive_sce = GU_TRIANGLE_STRIP; break;
                 default: break;
             }
-            int gu_transform = pe_graphics.mode == peGraphicsMode_3D ? GU_TRANSFORM_3D : GU_TRANSFORM_3D;
+            int gu_transform = p_graphics.mode == pGraphicsMode_3D ? GU_TRANSFORM_3D : GU_TRANSFORM_3D;
             int vertex_type = (
                 GU_TEXTURE_32BITF|GU_COLOR_8888|GU_NORMAL_32BITF|GU_VERTEX_32BITF|gu_transform
             );
@@ -328,33 +328,33 @@ void pe_graphics_dynamic_draw_draw_batches(void) {
             PE_TRACE_MARK_END(tm_draw_batch);
         }
 
-        pe_graphics_matrix_set(&old_matrix_model);
-        pe_graphics_matrix_update();
-        pe_graphics_matrix_mode(old_matrix_mode);
-        pe_graphics.matrix_model_is_identity[pe_graphics.mode] = old_matrix_model_is_identity;
+        p_graphics_matrix_set(&old_matrix_model);
+        p_graphics_matrix_update();
+        p_graphics_matrix_mode(old_matrix_mode);
+        p_graphics.matrix_model_is_identity[p_graphics.mode] = old_matrix_model_is_identity;
 
         dynamic_draw.batch_drawn_count = dynamic_draw.batch_current + 1;
         PE_TRACE_FUNCTION_END();
     }
 }
 
-void pe_graphics_dynamic_draw_push_vec3(pVec3 position) {
-    if (!pe_graphics.matrix_model_is_identity[pe_graphics.mode]) {
-        pMat4 *matrix = &pe_graphics.matrix[pe_graphics.mode][peMatrixMode_Model];
+void p_graphics_dynamic_draw_push_vec3(pVec3 position) {
+    if (!p_graphics.matrix_model_is_identity[p_graphics.mode]) {
+        pMat4 *matrix = &p_graphics.matrix[p_graphics.mode][pMatrixMode_Model];
         pVec4 position_vec4 = p_vec4v(position, 1.0f);
         pVec4 transformed_position = p_mat4_mul_vec4(*matrix, position_vec4);
         position = transformed_position.xyz;
     }
-    pePrimitive batch_primitive = dynamic_draw.batch[dynamic_draw.batch_current].primitive;
+    pPrimitive batch_primitive = dynamic_draw.batch[dynamic_draw.batch_current].primitive;
     int batch_vertex_count = dynamic_draw.batch[dynamic_draw.batch_current].vertex_count;
-    int primitive_vertex_count = pe_graphics_primitive_vertex_count(batch_primitive);
+    int primitive_vertex_count = p_graphics_primitive_vertex_count(batch_primitive);
     if (primitive_vertex_count > 0) {
         int primitive_vertex_left = primitive_vertex_count - (batch_vertex_count % primitive_vertex_count);
-        pe_graphics_dynamic_draw_vertex_reserve(primitive_vertex_left);
+        p_graphics_dynamic_draw_vertex_reserve(primitive_vertex_left);
     }
-    peDynamicDrawVertex *vertex = &dynamic_draw.vertex[dynamic_draw.vertex_used];
+    pDynamicDrawVertex *vertex = &dynamic_draw.vertex[dynamic_draw.vertex_used];
     vertex->texcoord = dynamic_draw.texcoord;
-    vertex->color = pe_color_to_8888(dynamic_draw.color);
+    vertex->color = p_color_to_8888(dynamic_draw.color);
     vertex->normal = dynamic_draw.normal;
     vertex->position = position;
     dynamic_draw.batch[dynamic_draw.batch_current].vertex_count += 1;

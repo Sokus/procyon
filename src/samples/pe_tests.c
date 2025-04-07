@@ -27,13 +27,13 @@ int main(int argc, char *argv[]) {
 #endif
     peModel model = pe_model_load(&temp_arena, "./res/fox" PE_MODEL_EXTENSION);
 
-    // peCamera camera = {
+    // pCamera camera = {
     //     .target = {0.0f, 0.7f, 0.0f},
     //     .up = {0.0f, 1.0f, 0.0f},
     //     .fovy = 55.0f,
     // };
     // HMM_Vec3 camera_offset = HMM_V3(0.0f, 1.4f, 2.0f);
-    peCamera camera = {
+    pCamera camera = {
         .target = {0.0f, 0.0f, -4.0f},
         .up = {0.0f, 1.0f, 0.0f},
         .fovy = 55.0f,
@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
         // pe_camera_update(camera);
 
         p_window_frame_begin();
-        pe_clear_background((peColor){ 20, 20, 20, 255 });
+        p_clear_background((pColor){ 20, 20, 20, 255 });
 
         {
             HMM_Vec2 draw_x_range = HMM_V2(-5.0f, 5.0f);
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
     }
 
     pe_trace_shutdown();
-    pe_graphics_shutdown();
+    p_graphics_shutdown();
     p_window_shutdown();
 
     return 0;

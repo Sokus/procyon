@@ -14,15 +14,15 @@
 #include <stddef.h>
 #include <string.h>
 
-peOpenGL pe_opengl = {0};
-peDynamicDrawStateOpenGL dynamic_draw_opengl = {0};
-peTexture default_texture;
+pOpenGL pe_opengl = {0};
+pDynamicDrawStateOpenGL dynamic_draw_opengl = {0};
+pTexture default_texture;
 
 //
 // GENERAL IMPLEMENTATIONS
 //
 
-void pe_graphics_init(pArena *temp_arena, int window_width, int window_height) {
+void p_graphics_init(pArena *temp_arena, int window_width, int window_height) {
     pe_opengl.framebuffer_width = window_width;
     pe_opengl.framebuffer_height = window_height;
 
@@ -45,13 +45,13 @@ void pe_graphics_init(pArena *temp_arena, int window_width, int window_height) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // init shader_program
-    pe_opengl.shader_program = pe_shader_create_from_file(temp_arena, "res/shader.glsl");
+    pe_opengl.shader_program = p_shader_create_from_file(temp_arena, "res/shader.glsl");
     glUseProgram(pe_opengl.shader_program);
 
     // init dynamic_draw
     {
-        size_t vertex_buffer_size = PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT * sizeof(peDynamicDrawVertex);
-        size_t batch_buffer_size = PE_MAX_DYNAMIC_DRAW_BATCH_COUNT * sizeof(peDynamicDrawBatch);
+        size_t vertex_buffer_size = P_MAX_DYNAMIC_DRAW_VERTEX_COUNT * sizeof(pDynamicDrawVertex);
+        size_t batch_buffer_size = P_MAX_DYNAMIC_DRAW_BATCH_COUNT * sizeof(pDynamicDrawBatch);
 
         dynamic_draw.vertex = p_heap_alloc(vertex_buffer_size);
         dynamic_draw.batch = p_heap_alloc(batch_buffer_size);
@@ -65,10 +65,10 @@ void pe_graphics_init(pArena *temp_arena, int window_width, int window_height) {
         glBindBuffer(GL_ARRAY_BUFFER, dynamic_draw_opengl.vertex_buffer_object);
         glBufferData(GL_ARRAY_BUFFER, vertex_buffer_size, NULL, GL_DYNAMIC_DRAW);
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(peDynamicDrawVertex), (void*)offsetof(peDynamicDrawVertex, position));
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(peDynamicDrawVertex), (void*)offsetof(peDynamicDrawVertex, normal));
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(peDynamicDrawVertex), (void*)offsetof(peDynamicDrawVertex, texcoord));
-        glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(peDynamicDrawVertex), (void*)offsetof(peDynamicDrawVertex, color));
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(pDynamicDrawVertex), (void*)offsetof(pDynamicDrawVertex, position));
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(pDynamicDrawVertex), (void*)offsetof(pDynamicDrawVertex, normal));
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(pDynamicDrawVertex), (void*)offsetof(pDynamicDrawVertex, texcoord));
+        glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(pDynamicDrawVertex), (void*)offsetof(pDynamicDrawVertex, color));
 
         glEnableVertexAttribArray(0);
         glEnableVertexAttribArray(1);
@@ -82,87 +82,87 @@ void pe_graphics_init(pArena *temp_arena, int window_width, int window_height) {
 
     // init matrices
     {
-        pe_graphics.mode = peGraphicsMode_2D;
-        pe_graphics.matrix_mode = peMatrixMode_Projection;
+        p_graphics.mode = pGraphicsMode_2D;
+        p_graphics.matrix_mode = pMatrixMode_Projection;
 
-        for (int gm = 0; gm < peGraphicsMode_Count; gm += 1) {
-            for (int mm = 0; mm < peMatrixMode_Count; mm += 1) {
-                pe_graphics.matrix[gm][mm] = p_mat4_i();
-                pe_graphics.matrix_dirty[gm][mm] = true;
+        for (int gm = 0; gm < pGraphicsMode_Count; gm += 1) {
+            for (int mm = 0; mm < pMatrixMode_Count; mm += 1) {
+                p_graphics.matrix[gm][mm] = p_mat4_i();
+                p_graphics.matrix_dirty[gm][mm] = true;
             }
-            pe_graphics.matrix_model_is_identity[gm] = true;
+            p_graphics.matrix_model_is_identity[gm] = true;
         }
 
-        pe_graphics.matrix[peGraphicsMode_2D][peMatrixMode_Projection] = pe_matrix_orthographic(
+        p_graphics.matrix[pGraphicsMode_2D][pMatrixMode_Projection] = p_matrix_orthographic(
             0, (float)window_width,
             (float)window_height, 0,
             0.0f, 1000.0f
         );
 
-        pe_graphics_matrix_update();
+        p_graphics_matrix_update();
     }
 
     // init shader defaults
     {
-        pe_graphics_set_lighting(true);
-        pe_graphics_set_light_vector(PE_LIGHT_VECTOR_DEFAULT);
+        p_graphics_set_lighting(true);
+        p_graphics_set_light_vector(P_LIGHT_VECTOR_DEFAULT);
     }
 
     // init default texture
 	{
 		uint32_t texture_data[] = { 0xFFFFFFFF };
-		default_texture = pe_texture_create(temp_arena, texture_data, 1, 1);
+		default_texture = p_texture_create(temp_arena, texture_data, 1, 1);
 	}
 }
 
-void pe_graphics_shutdown(void) {
+void p_graphics_shutdown(void) {
     p_heap_free(dynamic_draw.vertex);
     p_heap_free(dynamic_draw.batch);
 }
 
-void pe_graphics_set_framebuffer_size(int width, int height) {
+void p_graphics_set_framebuffer_size(int width, int height) {
     glViewport(0, 0, width, height);
     pe_opengl.framebuffer_width = width;
     pe_opengl.framebuffer_height = height;
 
-    P_ASSERT(pe_graphics.mode == peGraphicsMode_2D);
-    pe_graphics.matrix_mode = peMatrixMode_Projection;
-    pMat4 matrix_orthographic = pe_matrix_orthographic(
+    P_ASSERT(p_graphics.mode == pGraphicsMode_2D);
+    p_graphics.matrix_mode = pMatrixMode_Projection;
+    pMat4 matrix_orthographic = p_matrix_orthographic(
         0, (float)width,
         (float)height, 0,
         0.0f, 1000.0f
     );
-    pe_graphics_matrix_set(&matrix_orthographic);
-    pe_graphics_matrix_update();
+    p_graphics_matrix_set(&matrix_orthographic);
+    p_graphics_matrix_update();
 }
 
-int pe_screen_width(void) {
+int p_screen_width(void) {
     return pe_opengl.framebuffer_width;
 }
 
-int pe_screen_height(void) {
+int p_screen_height(void) {
     return pe_opengl.framebuffer_height;
 }
 
-void pe_clear_background(peColor color) {
-    pVec4 v = pe_color_to_vec4(color);
+void p_clear_background(pColor color) {
+    pVec4 v = p_color_to_vec4(color);
 	glClearColor(v.r, v.g, v.b, v.a);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void pe_graphics_frame_begin(void) {
-    pe_graphics.matrix[peGraphicsMode_2D][peMatrixMode_Projection] = pe_matrix_orthographic(
-        0, (float)pe_screen_width(),
-        (float)pe_screen_height(), 0,
+void p_graphics_frame_begin(void) {
+    p_graphics.matrix[pGraphicsMode_2D][pMatrixMode_Projection] = p_matrix_orthographic(
+        0, (float)p_screen_width(),
+        (float)p_screen_height(), 0,
         0.0f, 1000.0f
     );
-    pe_graphics_matrix_update();
+    p_graphics_matrix_update();
 }
 
-void pe_graphics_frame_end(void) {
+void p_graphics_frame_end(void) {
 }
 
-void pe_graphics_set_depth_test(bool enable) {
+void p_graphics_set_depth_test(bool enable) {
     if (enable) {
         glEnable(GL_DEPTH_TEST);
     } else {
@@ -170,77 +170,77 @@ void pe_graphics_set_depth_test(bool enable) {
     }
 }
 
-void pe_graphics_set_lighting(bool enable) {
-    pe_shader_set_bool(pe_opengl.shader_program, "do_lighting", enable);
+void p_graphics_set_lighting(bool enable) {
+    p_shader_set_bool(pe_opengl.shader_program, "do_lighting", enable);
 }
 
-void pe_graphics_set_light_vector(pVec3 light_vector) {
-    pe_shader_set_vec3(pe_opengl.shader_program, "light_vector", light_vector);
+void p_graphics_set_light_vector(pVec3 light_vector) {
+    p_shader_set_vec3(pe_opengl.shader_program, "light_vector", light_vector);
 }
 
-void pe_graphics_set_diffuse_color(peColor color) {
-    pe_shader_set_vec3(pe_opengl.shader_program, "diffuse_color", pe_color_to_vec4(color).rgb);
+void p_graphics_set_diffuse_color(pColor color) {
+    p_shader_set_vec3(pe_opengl.shader_program, "diffuse_color", p_color_to_vec4(color).rgb);
 }
 
-void pe_graphics_matrix_update(void) {
-    char *uniform_names[peMatrixMode_Count] = {
+void p_graphics_matrix_update(void) {
+    char *uniform_names[pMatrixMode_Count] = {
         "matrix_projection",
         "matrix_view",
         "matrix_model"
     };
-    for (int matrix_mode = 0; matrix_mode < peMatrixMode_Count; matrix_mode += 1) {
-        if (pe_graphics.matrix_dirty[pe_graphics.mode][matrix_mode]) {
-            pMat4 *matrix = &pe_graphics.matrix[pe_graphics.mode][matrix_mode];
-            pe_shader_set_mat4(pe_opengl.shader_program, uniform_names[matrix_mode], matrix);
-            pe_graphics.matrix_dirty[pe_graphics.mode][matrix_mode] = false;
+    for (int matrix_mode = 0; matrix_mode < pMatrixMode_Count; matrix_mode += 1) {
+        if (p_graphics.matrix_dirty[p_graphics.mode][matrix_mode]) {
+            pMat4 *matrix = &p_graphics.matrix[p_graphics.mode][matrix_mode];
+            p_shader_set_mat4(pe_opengl.shader_program, uniform_names[matrix_mode], matrix);
+            p_graphics.matrix_dirty[p_graphics.mode][matrix_mode] = false;
         }
     }
 }
 
-pMat4 pe_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z) {
+pMat4 p_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z) {
 	return p_perspective_rh_no(fovy * P_DEG2RAD, aspect_ratio, near_z, far_z);
 }
 
-pMat4 pe_matrix_orthographic(float left, float right, float bottom, float top, float near_z, float far_z) {
+pMat4 p_matrix_orthographic(float left, float right, float bottom, float top, float near_z, float far_z) {
     return p_orthographic_rh_no(left, right, bottom, top, near_z, far_z);
 }
 
-void pe_graphics_dynamic_draw_draw_batches(void) {
+void p_graphics_dynamic_draw_draw_batches(void) {
     if (dynamic_draw.batch[dynamic_draw.batch_drawn_count].vertex_count > 0) {
-        peMatrixMode old_matrix_mode = pe_graphics.matrix_mode;
-        pMat4 old_matrix_model = pe_graphics.matrix[pe_graphics.mode][peMatrixMode_Model];
-        bool old_matrix_model_is_identity = pe_graphics.matrix_model_is_identity[pe_graphics.mode];
+        pMatrixMode old_matrix_mode = p_graphics.matrix_mode;
+        pMat4 old_matrix_model = p_graphics.matrix[p_graphics.mode][pMatrixMode_Model];
+        bool old_matrix_model_is_identity = p_graphics.matrix_model_is_identity[p_graphics.mode];
 
-        pe_graphics_matrix_mode(peMatrixMode_Model);
-        pe_graphics_matrix_identity();
-        pe_graphics_matrix_update();
-        pe_shader_set_bool(pe_opengl.shader_program, "has_skeleton", false);
+        p_graphics_matrix_mode(pMatrixMode_Model);
+        p_graphics_matrix_identity();
+        p_graphics_matrix_update();
+        p_shader_set_bool(pe_opengl.shader_program, "has_skeleton", false);
 
         glBindVertexArray(dynamic_draw_opengl.vertex_array_object);
         glBindBuffer(GL_ARRAY_BUFFER, dynamic_draw_opengl.vertex_buffer_object);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, (size_t)dynamic_draw.vertex_used*sizeof(peDynamicDrawVertex), dynamic_draw.vertex);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, (size_t)dynamic_draw.vertex_used*sizeof(pDynamicDrawVertex), dynamic_draw.vertex);
 
         bool previous_do_lighting = false;
         for (int b = dynamic_draw.batch_drawn_count; b <= dynamic_draw.batch_current; b += 1) {
             P_ASSERT(dynamic_draw.batch[b].vertex_count > 0);
 
-            peTexture *texture = dynamic_draw.batch[b].texture;
+            pTexture *texture = dynamic_draw.batch[b].texture;
             if (!texture) texture = &default_texture;
-            pe_texture_bind(*texture);
+            p_texture_bind(*texture);
 
             bool do_lighting = dynamic_draw.batch[b].do_lighting;
             if (b == 0 || previous_do_lighting != do_lighting) {
-                pe_graphics_set_lighting(do_lighting);
-                pe_graphics_set_light_vector(PE_LIGHT_VECTOR_DEFAULT);
+                p_graphics_set_lighting(do_lighting);
+                p_graphics_set_light_vector(P_LIGHT_VECTOR_DEFAULT);
                 previous_do_lighting = do_lighting;
             }
 
             GLenum primitive_gl;
             switch (dynamic_draw.batch[b].primitive) {
-                case pePrimitive_Points: primitive_gl = GL_POINTS; break;
-                case pePrimitive_Lines: primitive_gl = GL_LINES; break;
-                case pePrimitive_Triangles: primitive_gl = GL_TRIANGLES; break;
-                case pePrimitive_TriangleStrip: primitive_gl = GL_TRIANGLE_STRIP; break;
+                case pPrimitive_Points: primitive_gl = GL_POINTS; break;
+                case pPrimitive_Lines: primitive_gl = GL_LINES; break;
+                case pPrimitive_Triangles: primitive_gl = GL_TRIANGLES; break;
+                case pPrimitive_TriangleStrip: primitive_gl = GL_TRIANGLE_STRIP; break;
                 default: P_PANIC(); break;
             }
 
@@ -253,30 +253,30 @@ void pe_graphics_dynamic_draw_draw_batches(void) {
 
         glBindVertexArray(0);
 
-        pe_graphics_matrix_set(&old_matrix_model);
-        pe_graphics_matrix_update();
-        pe_graphics_matrix_mode(old_matrix_mode);
-        pe_graphics.matrix_model_is_identity[pe_graphics.mode] = old_matrix_model_is_identity;
+        p_graphics_matrix_set(&old_matrix_model);
+        p_graphics_matrix_update();
+        p_graphics_matrix_mode(old_matrix_mode);
+        p_graphics.matrix_model_is_identity[p_graphics.mode] = old_matrix_model_is_identity;
 
         dynamic_draw.batch_drawn_count = dynamic_draw.batch_current + 1;
     }
 }
 
-void pe_graphics_dynamic_draw_push_vec3(pVec3 position) {
-    if (!pe_graphics.matrix_model_is_identity[pe_graphics.mode]) {
-        pMat4 *matrix = &pe_graphics.matrix[pe_graphics.mode][peMatrixMode_Model];
+void p_graphics_dynamic_draw_push_vec3(pVec3 position) {
+    if (!p_graphics.matrix_model_is_identity[p_graphics.mode]) {
+        pMat4 *matrix = &p_graphics.matrix[p_graphics.mode][pMatrixMode_Model];
         pVec4 position_vec4 = p_vec4v(position, 1.0f);
         pVec4 transformed_position = p_mat4_mul_vec4(*matrix, position_vec4);
         position = transformed_position.xyz;
     }
-    pePrimitive batch_primitive = dynamic_draw.batch[dynamic_draw.batch_current].primitive;
+    pPrimitive batch_primitive = dynamic_draw.batch[dynamic_draw.batch_current].primitive;
     int batch_vertex_count = dynamic_draw.batch[dynamic_draw.batch_current].vertex_count;
-    int primitive_vertex_count = pe_graphics_primitive_vertex_count(batch_primitive);
+    int primitive_vertex_count = p_graphics_primitive_vertex_count(batch_primitive);
     if (primitive_vertex_count > 0) {
         int primitive_vertex_left = primitive_vertex_count - (batch_vertex_count % primitive_vertex_count);
-        pe_graphics_dynamic_draw_vertex_reserve(primitive_vertex_left);
+        p_graphics_dynamic_draw_vertex_reserve(primitive_vertex_left);
     }
-    peDynamicDrawVertex *vertex = &dynamic_draw.vertex[dynamic_draw.vertex_used];
+    pDynamicDrawVertex *vertex = &dynamic_draw.vertex[dynamic_draw.vertex_used];
     vertex->position = position;
     vertex->normal = dynamic_draw.normal;
     vertex->texcoord = dynamic_draw.texcoord;
@@ -352,7 +352,7 @@ static const char *gl_shader_type_string(GLenum type) {
     }
 }
 
-static GLuint pe_shader_compile(GLenum type, const GLchar *shader_source) {
+static GLuint p_shader_compile(GLenum type, const GLchar *shader_source) {
     GLuint shader = glCreateShader(type);
 
     const char *shader_version = "#version 420 core\n";
@@ -370,13 +370,13 @@ static GLuint pe_shader_compile(GLenum type, const GLchar *shader_source) {
     return shader;
 }
 
-GLuint pe_shader_create_from_file(pArena *temp_arena, const char *source_file_path) {
+GLuint p_shader_create_from_file(pArena *temp_arena, const char *source_file_path) {
     GLuint vertex_shader, fragment_shader;
     {
         pArenaTemp arena_temp = p_arena_temp_begin(temp_arena);
         pFileContents shader_source_file_contents = p_file_read_contents(temp_arena, source_file_path, true);
-        vertex_shader = pe_shader_compile(GL_VERTEX_SHADER, shader_source_file_contents.data);
-        fragment_shader = pe_shader_compile(GL_FRAGMENT_SHADER, shader_source_file_contents.data);
+        vertex_shader = p_shader_compile(GL_VERTEX_SHADER, shader_source_file_contents.data);
+        fragment_shader = p_shader_compile(GL_FRAGMENT_SHADER, shader_source_file_contents.data);
         p_arena_temp_end(arena_temp);
     }
 
@@ -400,38 +400,38 @@ GLuint pe_shader_create_from_file(pArena *temp_arena, const char *source_file_pa
     return shader_program;
 }
 
-void pe_shader_set_vec3(GLuint shader_program, const GLchar *name, pVec3 value) {
+void p_shader_set_vec3(GLuint shader_program, const GLchar *name, pVec3 value) {
     GLint uniform_location = glGetUniformLocation(shader_program, name);
     glUniform3fv(uniform_location, 1, value.elements);
 }
 
-void pe_shader_get_mat4(GLuint shader_program, const GLchar *name, pMat4 *value) {
+void p_shader_get_mat4(GLuint shader_program, const GLchar *name, pMat4 *value) {
     GLint uniform_location = glGetUniformLocation(shader_program, name);
     glGetUniformfv(shader_program, uniform_location, (void*)value);
 }
 
-void pe_shader_set_mat4(GLuint shader_program, const GLchar *name, pMat4 *value) {
+void p_shader_set_mat4(GLuint shader_program, const GLchar *name, pMat4 *value) {
     GLint uniform_location = glGetUniformLocation(shader_program, name);
     glUniformMatrix4fv(uniform_location, 1, GL_FALSE, (void*)value);
 }
 
-void pe_shader_set_mat4_array(GLuint shader_program, const GLchar *name, pMat4 *values, GLsizei count) {
+void p_shader_set_mat4_array(GLuint shader_program, const GLchar *name, pMat4 *values, GLsizei count) {
     GLint uniform_location = glGetUniformLocation(shader_program, name);
     glUniformMatrix4fv(uniform_location, count, GL_FALSE, (void*)values);
 }
 
-void pe_shader_get_bool(GLuint shader_program, const GLchar *name, bool *value) {
+void p_shader_get_bool(GLuint shader_program, const GLchar *name, bool *value) {
     GLint uniform_location = glGetUniformLocation(shader_program, name);
     glGetUniformiv(shader_program, uniform_location, (GLint*)value);
 }
 
-void pe_shader_set_bool(GLuint shader_program, const GLchar *name, bool value) {
+void p_shader_set_bool(GLuint shader_program, const GLchar *name, bool value) {
     GLint uniform_location = glGetUniformLocation(shader_program, name);
     GLint gl_value = value ? 1 : 0;
     glUniform1i(uniform_location, gl_value);
 }
 
-peTexture pe_texture_create(pArena *temp_arena, void *data, int width, int height) {
+pTexture p_texture_create(pArena *temp_arena, void *data, int width, int height) {
     GLint texture_object;
     glGenTextures(1, &texture_object);
     glBindTexture(GL_TEXTURE_2D, texture_object);
@@ -451,7 +451,7 @@ peTexture pe_texture_create(pArena *temp_arena, void *data, int width, int heigh
     glGenerateMipmap(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    peTexture texture = {
+    pTexture texture = {
         .texture_object = texture_object,
         .width = width,
         .height = height
@@ -459,11 +459,11 @@ peTexture pe_texture_create(pArena *temp_arena, void *data, int width, int heigh
     return texture;
 }
 
-void pe_texture_bind(peTexture texture) {
+void p_texture_bind(pTexture texture) {
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture.texture_object);
 }
 
-void pe_texture_bind_default(void) {
-	pe_texture_bind(default_texture);
+void p_texture_bind_default(void) {
+	p_texture_bind(default_texture);
 }

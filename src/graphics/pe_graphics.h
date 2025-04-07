@@ -1,5 +1,5 @@
-#ifndef PE_GRAPHICS_H
-#define PE_GRAPHICS_H
+#ifndef P_GRAPHICS_H
+#define P_GRAPHICS_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -10,67 +10,67 @@
 
 typedef struct pArena pArena;
 
-#define PE_LIGHT_VECTOR_DEFAULT (pVec3){ 1.0f, -1.0f, 1.0f }
+#define P_LIGHT_VECTOR_DEFAULT (pVec3){ 1.0f, -1.0f, 1.0f }
 
-#define PE_COLOR_WHITE (peColor){ 255, 255, 255, 255 }
-#define PE_COLOR_GRAY  (peColor){ 127, 127, 127, 255 }
-#define PE_COLOR_RED   (peColor){ 255,   0,   0, 255 }
-#define PE_COLOR_GREEN (peColor){   0, 255,   0, 255 }
-#define PE_COLOR_BLUE  (peColor){   0,   0, 255, 255 }
-#define PE_COLOR_BLACK (peColor){   0,   0,   0,   0 }
+#define P_COLOR_WHITE (pColor){ 255, 255, 255, 255 }
+#define P_COLOR_GRAY  (pColor){ 127, 127, 127, 255 }
+#define P_COLOR_RED   (pColor){ 255,   0,   0, 255 }
+#define P_COLOR_GREEN (pColor){   0, 255,   0, 255 }
+#define P_COLOR_BLUE  (pColor){   0,   0, 255, 255 }
+#define P_COLOR_BLACK (pColor){   0,   0,   0,   0 }
 
-typedef enum peGraphicsMode {
-    peGraphicsMode_2D,
-    peGraphicsMode_3D,
-    peGraphicsMode_Count
-} peGraphicsMode;
+typedef enum pGraphicsMode {
+    pGraphicsMode_2D,
+    pGraphicsMode_3D,
+    pGraphicsMode_Count
+} pGraphicsMode;
 
-typedef enum peMatrixMode {
-    peMatrixMode_Projection,
-    peMatrixMode_View,
-    peMatrixMode_Model,
-    peMatrixMode_Count
-} peMatrixMode;
+typedef enum pMatrixMode {
+    pMatrixMode_Projection,
+    pMatrixMode_View,
+    pMatrixMode_Model,
+    pMatrixMode_Count
+} pMatrixMode;
 
-typedef struct peGraphics {
-    peGraphicsMode mode;
-    peMatrixMode matrix_mode;
+typedef struct pGraphics {
+    pGraphicsMode mode;
+    pMatrixMode matrix_mode;
 
-    pMat4 matrix[peGraphicsMode_Count][peMatrixMode_Count];
-    bool matrix_dirty[peGraphicsMode_Count][peMatrixMode_Count];
-    bool matrix_model_is_identity[peGraphicsMode_Count];
-} peGraphics;
-extern peGraphics pe_graphics;
+    pMat4 matrix[pGraphicsMode_Count][pMatrixMode_Count];
+    bool matrix_dirty[pGraphicsMode_Count][pMatrixMode_Count];
+    bool matrix_model_is_identity[pGraphicsMode_Count];
+} pGraphics;
+extern pGraphics p_graphics;
 
-typedef union peColor {
+typedef union pColor {
     struct { uint8_t r, g, b, a; };
     struct { uint32_t rgba; };
-} peColor;
+} pColor;
 
-typedef struct peRect {
+typedef struct pRect {
     float x;
     float y;
     float width;
     float height;
-} peRect;
+} pRect;
 
-// peTexture
+// pTexture
 #if defined(_WIN32)
 typedef struct ID3D11ShaderResourceView ID3D11ShaderResourceView;
-typedef struct peTexture {
+typedef struct pTexture {
 	struct ID3D11ShaderResourceView *texture_resource;
 	int width;
 	int height;
-} peTexture;
+} pTexture;
 #elif defined(__linux__)
 typedef unsigned int GLuint;
-typedef struct peTexture {
+typedef struct pTexture {
 	GLuint texture_object;
 	int width;
 	int height;
-} peTexture;
+} pTexture;
 #elif defined(__PSP__)
-typedef struct peTexture {
+typedef struct pTexture {
     void *data;
     int format;
     int width;
@@ -82,18 +82,18 @@ typedef struct peTexture {
     int palette_length;
     int palette_padded_length;
     int palette_format;
-} peTexture;
+} pTexture;
 #endif
 
-typedef enum pePrimitive {
-    pePrimitive_Points,
-    pePrimitive_Lines,
-    pePrimitive_Triangles,
-    pePrimitive_TriangleStrip,
-    pePrimitive_Count
-} pePrimitive;
+typedef enum pPrimitive {
+    pPrimitive_Points,
+    pPrimitive_Lines,
+    pPrimitive_Triangles,
+    pPrimitive_TriangleStrip,
+    pPrimitive_Count
+} pPrimitive;
 
-typedef struct peDynamicDrawVertex {
+typedef struct pDynamicDrawVertex {
 #if defined(_WIN32)
     pVec3 position;
     pVec3 normal;
@@ -110,127 +110,127 @@ typedef struct peDynamicDrawVertex {
     pVec2 texcoord;
     uint32_t color;
 #endif
-} peDynamicDrawVertex;
+} pDynamicDrawVertex;
 
-typedef struct peDynamicDrawBatch {
+typedef struct pDynamicDrawBatch {
     int vertex_offset;
     int vertex_count;
-    pePrimitive primitive;
-    peTexture *texture;
+    pPrimitive primitive;
+    pTexture *texture;
     bool do_lighting; // unused on the PSP
-} peDynamicDrawBatch;
+} pDynamicDrawBatch;
 
 #if defined(__PSP__)
-#define PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT 2024
-#define PE_MAX_DYNAMIC_DRAW_BATCH_COUNT 256
+#define P_MAX_DYNAMIC_DRAW_VERTEX_COUNT 2024
+#define P_MAX_DYNAMIC_DRAW_BATCH_COUNT 256
 #else
-#define PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT 2024
-#define PE_MAX_DYNAMIC_DRAW_BATCH_COUNT 512
+#define P_MAX_DYNAMIC_DRAW_VERTEX_COUNT 2024
+#define P_MAX_DYNAMIC_DRAW_BATCH_COUNT 512
 #endif
 
-typedef struct peDynamicDrawState {
-    pePrimitive primitive;
-    peTexture *texture;
+typedef struct pDynamicDrawState {
+    pPrimitive primitive;
+    pTexture *texture;
     pVec3 normal;
     pVec2 texcoord;
-    peColor color;
+    pColor color;
     bool do_lighting;
 
-    peDynamicDrawVertex *vertex;
+    pDynamicDrawVertex *vertex;
     int vertex_used;
 
-    peDynamicDrawBatch *batch;
+    pDynamicDrawBatch *batch;
     int batch_current;
     int batch_drawn_count;
-} peDynamicDrawState;
-extern peDynamicDrawState dynamic_draw;
+} pDynamicDrawState;
+extern pDynamicDrawState dynamic_draw;
 
-typedef struct peCamera {
+typedef struct pCamera {
     pVec3 position;
     pVec3 target;
     pVec3 up;
     float fovy;
-} peCamera;
+} pCamera;
 
 // GENERAL
 
-void pe_graphics_init(pArena *temp_arena, int window_width, int window_height);
-void pe_graphics_shutdown(void);
-void pe_graphics_set_framebuffer_size(int width, int height);
-int pe_screen_width(void);
-int pe_screen_height(void);
-void pe_clear_background(peColor color);
-void pe_graphics_frame_begin(void);
-void pe_graphics_frame_end(void);
-void pe_graphics_mode_3d_begin(peCamera camera);
-void pe_graphics_mode_3d_end(void);
+void p_graphics_init(pArena *temp_arena, int window_width, int window_height);
+void p_graphics_shutdown(void);
+void p_graphics_set_framebuffer_size(int width, int height);
+int p_screen_width(void);
+int p_screen_height(void);
+void p_clear_background(pColor color);
+void p_graphics_frame_begin(void);
+void p_graphics_frame_end(void);
+void p_graphics_mode_3d_begin(pCamera camera);
+void p_graphics_mode_3d_end(void);
 
-void pe_graphics_set_depth_test(bool enable);
-void pe_graphics_set_lighting(bool enable);
-void pe_graphics_set_light_vector(pVec3 light_vector);
-void pe_graphics_set_diffuse_color(peColor color);
+void p_graphics_set_depth_test(bool enable);
+void p_graphics_set_lighting(bool enable);
+void p_graphics_set_light_vector(pVec3 light_vector);
+void p_graphics_set_diffuse_color(pColor color);
 
 // MATRICES
 
-void pe_graphics_matrix_mode(peMatrixMode mode);
-void pe_graphics_matrix_set(pMat4 *matrix);
-void pe_graphics_matrix_identity(void);
-void pe_graphics_matrix_update(void);
+void p_graphics_matrix_mode(pMatrixMode mode);
+void p_graphics_matrix_set(pMat4 *matrix);
+void p_graphics_matrix_identity(void);
+void p_graphics_matrix_update(void);
 
-pMat4 pe_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z);
-pMat4 pe_matrix_orthographic(float left, float right, float bottom, float top, float near_z, float far_z);
+pMat4 p_matrix_perspective(float fovy, float aspect_ratio, float near_z, float far_z);
+pMat4 p_matrix_orthographic(float left, float right, float bottom, float top, float near_z, float far_z);
 
 // COLOR
 
-pVec4 pe_color_to_vec4(peColor color);
-uint16_t pe_color_to_5650(peColor color);
-uint32_t pe_color_to_8888(peColor color);
+pVec4 p_color_to_vec4(pColor color);
+uint16_t p_color_to_5650(pColor color);
+uint32_t p_color_to_8888(pColor color);
 
 // TEXTURE
 
 typedef struct pbmFile pbmFile;
-peTexture pe_texture_create(pArena *temp_arena, void *data, int width, int height);
-peTexture pe_texture_create_pbm(pArena *temp_arena, pbmFile *pbm);
-void pe_texture_bind(peTexture texture);
-void pe_texture_bind_default(void);
+pTexture p_texture_create(pArena *temp_arena, void *data, int width, int height);
+pTexture p_texture_create_pbm(pArena *temp_arena, pbmFile *pbm);
+void p_texture_bind(pTexture texture);
+void p_texture_bind_default(void);
 
 // DYNAMIC DRAW
 
-int pe_graphics_primitive_vertex_count(pePrimitive primitive);
-bool pe_graphics_primitive_can_continue(pePrimitive primitive);
+int p_graphics_primitive_vertex_count(pPrimitive primitive);
+bool p_graphics_primitive_can_continue(pPrimitive primitive);
 
-bool pe_graphics_dynamic_draw_vertex_reserve(int count);
-void pe_graphics_dynamic_draw_new_batch(void);
-void pe_graphics_dynamic_draw_clear(void);
-void pe_graphics_dynamic_draw_draw_batches(void);
+bool p_graphics_dynamic_draw_vertex_reserve(int count);
+void p_graphics_dynamic_draw_new_batch(void);
+void p_graphics_dynamic_draw_clear(void);
+void p_graphics_dynamic_draw_draw_batches(void);
 
-void pe_graphics_dynamic_draw_set_primitive(pePrimitive primitive);
-void pe_graphics_dynamic_draw_set_texture(peTexture *texture);
-void pe_graphics_dynamic_draw_set_normal(pVec3 normal);
-void pe_graphics_dynamic_draw_set_texcoord(pVec2 texcoord);
-void pe_graphics_dynamic_draw_set_color(peColor color);
-void pe_graphics_dynamic_draw_do_lighting(bool do_lighting);
+void p_graphics_dynamic_draw_set_primitive(pPrimitive primitive);
+void p_graphics_dynamic_draw_set_texture(pTexture *texture);
+void p_graphics_dynamic_draw_set_normal(pVec3 normal);
+void p_graphics_dynamic_draw_set_texcoord(pVec2 texcoord);
+void p_graphics_dynamic_draw_set_color(pColor color);
+void p_graphics_dynamic_draw_do_lighting(bool do_lighting);
 
-void pe_graphics_dynamic_draw_begin_primitive(pePrimitive primitive);
-void pe_graphics_dynamic_draw_begin_primitive_textured(pePrimitive primitive, peTexture *texture);
+void p_graphics_dynamic_draw_begin_primitive(pPrimitive primitive);
+void p_graphics_dynamic_draw_begin_primitive_textured(pPrimitive primitive, pTexture *texture);
 
-void pe_graphics_dynamic_draw_push_vec3(pVec3 position);
-void pe_graphics_dynamic_draw_push_vec2(pVec2 position);
+void p_graphics_dynamic_draw_push_vec3(pVec3 position);
+void p_graphics_dynamic_draw_push_vec2(pVec2 position);
 
-void pe_graphics_draw_point(pVec2 position, peColor color);
-void pe_graphics_draw_point_int(int pos_x, int pos_y, peColor color);
-void pe_graphics_draw_line(pVec2 start_position, pVec2 end_position, peColor color);
-void pe_graphics_draw_rectangle(float x, float y, float width, float height, peColor color);
-void pe_graphics_draw_texture(peTexture *texture, float x, float y, float scale, peColor tint);
-void pe_graphics_draw_texture_ex(peTexture *texture, peRect src, peRect dst, peColor tint);
+void p_graphics_draw_point(pVec2 position, pColor color);
+void p_graphics_draw_point_int(int pos_x, int pos_y, pColor color);
+void p_graphics_draw_line(pVec2 start_position, pVec2 end_position, pColor color);
+void p_graphics_draw_rectangle(float x, float y, float width, float height, pColor color);
+void p_graphics_draw_texture(pTexture *texture, float x, float y, float scale, pColor tint);
+void p_graphics_draw_texture_ex(pTexture *texture, pRect src, pRect dst, pColor tint);
 
-void pe_graphics_draw_point_3D(pVec3 position, peColor color);
-void pe_graphics_draw_line_3D(pVec3 start_position, pVec3 end_position, peColor color);
-void pe_graphics_draw_grid_3D(int slices, float spacing);
+void p_graphics_draw_point_3D(pVec3 position, pColor color);
+void p_graphics_draw_line_3D(pVec3 start_position, pVec3 end_position, pColor color);
+void p_graphics_draw_grid_3D(int slices, float spacing);
 
 // CAMERA
 
-typedef struct peRay peRay;
-peRay pe_get_mouse_ray(pVec2 mouse, peCamera camera);
+typedef struct pRay pRay;
+pRay p_get_mouse_ray(pVec2 mouse, pCamera camera);
 
-#endif // PE_GRAPHICS_H
+#endif // P_GRAPHICS_H

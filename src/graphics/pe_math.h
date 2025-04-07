@@ -16,12 +16,12 @@ pVec3 pe_unproject_vec3(
     pMat4 view
 );
 
-typedef struct peRay {
+typedef struct pRay {
     pVec3 position;
     pVec3 direction;
-} peRay;
+} pRay;
 
-bool pe_collision_ray_plane(peRay ray, pVec3 plane_normal, float plane_d, pVec3* collision_point);
+bool pe_collision_ray_plane(pRay ray, pVec3 plane_normal, float plane_d, pVec3* collision_point);
 
 
 

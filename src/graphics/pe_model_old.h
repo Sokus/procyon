@@ -67,11 +67,11 @@ peMesh pe_gen_mesh_cube(float width, float height, float length) {
     peMesh mesh = {0};
     int num_vertex = P_COUNT_OF(pos)/3;
     int num_index = P_COUNT_OF(index);
-    mesh.pos_buffer = pe_d3d11_create_buffer(pos, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    mesh.norm_buffer = pe_d3d11_create_buffer(norm, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    mesh.tex_buffer = pe_d3d11_create_buffer(tex, 2*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    mesh.color_buffer = pe_d3d11_create_buffer(color, num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    mesh.index_buffer = pe_d3d11_create_buffer(index, num_index*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER);
+    mesh.pos_buffer = p_d3d11_create_buffer(pos, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.norm_buffer = p_d3d11_create_buffer(norm, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.tex_buffer = p_d3d11_create_buffer(tex, 2*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.color_buffer = p_d3d11_create_buffer(color, num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.index_buffer = p_d3d11_create_buffer(index, num_index*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER);
     mesh.num_vertex = num_vertex;
     mesh.num_index = num_index;
     return mesh;
@@ -111,11 +111,11 @@ peMesh pe_gen_mesh_quad(float width, float length) {
     peMesh mesh = {0};
     int num_vertex = P_COUNT_OF(pos)/3;
     int num_index = P_COUNT_OF(index);
-    mesh.pos_buffer = pe_d3d11_create_buffer(pos, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    mesh.norm_buffer = pe_d3d11_create_buffer(norm, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    mesh.tex_buffer = pe_d3d11_create_buffer(tex, 2*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    mesh.color_buffer = pe_d3d11_create_buffer(color, num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
-    mesh.index_buffer = pe_d3d11_create_buffer(index, num_index*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER);
+    mesh.pos_buffer = p_d3d11_create_buffer(pos, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.norm_buffer = p_d3d11_create_buffer(norm, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.tex_buffer = p_d3d11_create_buffer(tex, 2*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.color_buffer = p_d3d11_create_buffer(color, num_vertex*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
+    mesh.index_buffer = p_d3d11_create_buffer(index, num_index*sizeof(uint32_t), D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER);
     mesh.num_vertex = num_vertex;
     mesh.num_index = num_index;
     return mesh;
@@ -128,14 +128,14 @@ void pe_draw_mesh(peMesh *mesh, peMaterial material, HMM_Vec3 position, HMM_Vec3
     HMM_Mat4 translate = HMM_Translate(position);
 
     HMM_Mat4 model_matrix = HMM_MulM4(HMM_MulM4(HMM_MulM4(translate, rotate_z), rotate_y), rotate_x);
-    peShaderConstant_Model *constant_model = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_model_buffer);
+    pShaderConstant_Model *constant_model = p_shader_constant_begin_map(p_d3d.context, p_shader_constant_model_buffer);
     constant_model->matrix = model_matrix;
-    pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_model_buffer);
+    p_shader_constant_end_map(p_d3d.context, p_shader_constant_model_buffer);
 
-    peShaderConstant_Material *constant_material = pe_shader_constant_begin_map(pe_d3d.context, pe_shader_constant_material_buffer);
+    pShaderConstant_Material *constant_material = p_shader_constant_begin_map(p_d3d.context, p_shader_constant_material_buffer);
     //constant_material->has_diffuse = material.has_diffuse;
-    constant_material->diffuse_color = pe_color_to_vec4(material.diffuse_color);
-    pe_shader_constant_end_map(pe_d3d.context, pe_shader_constant_material_buffer);
+    constant_material->diffuse_color = p_color_to_vec4(material.diffuse_color);
+    p_shader_constant_end_map(p_d3d.context, p_shader_constant_material_buffer);
 
     pe_bind_texture(material.diffuse_map);
 
@@ -153,12 +153,12 @@ void pe_draw_mesh(peMesh *mesh, peMaterial material, HMM_Vec3 position, HMM_Vec3
     };
     uint32_t vertex_buffer_offsets[] = { 0, 0, 0, 0 };
 
-    ID3D11DeviceContext_IASetPrimitiveTopology(pe_d3d.context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    ID3D11DeviceContext_IASetVertexBuffers(pe_d3d.context, 0, P_COUNT_OF(vertex_buffers),
+    ID3D11DeviceContext_IASetPrimitiveTopology(p_d3d.context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    ID3D11DeviceContext_IASetVertexBuffers(p_d3d.context, 0, P_COUNT_OF(vertex_buffers),
         vertex_buffers, vertex_buffer_strides, vertex_buffer_offsets);
-    ID3D11DeviceContext_IASetIndexBuffer(pe_d3d.context, mesh->index_buffer, DXGI_FORMAT_R32_UINT, 0);
+    ID3D11DeviceContext_IASetIndexBuffer(p_d3d.context, mesh->index_buffer, DXGI_FORMAT_R32_UINT, 0);
 
-    ID3D11DeviceContext_DrawIndexed(pe_d3d.context, mesh->num_index, 0, 0);
+    ID3D11DeviceContext_DrawIndexed(p_d3d.context, mesh->num_index, 0, 0);
 }
 #endif
 
@@ -190,7 +190,7 @@ typedef struct Mesh {
 	int vertex_type;
 } Mesh;
 
-Mesh gen_mesh_cube(float width, float height, float length, peColor color) {
+Mesh gen_mesh_cube(float width, float height, float length, pColor color) {
 	float vertices[] = {
 		-width/2.0f, -height/2.0f,  length/2.0f,
 		 width/2.0f, -height/2.0f,  length/2.0f,
@@ -260,7 +260,7 @@ Mesh gen_mesh_cube(float width, float height, float length, peColor color) {
 	for (int i = 0; i < vertex_count; i += 1) {
 		mesh.vertices[i].u = texcoords[2*i];
 		mesh.vertices[i].v = texcoords[2*i + 1];
-		mesh.vertices[i].color = pe_color_to_5650(color);
+		mesh.vertices[i].color = p_color_to_5650(color);
 		mesh.vertices[i].x = vertices[3*i];
 		mesh.vertices[i].y = vertices[3*i + 1];
 		mesh.vertices[i].z = vertices[3*i + 2];
@@ -274,7 +274,7 @@ Mesh gen_mesh_cube(float width, float height, float length, peColor color) {
 	return mesh;
 }
 
-Mesh pe_gen_mesh_quad(float width, float length, peColor color) {
+Mesh pe_gen_mesh_quad(float width, float length, pColor color) {
 	float vertices[] = {
 		-width/2.0f, 0.0f, -length/2.0f,
 		-width/2.0f, 0.0f,  length/2.0f,
@@ -309,7 +309,7 @@ Mesh pe_gen_mesh_quad(float width, float length, peColor color) {
 	for (int i = 0; i < vertex_count; i += 1) {
 		mesh.vertices[i].u = texcoords[2*i];
 		mesh.vertices[i].v = texcoords[2*i + 1];
-		mesh.vertices[i].color = pe_color_to_5650(color);
+		mesh.vertices[i].color = p_color_to_5650(color);
 		mesh.vertices[i].x = vertices[3*i];
 		mesh.vertices[i].y = vertices[3*i + 1];
 		mesh.vertices[i].z = vertices[3*i + 2];
