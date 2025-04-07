@@ -30,7 +30,7 @@ struct peServerState {
     int client_count;
     bool client_connected[MAX_CLIENT_COUNT];
     peAddress client_address[MAX_CLIENT_COUNT];
-    peInput client_input[MAX_CLIENT_COUNT];
+    pInput client_input[MAX_CLIENT_COUNT];
     peClientData client_data[MAX_CLIENT_COUNT];
 } server = {0};
 
@@ -81,13 +81,13 @@ void pe_connect_client(int client_index, peAddress address) {
 
     server.client_count += 1;
 
-    peEntity *entity = pe_make_entity();
+    pEntity *entity = p_make_entity();
     entity->active = true;
-    pe_entity_property_set(entity, peEntityProperty_CanCollide);
-    pe_entity_property_set(entity, peEntityProperty_OwnedByPlayer);
-    pe_entity_property_set(entity, peEntityProperty_ControlledByPlayer);
+    p_entity_property_set(entity, pEntityProperty_CanCollide);
+    p_entity_property_set(entity, pEntityProperty_OwnedByPlayer);
+    p_entity_property_set(entity, pEntityProperty_ControlledByPlayer);
     entity->client_index = client_index;
-    entity->mesh = peEntityMesh_Cube;
+    entity->mesh = pEntityMesh_Cube;
 
     server.client_connected[client_index] = true;
     server.client_address[client_index] = address;
@@ -134,11 +134,11 @@ void pe_disconnect_client(int client_index, peConnectionClosedReason reason) {
     pe_reset_client_state(client_index);
     server.client_count -= 1;
 
-    peEntity *entities = pe_get_entities();
+    pEntity *entities = p_get_entities();
     for (int i = 0; i < MAX_ENTITY_COUNT; i += 1) {
-        peEntity *entity = &entities[i];
-        if (pe_entity_property_get(entity, peEntityProperty_OwnedByPlayer) && entity->client_index == client_index) {
-            pe_destroy_entity(entity);
+        pEntity *entity = &entities[i];
+        if (p_entity_property_get(entity, pEntityProperty_OwnedByPlayer) && entity->client_index == client_index) {
+            p_destroy_entity(entity);
         }
     }
 }
@@ -251,8 +251,8 @@ void pe_send_packets(void) {
         .world_state = &world_state_message
     };
     pe_append_message(&packet, message);
-    peEntity *entities = pe_get_entities();
-    memcpy(world_state_message.entities, entities, MAX_ENTITY_COUNT*sizeof(peEntity));
+    pEntity *entities = p_get_entities();
+    memcpy(world_state_message.entities, entities, MAX_ENTITY_COUNT*sizeof(pEntity));
 
     for (int i = 0; i < MAX_CLIENT_COUNT; i += 1) {
         if (server.client_connected[i]) {
@@ -290,7 +290,7 @@ int main(int argc, char *argv[]) {
         P_ASSERT(socket_bind_error == peSocketBindError_None);
     }
 
-    pe_allocate_entities();
+    p_allocate_entities();
 
     float dt = 1.0f/60.0f;
     while(true) {
@@ -300,8 +300,8 @@ int main(int argc, char *argv[]) {
 
         pe_check_for_time_out();
 
-        pe_update_entities(dt, server.client_input);
-        pe_cleanup_entities();
+        p_update_entities(dt, server.client_input);
+        p_cleanup_entities();
 
         pe_send_packets();
 

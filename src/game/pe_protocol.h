@@ -36,11 +36,11 @@ typedef struct peConnectionClosedMessage {
 } peConnectionClosedMessage;
 
 typedef struct peInputStateMessage {
-    peInput input;
+    pInput input;
 } peInputStateMessage;
 
 typedef struct peWorldStateMessage {
-    peEntity entities[MAX_ENTITY_COUNT];
+    pEntity entities[MAX_ENTITY_COUNT];
 } peWorldStateMessage;
 
 typedef enum peMessageType {

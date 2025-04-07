@@ -10,20 +10,20 @@
 
 #define MAX_ENTITY_COUNT 32
 
-typedef enum peEntityProperty {
-    peEntityProperty_CanCollide,
-    peEntityProperty_OwnedByPlayer,
-    peEntityProperty_ControlledByPlayer,
-    peEntityProperty_Count,
-} peEntityProperty;
+typedef enum pEntityProperty {
+    pEntityProperty_CanCollide,
+    pEntityProperty_OwnedByPlayer,
+    pEntityProperty_ControlledByPlayer,
+    pEntityProperty_Count,
+} pEntityProperty;
 
-typedef enum peEntityMesh {
-    peEntityMesh_Cube,
-    peEntityMesh_Quad,
-    peEntityMesh_Count,
-} peEntityMesh;
+typedef enum pEntityMesh {
+    pEntityMesh_Cube,
+    pEntityMesh_Quad,
+    pEntityMesh_Count,
+} pEntityMesh;
 
-typedef struct peEntity {
+typedef struct pEntity {
     uint32_t index;
     bool active;
     bool marked_for_destruction;
@@ -35,32 +35,30 @@ typedef struct peEntity {
 
     int client_index; // property: OwnedByPlayer
 
-    peEntityMesh mesh;
-} peEntity;
+    pEntityMesh mesh;
+} pEntity;
 
-typedef struct peInput {
+typedef struct pInput {
     pVec2 movement;
     float angle;
-} peInput;
+} pInput;
 
 struct pBitStream;
 enum pSerializationError p_serialize_vec2(struct pBitStream *bs, pVec2 *value);
 enum pSerializationError p_serialize_vec3(struct pBitStream *bs, pVec3 *value);
-enum pSerializationError p_serialize_input(struct pBitStream *bs, peInput *input);
-enum pSerializationError p_serialize_entity(struct pBitStream *bs, peEntity *entity);
-void pe_allocate_entities(void);
-peEntity *pe_get_entities(void);
-peEntity *pe_make_entity(void);
-peEntity *pe_get_entity_by_index(uint32_t index);
-void pe_destroy_entity(peEntity *entity);
-void pe_destroy_entity_immediate(peEntity *entity);
-void pe_cleanup_entities(void);
-void pe_entity_property_set(peEntity *entity, peEntityProperty property);
-void pe_entity_property_unset(peEntity *entity, peEntityProperty property);
-bool pe_entity_property_get(peEntity *entity, peEntityProperty property);
+enum pSerializationError p_serialize_input(struct pBitStream *bs, pInput *input);
+enum pSerializationError p_serialize_entity(struct pBitStream *bs, pEntity *entity);
+void p_allocate_entities(void);
+pEntity *p_get_entities(void);
+pEntity *p_make_entity(void);
+pEntity *p_get_entity_by_index(uint32_t index);
+void pe_destroy_entity(pEntity *entity);
+void p_destroy_entity_immediate(pEntity *entity);
+void p_cleanup_entities(void);
+void p_entity_property_set(pEntity *entity, pEntityProperty property);
+void p_entity_property_unset(pEntity *entity, pEntityProperty property);
+bool p_entity_property_get(pEntity *entity, pEntityProperty property);
 
-void pe_update_entities(float dt, peInput *inputs);
-
-
+void p_update_entities(float dt, pInput *inputs);
 
 #endif // PE_ENTITY_H

@@ -46,7 +46,7 @@ struct peClientState {
     peClientNetworkState network_state;
     int client_index;
     uint32_t entity_index;
-    peInput client_input[MAX_CLIENT_COUNT];
+    pInput client_input[MAX_CLIENT_COUNT];
     uint64_t last_packet_send_time;
     uint64_t last_packet_receive_time;
 } client = {0};
@@ -79,7 +79,7 @@ void pe_client_process_message(peMessage message) {
         } break;
         case peMessageType_WorldState:
             if (client.network_state == peClientNetworkState_Connected) {
-                memcpy(pe_get_entities(), message.world_state->entities, MAX_ENTITY_COUNT*sizeof(peEntity));
+                memcpy(p_get_entities(), message.world_state->entities, MAX_ENTITY_COUNT*sizeof(pEntity));
             }
         default:
             break;
@@ -111,7 +111,7 @@ void pe_receive_packets(pArena *temp_arena, peSocket socket) {
     PE_TRACE_FUNCTION_END();
 }
 
-void pe_send_packets(pArena *temp_arena, peInput input) {
+void pe_send_packets(pArena *temp_arena, pInput input) {
     peTraceMark send_packets_tm = PE_TRACE_MARK_BEGIN("prepare packet");
     pArenaTemp send_packets_arena_temp = p_arena_temp_begin(temp_arena);
     pePacket outgoing_packet = {0};
@@ -158,7 +158,7 @@ void pe_send_packets(pArena *temp_arena, peInput input) {
 
 static pVec2 last_nonzero_gamepad_input = { 0.0f, 1.0f };
 
-peInput pe_get_input(peCamera camera) {
+pInput pe_get_input(peCamera camera) {
     pVec2 gamepad_input = {
         .x = p_input_gamepad_axis(pGamepadAxis_LeftX),
         .y = p_input_gamepad_axis(pGamepadAxis_LeftY)
@@ -194,7 +194,7 @@ peInput pe_get_input(peCamera camera) {
 #endif
     }
 
-    peInput result = {
+    pInput result = {
         .movement = p_vec2(
             P_CLAMP(gamepad_input.x + keyboard_input.x, -1.0f, 1.0f),
             P_CLAMP(gamepad_input.y + keyboard_input.y, -1.0f, 1.0f)
@@ -241,7 +241,7 @@ int main(int argc, char* argv[]) {
     pe_socket_create(peAddressFamily_IPv4, &client.socket);
     pe_socket_set_nonblocking(client.socket);
 
-    pe_allocate_entities();
+    p_allocate_entities();
 
 #if !defined(PSP)
     #define PE_MODEL_EXTENSION ".p3d"
@@ -314,13 +314,13 @@ int main(int argc, char* argv[]) {
 
     bool multiplayer = false;
     if (!multiplayer) {
-        peEntity *entity = pe_make_entity();
+        pEntity *entity = p_make_entity();
         entity->active = true;
-        pe_entity_property_set(entity, peEntityProperty_CanCollide);
-        pe_entity_property_set(entity, peEntityProperty_OwnedByPlayer);
-        pe_entity_property_set(entity, peEntityProperty_ControlledByPlayer);
+        p_entity_property_set(entity, pEntityProperty_CanCollide);
+        p_entity_property_set(entity, pEntityProperty_OwnedByPlayer);
+        p_entity_property_set(entity, pEntityProperty_ControlledByPlayer);
         entity->client_index = 0;
-        entity->mesh = peEntityMesh_Cube;
+        entity->mesh = pEntityMesh_Cube;
     }
 
     float dt = p_window_delta_time();
@@ -340,24 +340,24 @@ int main(int argc, char* argv[]) {
         }
 
         peTraceMark entity_logic_tm = PE_TRACE_MARK_BEGIN("entity logic");
-        peEntity *entities = pe_get_entities();
+        pEntity *entities = p_get_entities();
         for (int i = 0; i < MAX_ENTITY_COUNT; i += 1) {
-            peEntity *entity = &entities[i];
+            pEntity *entity = &entities[i];
             if (!entity->active) continue;
 
-            if (pe_entity_property_get(entity, peEntityProperty_OwnedByPlayer) && entity->client_index == client.client_index) {
+            if (p_entity_property_get(entity, pEntityProperty_OwnedByPlayer) && entity->client_index == client.client_index) {
                 client.camera.target = p_vec3_add(entity->position, p_vec3(0.0f, 0.7f, 0.0f));
                 client.camera.position = p_vec3_add(client.camera.target, client.camera_offset);
             }
         };
         PE_TRACE_MARK_END(entity_logic_tm);
 
-        peInput input = pe_get_input(client.camera);
+        pInput input = pe_get_input(client.camera);
         if (multiplayer) {
             pe_send_packets(&temp_arena, input);
         } else {
             client.client_input[0] = input;
-            pe_update_entities(dt, client.client_input);
+            p_update_entities(dt, client.client_input);
         }
 
         p_window_frame_begin();
@@ -382,7 +382,7 @@ int main(int argc, char* argv[]) {
             pe_graphics_draw_grid_3D(10, 1.0f);
 
             for (int e = 0; e < MAX_ENTITY_COUNT; e += 1) {
-                peEntity *entity = &entities[e];
+                pEntity *entity = &entities[e];
                 if (!entity->active) continue;
 
                 pe_model_draw(&client.model, &temp_arena, entity->position, p_vec3(0.0f, entity->angle, 0.0f));
