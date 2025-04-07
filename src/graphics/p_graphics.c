@@ -1,7 +1,7 @@
 #include "p_graphics.h"
 
 #include "core/p_assert.h"
-#include "pe_math.h"
+#include "graphics/p_graphics_math.h"
 #include "utility/pe_trace.h"
 
 #include <stdbool.h>

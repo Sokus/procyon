@@ -67,7 +67,7 @@ endif()
 add_library(graphics STATIC
     src/graphics/p_graphics.c
     src/graphics/pe_model.c
-    src/graphics/pe_math.c
+    src/graphics/p_graphics_math.c
     src/graphics/p_pbm.c
 )
 target_link_libraries(graphics PRIVATE

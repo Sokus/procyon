@@ -9,7 +9,7 @@
 #include "core/p_time.h"
 #include "core/p_arena.h"
 #include "math/p_math.h"
-#include "graphics/pe_math.h"
+#include "graphics/p_graphics_math.h"
 #include "platform/p_net.h"
 #include "platform/p_window.h"
 #include "graphics/p_graphics.h"
