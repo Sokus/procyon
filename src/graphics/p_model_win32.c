@@ -1,14 +1,17 @@
-#include "graphics/pe_model.h"
+#include "graphics/p_model.h"
 
-#include "core/p_assert.h"
-#include "graphics/p_graphics_linux.h"
+#include "graphics/p_graphics_win32.h"
 #include "graphics/p3d.h"
 #include "utility/pe_trace.h"
 
-#include "glad/glad.h"
-
 #include <stdbool.h>
-#include <string.h>
+
+#define COBJMACROS
+#include <d3d11.h>
+#include <dxgi1_2.h>
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 
 bool p_parse_p3d_static_info(p3dStaticInfo *static_info) {
     if (!static_info) return false;
@@ -43,38 +46,14 @@ void p_model_load_mesh_data(pModel *model, pArena *temp_arena, p3dFile *p3d) {
             vertex_buffer[v] = p_vertex_skinned_from_p3d(p3d->desktop.vertex[v+vertex_offset], p3d->static_info->scale);
         }
 
-    	glGenVertexArrays(1, &model->mesh[m].vertex_array_object);
-        glBindVertexArray(model->mesh[m].vertex_array_object);
-
-        glGenBuffers(1, &model->mesh[m].vertex_buffer_object);
-        glBindBuffer(GL_ARRAY_BUFFER, model->mesh[m].vertex_buffer_object);
-        glBufferData(GL_ARRAY_BUFFER, vertex_buffer_size, NULL, GL_STATIC_DRAW);
-
-        glBufferSubData(GL_ARRAY_BUFFER, 0, vertex_buffer_size, vertex_buffer);
-
-        glVertexAttribPointer( 0, 3, GL_FLOAT,        GL_FALSE, sizeof(pVertexSkinned), (void*)offsetof(pVertexSkinned, position));
-        glVertexAttribPointer( 1, 3, GL_FLOAT,        GL_FALSE, sizeof(pVertexSkinned), (void*)offsetof(pVertexSkinned, normal));
-    	glVertexAttribPointer( 2, 2, GL_FLOAT,        GL_FALSE, sizeof(pVertexSkinned), (void*)offsetof(pVertexSkinned, texcoord));
-    	glVertexAttribPointer( 3, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(pVertexSkinned), (void*)offsetof(pVertexSkinned, color));
-    	glVertexAttribIPointer(4, 4, GL_UNSIGNED_INT,           sizeof(pVertexSkinned), (void*)offsetof(pVertexSkinned, bone_index));
-    	glVertexAttribPointer( 5, 4, GL_FLOAT,        GL_FALSE, sizeof(pVertexSkinned), (void*)offsetof(pVertexSkinned, bone_weight));
-        glEnableVertexAttribArray(0);
-        glEnableVertexAttribArray(1);
-    	glEnableVertexAttribArray(2);
-    	glEnableVertexAttribArray(3);
-    	glEnableVertexAttribArray(4);
-    	glEnableVertexAttribArray(5);
+        model->mesh[m].vertex_buffer = p_d3d11_create_buffer(vertex_buffer, (UINT)vertex_buffer_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER, 0);
 
         if (p3d->mesh[m].num_index > 0) {
             size_t mesh_index_size = p3d->mesh[m].num_index * sizeof(uint32_t);
-            glGenBuffers(1, &model->mesh[m].element_buffer_object);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, model->mesh[m].element_buffer_object);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh_index_size, p3d->desktop.index+index_offset, GL_STATIC_DRAW);
+            model->mesh[m].index_buffer = p_d3d11_create_buffer(p3d->desktop.index+index_offset, (UINT)mesh_index_size, D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER, 0);
         } else {
-            model->mesh[m].element_buffer_object = 0;
+            model->mesh[m].index_buffer = NULL;
         }
-
-        glBindVertexArray(0);
 
 		model->mesh_material[m] = p3d->mesh[m].material_index;
         model->mesh[m].num_vertex = p3d->mesh[m].num_vertex;
@@ -122,11 +101,13 @@ void p_model_load_writeback_arena(pArena *model_arena) {
 
 void p_model_draw_meshes(pModel *model, pMat4 *final_bone_matrix) {
     PE_TRACE_FUNCTION_BEGIN();
-    p_shader_set_bool(pe_opengl.shader_program, "has_skeleton", true);
-    p_shader_set_mat4_array(pe_opengl.shader_program, "matrix_bone", final_bone_matrix, model->num_bone);
+    pShaderConstant_Skeleton *constant_skeleton = p_shader_constant_begin_map(p_d3d.context, constant_buffers_d3d.skeleton);
+    constant_skeleton->has_skeleton = true;
+    memcpy(constant_skeleton->matrix_bone, final_bone_matrix, model->num_bone * sizeof(pMat4));
+    p_shader_constant_end_map(p_d3d.context, constant_buffers_d3d.skeleton);
 
     for (int m = 0; m < model->num_mesh; m += 1) {
-		peTraceMark tm_draw_mesh = PE_TRACE_MARK_BEGIN("draw mesh");
+        peTraceMark tm_draw_mesh = PE_TRACE_MARK_BEGIN("draw mesh");
         pMaterial *mesh_material = &model->material[model->mesh_material[m]];
 
 		if (mesh_material->has_diffuse_map) {
@@ -137,13 +118,19 @@ void p_model_draw_meshes(pModel *model, pMat4 *final_bone_matrix) {
 
 		p_graphics_set_diffuse_color(mesh_material->diffuse_color);
 
-    	glBindVertexArray(model->mesh[m].vertex_array_object);
+        ID3D11DeviceContext_IASetPrimitiveTopology(p_d3d.context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        ID3D11Buffer *buffs[] = { model->mesh[m].vertex_buffer };
+        uint32_t strides[] = { sizeof(pVertexSkinned) };
+        uint32_t offsets[] = {0};
+        P_ASSERT(P_COUNT_OF(buffs) == P_COUNT_OF(strides));
+        P_ASSERT(P_COUNT_OF(buffs) == P_COUNT_OF(offsets));
+        ID3D11DeviceContext_IASetVertexBuffers(p_d3d.context, 0, P_COUNT_OF(buffs), buffs, strides, offsets);
         if (model->mesh[m].num_index > 0) {
-            glDrawElements(GL_TRIANGLES, model->mesh[m].num_index, GL_UNSIGNED_INT, (void*)0);
+            ID3D11DeviceContext_IASetIndexBuffer(p_d3d.context, model->mesh[m].index_buffer, DXGI_FORMAT_R32_UINT, 0);
+            ID3D11DeviceContext_DrawIndexed(p_d3d.context, model->mesh[m].num_index, 0, 0);
         } else {
-            glDrawArrays(GL_TRIANGLES, 0, model->mesh[m].num_vertex);
+            ID3D11DeviceContext_Draw(p_d3d.context, model->mesh[m].num_vertex, 0);
         }
-    	glBindVertexArray(0);
 		PE_TRACE_MARK_END(tm_draw_mesh);
     }
     PE_TRACE_FUNCTION_END();

@@ -1,7 +1,7 @@
 #include "core/p_heap.h"
 #include "core/p_time.h"
 #include "graphics/p_graphics.h"
-#include "graphics/pe_model.h"
+#include "graphics/p_model.h"
 #include "platform/p_input.h"
 #include "platform/p_window.h"
 #include "utility/pe_trace.h"

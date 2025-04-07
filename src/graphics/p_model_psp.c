@@ -1,4 +1,4 @@
-#include "graphics/pe_model.h"
+#include "graphics/p_model.h"
 #include "graphics/p3d.h"
 #include "core/p_assert.h"
 #include "utility/pe_trace.h"

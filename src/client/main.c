@@ -13,7 +13,7 @@
 #include "platform/p_net.h"
 #include "platform/p_window.h"
 #include "graphics/p_graphics.h"
-#include "graphics/pe_model.h"
+#include "graphics/p_model.h"
 #include "platform/p_input.h"
 #include "utility/pe_trace.h"
 
