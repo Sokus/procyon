@@ -13,7 +13,7 @@ target_include_directories(settings INTERFACE src)
 if(MSVC)
     target_compile_options(settings INTERFACE -W3 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127)
 endif()
-target_compile_definitions(settings INTERFACE PE_TRACE_ENABLED)
+target_compile_definitions(settings INTERFACE P_TRACE_ENABLED)
 
 # CORE LIBRARY:
 
@@ -99,7 +99,7 @@ endif()
 
 # UTILITY LIBRARY
 
-add_library(utility STATIC src/utility/pe_trace.c)
+add_library(utility STATIC src/utility/p_trace.c)
 target_link_libraries(utility PRIVATE settings core)
 
 # GAME LIBRARY

@@ -4,7 +4,7 @@
 #include "core/p_defines.h"
 #include "core/p_assert.h"
 #include "core/p_heap.h"
-#include "utility/pe_trace.h"
+#include "utility/p_trace.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

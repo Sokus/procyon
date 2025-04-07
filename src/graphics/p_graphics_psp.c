@@ -3,7 +3,7 @@
 #include "core/p_assert.h"
 #include "core/p_arena.h"
 #include "core/p_heap.h"
-#include "utility/pe_trace.h"
+#include "utility/p_trace.h"
 
 #include <pspge.h>
 #include <pspgu.h>

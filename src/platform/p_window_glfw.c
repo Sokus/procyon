@@ -3,7 +3,7 @@
 #include "core/p_assert.h"
 #include "graphics/p_graphics.h"
 #include "platform/p_input.h"
-#include "utility/pe_trace.h"
+#include "utility/p_trace.h"
 #if defined(_WIN32)
     #include "graphics/p_graphics_win32.h"
 #endif

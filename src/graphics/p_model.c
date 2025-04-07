@@ -5,7 +5,7 @@
 #include "core/p_file.h"
 #include "core/p_time.h"
 #include "graphics/p3d.h"
-#include "utility/pe_trace.h"
+#include "utility/p_trace.h"
 
 #include <string.h>
 

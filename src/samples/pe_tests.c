@@ -4,7 +4,7 @@
 #include "graphics/p_model.h"
 #include "platform/p_input.h"
 #include "platform/p_window.h"
-#include "utility/pe_trace.h"
+#include "utility/p_trace.h"
 
 #include <stdio.h>
 

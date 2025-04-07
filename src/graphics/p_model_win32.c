@@ -2,7 +2,7 @@
 
 #include "graphics/p_graphics_win32.h"
 #include "graphics/p3d.h"
-#include "utility/pe_trace.h"
+#include "utility/p_trace.h"
 
 #include <stdbool.h>
 

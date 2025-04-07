@@ -3,7 +3,7 @@
 #include "core/p_assert.h"
 #include "graphics/p_graphics_linux.h"
 #include "graphics/p3d.h"
-#include "utility/pe_trace.h"
+#include "utility/p_trace.h"
 
 #include "glad/glad.h"
 

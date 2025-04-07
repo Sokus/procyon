@@ -15,7 +15,7 @@
 #include "graphics/p_graphics.h"
 #include "graphics/p_model.h"
 #include "platform/p_input.h"
-#include "utility/pe_trace.h"
+#include "utility/p_trace.h"
 
 #include "pe_config.h"
 #include "game/p_protocol.h"

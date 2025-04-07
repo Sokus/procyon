@@ -2,7 +2,7 @@
 
 #include "core/p_assert.h"
 #include "graphics/p_graphics_math.h"
-#include "utility/pe_trace.h"
+#include "utility/p_trace.h"
 
 #include <stdbool.h>
 #include <string.h>

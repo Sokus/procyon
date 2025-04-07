@@ -1,7 +1,7 @@
 #include "platform/p_window.h"
 
 #include "core/p_assert.h"
-#include "utility/pe_trace.h"
+#include "utility/p_trace.h"
 
 #include <pspkernel.h>
 #include <pspgu.h>

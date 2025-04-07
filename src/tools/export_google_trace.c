@@ -9,7 +9,7 @@
 #include "core/p_file.h"
 #include "core/p_time.h"
 
-#include "utility/pe_trace.h"
+#include "utility/p_trace.h"
 
 int main(int argc, char *argv[]) {
     if (argc < 4) {
