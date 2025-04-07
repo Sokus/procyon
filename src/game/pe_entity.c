@@ -14,45 +14,45 @@ static peEntity *entities = NULL;
 uint16_t *free_indices = NULL;
 int free_indices_count = 0;
 
-peSerializationError pe_serialize_vec2(peBitStream *bs, pVec2 *value) {
-    peSerializationError err = peSerializationError_None;
-    err = pe_serialize_float(bs, &value->x); if (err) return err;
-    err = pe_serialize_float(bs, &value->y); if (err) return err;
+pSerializationError p_serialize_vec2(pBitStream *bs, pVec2 *value) {
+    pSerializationError err = pSerializationError_None;
+    err = p_serialize_float(bs, &value->x); if (err) return err;
+    err = p_serialize_float(bs, &value->y); if (err) return err;
     return err;
 }
 
-peSerializationError pe_serialize_vec3(peBitStream *bs, pVec3 *value) {
-    peSerializationError err = peSerializationError_None;
-    err = pe_serialize_float(bs, &value->x); if (err) return err;
-    err = pe_serialize_float(bs, &value->y); if (err) return err;
-    err = pe_serialize_float(bs, &value->z); if (err) return err;
+pSerializationError p_serialize_vec3(pBitStream *bs, pVec3 *value) {
+    pSerializationError err = pSerializationError_None;
+    err = p_serialize_float(bs, &value->x); if (err) return err;
+    err = p_serialize_float(bs, &value->y); if (err) return err;
+    err = p_serialize_float(bs, &value->z); if (err) return err;
     return err;
 }
 
-peSerializationError pe_serialize_input(peBitStream *bs, peInput *input) {
-    peSerializationError err = peSerializationError_None;
-    err = pe_serialize_vec2(bs, &input->movement); if (err) return err;
-    err = pe_serialize_float(bs, &input->angle); if (err) return err;
+pSerializationError p_serialize_input(pBitStream *bs, peInput *input) {
+    pSerializationError err = pSerializationError_None;
+    err = p_serialize_vec2(bs, &input->movement); if (err) return err;
+    err = p_serialize_float(bs, &input->angle); if (err) return err;
     return err;
 }
 
-peSerializationError pe_serialize_entity(peBitStream *bs, peEntity *entity) {
-    peSerializationError err = peSerializationError_None;
-    err = pe_serialize_u32(bs, &entity->index); if (err) return err;
-    err = pe_serialize_bool(bs, &entity->active); if (err) return err;
+pSerializationError p_serialize_entity(pBitStream *bs, peEntity *entity) {
+    pSerializationError err = pSerializationError_None;
+    err = p_serialize_u32(bs, &entity->index); if (err) return err;
+    err = p_serialize_bool(bs, &entity->active); if (err) return err;
     if (!entity->active) return err;
 
-    err = pe_serialize_bits(bs, &entity->properties, peEntityProperty_Count); if (err) return err;
-    err = pe_serialize_vec3(bs, &entity->position); if (err) return err;
-    err = pe_serialize_vec3(bs, &entity->velocity); if (err) return err;
-    err = pe_serialize_float(bs, &entity->angle); if (err) return err;
+    err = p_serialize_bits(bs, &entity->properties, peEntityProperty_Count); if (err) return err;
+    err = p_serialize_vec3(bs, &entity->position); if (err) return err;
+    err = p_serialize_vec3(bs, &entity->velocity); if (err) return err;
+    err = p_serialize_float(bs, &entity->angle); if (err) return err;
 
     if (pe_entity_property_get(entity, peEntityProperty_OwnedByPlayer)) {
-        err = pe_serialize_range_int(bs, &entity->client_index, 0, MAX_CLIENT_COUNT-1);
+        err = p_serialize_range_int(bs, &entity->client_index, 0, MAX_CLIENT_COUNT-1);
         if (err) return err;
     }
 
-    err = pe_serialize_enum(bs, &entity->mesh, peEntityMesh_Count); if (err) return err;
+    err = p_serialize_enum(bs, &entity->mesh, peEntityMesh_Count); if (err) return err;
 
     return err;
 }

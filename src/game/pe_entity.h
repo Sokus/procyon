@@ -43,11 +43,11 @@ typedef struct peInput {
     float angle;
 } peInput;
 
-struct peBitStream;
-enum peSerializationError pe_serialize_vec2(struct peBitStream *bs, pVec2 *value);
-enum peSerializationError pe_serialize_vec3(struct peBitStream *bs, pVec3 *value);
-enum peSerializationError pe_serialize_input(struct peBitStream *bs, peInput *input);
-enum peSerializationError pe_serialize_entity(struct peBitStream *bs, peEntity *entity);
+struct pBitStream;
+enum pSerializationError p_serialize_vec2(struct pBitStream *bs, pVec2 *value);
+enum pSerializationError p_serialize_vec3(struct pBitStream *bs, pVec3 *value);
+enum pSerializationError p_serialize_input(struct pBitStream *bs, peInput *input);
+enum pSerializationError p_serialize_entity(struct pBitStream *bs, peEntity *entity);
 void pe_allocate_entities(void);
 peEntity *pe_get_entities(void);
 peEntity *pe_make_entity(void);

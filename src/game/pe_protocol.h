@@ -72,10 +72,10 @@ typedef struct pePacket {
 } pePacket;
 
 struct pArena;
-struct peBitStream;
-enum peSerializationError;
+struct pBitStream;
+enum pSerializationError;
 peMessage pe_message_create(struct pArena *arena, peMessageType type);
-enum peSerializationError pe_serialize_message(struct peBitStream *bs, peMessage *msg);
+enum pSerializationError p_serialize_message(struct pBitStream *bs, peMessage *msg);
 void pe_append_message(pePacket *packet, peMessage msg);
 
 struct peSocket;
