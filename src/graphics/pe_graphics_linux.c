@@ -53,8 +53,8 @@ void pe_graphics_init(pArena *temp_arena, int window_width, int window_height) {
         size_t vertex_buffer_size = PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT * sizeof(peDynamicDrawVertex);
         size_t batch_buffer_size = PE_MAX_DYNAMIC_DRAW_BATCH_COUNT * sizeof(peDynamicDrawBatch);
 
-        dynamic_draw.vertex = pe_heap_alloc(vertex_buffer_size);
-        dynamic_draw.batch = pe_heap_alloc(batch_buffer_size);
+        dynamic_draw.vertex = p_heap_alloc(vertex_buffer_size);
+        dynamic_draw.batch = p_heap_alloc(batch_buffer_size);
         memset(dynamic_draw.vertex, 0, vertex_buffer_size);
         memset(dynamic_draw.batch, 0, batch_buffer_size);
 
@@ -116,8 +116,8 @@ void pe_graphics_init(pArena *temp_arena, int window_width, int window_height) {
 }
 
 void pe_graphics_shutdown(void) {
-    pe_heap_free(dynamic_draw.vertex);
-    pe_heap_free(dynamic_draw.batch);
+    p_heap_free(dynamic_draw.vertex);
+    p_heap_free(dynamic_draw.batch);
 }
 
 void pe_graphics_set_framebuffer_size(int width, int height) {

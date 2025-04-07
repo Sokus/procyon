@@ -58,9 +58,9 @@ peSerializationError pe_serialize_entity(peBitStream *bs, peEntity *entity) {
 }
 
 void pe_allocate_entities(void) {
-    entities = pe_heap_alloc(MAX_ENTITY_COUNT*sizeof(peEntity));
+    entities = p_heap_alloc(MAX_ENTITY_COUNT*sizeof(peEntity));
     memset(entities, 0, MAX_ENTITY_COUNT*sizeof(peEntity));
-    free_indices = pe_heap_alloc(MAX_ENTITY_COUNT*sizeof(uint16_t));
+    free_indices = p_heap_alloc(MAX_ENTITY_COUNT*sizeof(uint16_t));
     for (int index = 0; index < MAX_ENTITY_COUNT; index += 1) {
         int reverse_index = MAX_ENTITY_COUNT - index - 1;
         free_indices[free_indices_count] = (uint16_t)reverse_index;

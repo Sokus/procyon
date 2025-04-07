@@ -236,8 +236,8 @@ void pe_graphics_init(pArena *temp_arena, int window_width, int window_height) {
 
     // init dynamic_draw
     {
-        dynamic_draw.vertex = pe_heap_alloc(PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT * sizeof(peDynamicDrawVertex));
-        dynamic_draw.batch = pe_heap_alloc(PE_MAX_DYNAMIC_DRAW_BATCH_COUNT * sizeof(peDynamicDrawBatch));
+        dynamic_draw.vertex = p_heap_alloc(PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT * sizeof(peDynamicDrawVertex));
+        dynamic_draw.batch = p_heap_alloc(PE_MAX_DYNAMIC_DRAW_BATCH_COUNT * sizeof(peDynamicDrawBatch));
 
     	dynamic_draw_d3d.vertex_buffer = pe_d3d11_create_buffer(
             dynamic_draw.vertex,
@@ -310,8 +310,8 @@ void pe_graphics_init(pArena *temp_arena, int window_width, int window_height) {
 }
 
 void pe_graphics_shutdown(void) {
-    pe_heap_free(dynamic_draw.vertex);
-    pe_heap_free(dynamic_draw.batch);
+    p_heap_free(dynamic_draw.vertex);
+    p_heap_free(dynamic_draw.batch);
 }
 
 void pe_graphics_set_framebuffer_size(int width, int height) {

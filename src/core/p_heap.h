@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <malloc.h>
 
-static P_INLINE void *pe_heap_alloc_align(size_t size, size_t alignment) {
+static P_INLINE void *p_heap_alloc_align(size_t size, size_t alignment) {
     void *result = NULL;
 #if defined(_WIN32)
     result = _aligned_malloc(size, alignment);
@@ -18,11 +18,11 @@ static P_INLINE void *pe_heap_alloc_align(size_t size, size_t alignment) {
     return result;
 }
 
-static P_INLINE void *pe_heap_alloc(size_t size) {
-    return pe_heap_alloc_align(size, P_DEFAULT_MEMORY_ALIGNMENT);
+static P_INLINE void *p_heap_alloc(size_t size) {
+    return p_heap_alloc_align(size, P_DEFAULT_MEMORY_ALIGNMENT);
 }
 
-static P_INLINE void pe_heap_free(void *ptr) {
+static P_INLINE void p_heap_free(void *ptr) {
 #if defined(_WIN32)
     _aligned_free(ptr);
 #elif defined(PSP) || defined(__linux__)

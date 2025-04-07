@@ -83,15 +83,15 @@ void pe_graphics_init(pArena *, int, int) {
 
     pe_graphics_matrix_update();
 
-    dynamic_draw.vertex = pe_heap_alloc(PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT * sizeof(peDynamicDrawVertex));
-    dynamic_draw.batch = pe_heap_alloc(PE_MAX_DYNAMIC_DRAW_BATCH_COUNT * sizeof(peDynamicDrawBatch));
+    dynamic_draw.vertex = p_heap_alloc(PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT * sizeof(peDynamicDrawVertex));
+    dynamic_draw.batch = p_heap_alloc(PE_MAX_DYNAMIC_DRAW_BATCH_COUNT * sizeof(peDynamicDrawBatch));
 
     gu_initialized = true;
 }
 
 void pe_graphics_shutdown(void) {
-    pe_heap_free(dynamic_draw.vertex);
-    pe_heap_free(dynamic_draw.batch);
+    p_heap_free(dynamic_draw.vertex);
+    p_heap_free(dynamic_draw.batch);
 	sceGuTerm();
 }
 

@@ -229,7 +229,7 @@ int main(int argc, char* argv[]) {
 	pArena temp_arena;
     {
         size_t temp_arena_size = P_MEGABYTES(4);
-        p_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
+        p_arena_init(&temp_arena, p_heap_alloc(temp_arena_size), temp_arena_size);
     }
 
     pe_net_init();

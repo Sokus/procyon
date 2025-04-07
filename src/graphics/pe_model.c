@@ -237,7 +237,7 @@ peModel pe_model_load(pArena *temp_arena, char *file_path) {
 		// so we don't really care, but we should allocate models in
 		// another way in the future (pool allocator?)
 		size_t model_memory_size = P_KILOBYTES(512);
-		void *model_memory = pe_heap_alloc(P_KILOBYTES(512));
+		void *model_memory = p_heap_alloc(P_KILOBYTES(512));
 		p_arena_init(&model_arena, model_memory, model_memory_size);
         pe_model_alloc(&model, &model_arena, &p3d);
     }
