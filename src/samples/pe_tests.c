@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
 #else
     #define PE_MODEL_EXTENSION ".pp3d"
 #endif
-    peModel model = pe_model_load(&temp_arena, "./res/fox" PE_MODEL_EXTENSION);
+    pModel model = p_model_load(&temp_arena, "./res/fox" PE_MODEL_EXTENSION);
 
     // pCamera camera = {
     //     .target = {0.0f, 0.7f, 0.0f},
@@ -67,12 +67,12 @@ int main(int argc, char *argv[]) {
                     float position_x = draw_x_range.Elements[0] + ((float)x * diff_x);
                     float position_z = draw_z_range.Elements[0] + ((float)z * diff_z);
                     pVec3 position = p_vec3(position_x, 0.0f, position_z);
-                    pe_model_draw(&model, &temp_arena, position, p_vec3(0.0f, 0.0f, 0.0f));
+                    p_model_draw(&model, &temp_arena, position, p_vec3(0.0f, 0.0f, 0.0f));
                 }
             }
         }
 
-        // pe_model_draw(&model, &temp_arena, HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 0.0f, 0.0f));
+        // p_model_draw(&model, &temp_arena, HMM_V3(0.0f, 0.0f, 0.0f), HMM_V3(0.0f, 0.0f, 0.0f));
 
         p_window_frame_end(false);
 

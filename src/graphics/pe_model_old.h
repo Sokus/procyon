@@ -4,7 +4,7 @@
 // FIXME: This needs a rework probably, it wasn't really modified since I
 // started working on the 3D model format (P3D).
 #if 0 // WIN32
-peMesh pe_gen_mesh_cube(float width, float height, float length) {
+pMesh pe_gen_mesh_cube(float width, float height, float length) {
     float pos[] = {
 		-width/2.0f, -height/2.0f,  length/2.0f,
 		 width/2.0f, -height/2.0f,  length/2.0f,
@@ -64,7 +64,7 @@ peMesh pe_gen_mesh_cube(float width, float height, float length) {
 	   20, 21, 22, 20, 22, 23,
     };
 
-    peMesh mesh = {0};
+    pMesh mesh = {0};
     int num_vertex = P_COUNT_OF(pos)/3;
     int num_index = P_COUNT_OF(index);
     mesh.pos_buffer = p_d3d11_create_buffer(pos, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
@@ -77,7 +77,7 @@ peMesh pe_gen_mesh_cube(float width, float height, float length) {
     return mesh;
 }
 
-peMesh pe_gen_mesh_quad(float width, float length) {
+pMesh pe_gen_mesh_quad(float width, float length) {
 	float pos[] = {
 		-width/2.0f, 0.0f, -length/2.0f,
 		-width/2.0f, 0.0f,  length/2.0f,
@@ -108,7 +108,7 @@ peMesh pe_gen_mesh_quad(float width, float length) {
 		1, 3, 2
 	};
 
-    peMesh mesh = {0};
+    pMesh mesh = {0};
     int num_vertex = P_COUNT_OF(pos)/3;
     int num_index = P_COUNT_OF(index);
     mesh.pos_buffer = p_d3d11_create_buffer(pos, 3*num_vertex*sizeof(float), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER);
@@ -121,7 +121,7 @@ peMesh pe_gen_mesh_quad(float width, float length) {
     return mesh;
 }
 
-void pe_draw_mesh(peMesh *mesh, peMaterial material, HMM_Vec3 position, HMM_Vec3 rotation) {
+void pe_draw_mesh(pMesh *mesh, pMaterial material, HMM_Vec3 position, HMM_Vec3 rotation) {
     HMM_Mat4 rotate_x = HMM_Rotate_RH(rotation.X, (HMM_Vec3){1.0f, 0.0f, 0.0f});
     HMM_Mat4 rotate_y = HMM_Rotate_RH(rotation.Y, (HMM_Vec3){0.0f, 1.0f, 0.0f});
     HMM_Mat4 rotate_z = HMM_Rotate_RH(rotation.Z, (HMM_Vec3){0.0f, 0.0f, 1.0f});

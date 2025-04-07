@@ -9,7 +9,7 @@
 #include <pspkernel.h> // sceKernelDcacheWritebackInvalidateRange
 #include <pspgu.h>
 
-bool pe_parse_p3d_static_info(p3dStaticInfo *static_info) {
+bool p_parse_p3d_static_info(p3dStaticInfo *static_info) {
     if (!static_info) return false;
     if (!static_info->is_portable) return false;
     int8_t bone_weight_size = static_info->bone_weight_size;
@@ -18,13 +18,13 @@ bool pe_parse_p3d_static_info(p3dStaticInfo *static_info) {
     return true;
 }
 
-void pe_model_alloc_mesh_data(peModel *model, pArena *arena, p3dFile *p3d) {
+void p_model_alloc_mesh_data(pModel *model, pArena *arena, p3dFile *p3d) {
     size_t mesh_material_size = p3d->static_info->num_meshes * sizeof(int);
     model->mesh_material = p_arena_alloc(arena, mesh_material_size);
 
     P_ASSERT(p3d->static_info->is_portable);
     size_t mesh_subskeleton_size = p3d->static_info->num_meshes * sizeof(int); // psp
-    size_t subskeleton_size = p3d->static_info->num_subskeletons * sizeof(peSubskeleton); // psp
+    size_t subskeleton_size = p3d->static_info->num_subskeletons * sizeof(pSubskeleton); // psp
     model->mesh_subskeleton = p_arena_alloc(arena, mesh_subskeleton_size);
     model->subskeleton = p_arena_alloc(arena, subskeleton_size);
     size_t psp_vertex_memory_alignment = 16;
@@ -36,7 +36,7 @@ void pe_model_alloc_mesh_data(peModel *model, pArena *arena, p3dFile *p3d) {
     }
 }
 
-void pe_model_load_static_info(peModel *model, p3dStaticInfo *static_info) {
+void p_model_load_static_info(pModel *model, p3dStaticInfo *static_info) {
     model->scale = static_info->scale;
     model->num_mesh = (int)static_info->num_meshes;
     model->num_material = (int)static_info->num_materials;
@@ -45,7 +45,7 @@ void pe_model_load_static_info(peModel *model, p3dStaticInfo *static_info) {
     model->num_subskeleton = static_info->num_subskeletons;
 }
 
-void pe_model_load_mesh_data(peModel *model, pArena *temp_arena, p3dFile *p3d) {
+void p_model_load_mesh_data(pModel *model, pArena *temp_arena, p3dFile *p3d) {
 	for (int m = 0; m < p3d->static_info->num_meshes; m += 1) {
     	model->mesh_material[m] = p3d->mesh[m].material_index;
 		model->mesh_subskeleton[m] = p3d->mesh[m].subskeleton_index;
@@ -76,7 +76,7 @@ void pe_model_load_mesh_data(peModel *model, pArena *temp_arena, p3dFile *p3d) {
 	}
 }
 
-void pe_model_load_skeleton(peModel *model, p3dFile *p3d) {
+void p_model_load_skeleton(pModel *model, p3dFile *p3d) {
 	memcpy(model->bone_parent_index, p3d->bone_parent_index, p3d->static_info->num_bones * sizeof(uint16_t));
 	P_ASSERT(sizeof(p3dMatrix) == sizeof(pMat4));
 	memcpy(model->bone_inverse_model_space_pose_matrix, p3d->inverse_model_space_pose_matrix, p3d->static_info->num_bones * sizeof(pMat4));
@@ -88,7 +88,7 @@ void pe_model_load_skeleton(peModel *model, p3dFile *p3d) {
 	}
 }
 
-void pe_model_load_animations(peModel *model, p3dStaticInfo *static_info, p3dAnimation *animation, p3dAnimationJoint *animation_joint) {
+void p_model_load_animations(pModel *model, p3dStaticInfo *static_info, p3dAnimation *animation, p3dAnimationJoint *animation_joint) {
     for (int a = 0; a < static_info->num_animations; a += 1) {
         P_ASSERT(sizeof(model->animation[a].name) == sizeof(animation[a].name));
         memcpy(model->animation[a].name, animation[a].name, sizeof(model->animation[a].name));
@@ -97,21 +97,21 @@ void pe_model_load_animations(peModel *model, p3dStaticInfo *static_info, p3dAni
 	size_t p3d_animation_joint_offset = 0;
     for (int a = 0; a < static_info->num_animations; a += 1) {
 		size_t num_animation_joints = static_info->num_bones * animation[a].num_frames;
-		size_t animation_joints_size = num_animation_joints * sizeof(peAnimationJoint);
+		size_t animation_joints_size = num_animation_joints * sizeof(pAnimationJoint);
 		memcpy(model->animation[a].frames, animation_joint + p3d_animation_joint_offset, animation_joints_size);
 		p3d_animation_joint_offset += animation_joints_size;
     }
 }
 
-void pe_model_load_writeback_arena(pArena *model_arena) {
+void p_model_load_writeback_arena(pArena *model_arena) {
 	sceKernelDcacheWritebackInvalidateRange(model_arena->physical_start, model_arena->total_allocated);
 }
 
-void pe_model_draw_meshes(peModel *model, pMat4 *final_bone_matrix) {
+void p_model_draw_meshes(pModel *model, pMat4 *final_bone_matrix) {
     PE_TRACE_FUNCTION_BEGIN();
     for (int m = 0; m < model->num_mesh; m += 1) {
 		peTraceMark tm_draw_mesh = PE_TRACE_MARK_BEGIN("draw mesh");
-        peMaterial *mesh_material = &model->material[model->mesh_material[m]];
+        pMaterial *mesh_material = &model->material[model->mesh_material[m]];
 
 		if (mesh_material->has_diffuse_map) {
             p_texture_bind(mesh_material->diffuse_map);
@@ -122,7 +122,7 @@ void pe_model_draw_meshes(peModel *model, pMat4 *final_bone_matrix) {
 		p_graphics_set_diffuse_color(mesh_material->diffuse_color);
 
         peTraceMark tm_assign_matrices = PE_TRACE_MARK_BEGIN("assign matrices");
-        peSubskeleton *subskeleton = &model->subskeleton[model->mesh_subskeleton[m]];
+        pSubskeleton *subskeleton = &model->subskeleton[model->mesh_subskeleton[m]];
 		for (int b = 0; b < subskeleton->num_bones; b += 1) {
             pMat4 *final_subskeleton_bone_matrix = &final_bone_matrix[subskeleton->bone_indices[b]];
             sceGuBoneMatrix(b, &final_subskeleton_bone_matrix->_sce);

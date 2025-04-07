@@ -1,5 +1,5 @@
-#ifndef PE_MODEL_H
-#define PE_MODEL_H
+#ifndef P_MODEL_H
+#define P_MODEL_H
 
 #include "core/p_string.h"
 #include "math/p_math.h"
@@ -17,13 +17,13 @@ struct ID3D11Buffer;
 typedef unsigned int GLuint;
 #endif
 
-typedef struct peMaterial {
+typedef struct pMaterial {
     pColor diffuse_color;
     bool has_diffuse_map;
     pTexture diffuse_map;
-} peMaterial;
+} pMaterial;
 
-typedef struct peMesh {
+typedef struct pMesh {
     int num_vertex;
     int num_index;
 
@@ -39,36 +39,36 @@ typedef struct peMesh {
     void *vertex;
     void *index;
 #endif
-} peMesh;
+} pMesh;
 
 // desktop
-typedef struct peVertexSkinned {
+typedef struct pVertexSkinned {
     float position[3];
     float normal[3];
     float texcoord[2];
     uint32_t color;
     uint32_t bone_index[4];
     float bone_weight[4];
-} peVertexSkinned;
+} pVertexSkinned;
 
-typedef struct peAnimationJoint {
+typedef struct pAnimationJoint {
     pVec3 translation;
     pQuat rotation;
     pVec3 scale;
-} peAnimationJoint;
+} pAnimationJoint;
 
-typedef struct peAnimation {
+typedef struct pAnimation {
     char name[64];
     uint16_t num_frames;
-    peAnimationJoint *frames; // count = num_frames * num_bones
-} peAnimation;
+    pAnimationJoint *frames; // count = num_frames * num_bones
+} pAnimation;
 
-typedef struct peSubskeleton {
+typedef struct pSubskeleton {
 	uint8_t num_bones;
 	uint8_t bone_indices[8];
-} peSubskeleton;
+} pSubskeleton;
 
-typedef struct peModel {
+typedef struct pModel {
     pString model_path; // ./res/characters/fox (without extension!)
 
     float scale;
@@ -80,40 +80,40 @@ typedef struct peModel {
     int num_subskeleton;
 #endif
 
-    peMesh *mesh;
-    peMaterial *material;
+    pMesh *mesh;
+    pMaterial *material;
     int *mesh_material;
 
     pMat4 *bone_inverse_model_space_pose_matrix;
     uint16_t *bone_parent_index;
 #if defined(__PSP__)
-    peSubskeleton *subskeleton;
+    pSubskeleton *subskeleton;
     int *mesh_subskeleton;
 #endif
 
-    peAnimation *animation;
-} peModel;
+    pAnimation *animation;
+} pModel;
 
-peMaterial pe_default_material(void);
-peAnimationJoint pe_concatenate_animation_joints(peAnimationJoint parent, peAnimationJoint child);
+pMaterial p_default_material(void);
+pAnimationJoint p_concatenate_animation_joints(pAnimationJoint parent, pAnimationJoint child);
 
 typedef struct p3dFile p3dFile;
 typedef struct p3dStaticInfo p3dStaticInfo;
 typedef struct p3dVertex p3dVertex;
 typedef struct p3dAnimation p3dAnimation;
 typedef struct p3dAnimationJoint p3dAnimationJoint;
-bool pe_parse_p3d_static_info(p3dStaticInfo *static_info);
-void pe_model_alloc(peModel *model, pArena *arena, p3dFile *p3d);
-void pe_model_alloc_mesh_data(peModel *model, pArena *arena, p3dFile *p3d);
-peModel pe_model_load(pArena *temp_arena, char *file_path);
-void pe_model_load_static_info(peModel *model, p3dStaticInfo *static_info);
-void pe_model_load_mesh_data(peModel *model, pArena *temp_arena, p3dFile *p3d);
-peVertexSkinned pe_vertex_skinned_from_p3d(p3dVertex vertex_p3d, float scale);
-void pe_model_load_skeleton(peModel *model, p3dFile *file);
-void pe_model_load_animations(peModel *model, p3dStaticInfo *static_info, p3dAnimation *animation, p3dAnimationJoint *animation_joint);
-void pe_model_load_writeback_arena(pArena *model_arena);
+bool p_parse_p3d_static_info(p3dStaticInfo *static_info);
+void p_model_alloc(pModel *model, pArena *arena, p3dFile *p3d);
+void p_model_alloc_mesh_data(pModel *model, pArena *arena, p3dFile *p3d);
+pModel p_model_load(pArena *temp_arena, char *file_path);
+void p_model_load_static_info(pModel *model, p3dStaticInfo *static_info);
+void p_model_load_mesh_data(pModel *model, pArena *temp_arena, p3dFile *p3d);
+pVertexSkinned p_vertex_skinned_from_p3d(p3dVertex vertex_p3d, float scale);
+void p_model_load_skeleton(pModel *model, p3dFile *file);
+void p_model_load_animations(pModel *model, p3dStaticInfo *static_info, p3dAnimation *animation, p3dAnimationJoint *animation_joint);
+void p_model_load_writeback_arena(pArena *model_arena);
 
-void pe_model_draw(peModel *model, pArena *temp_arena, pVec3 position, pVec3 rotation);
-void pe_model_draw_meshes(peModel *model, pMat4 *final_bone_matrix);
+void p_model_draw(pModel *model, pArena *temp_arena, pVec3 position, pVec3 rotation);
+void p_model_draw_meshes(pModel *model, pMat4 *final_bone_matrix);
 
-#endif // PE_MODEL_H
+#endif // P_MODEL_H

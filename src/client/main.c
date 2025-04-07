@@ -39,7 +39,7 @@ typedef enum peClientNetworkState {
 struct peClientState {
     pCamera camera;
     pVec3 camera_offset;
-    peModel model;
+    pModel model;
 
     pSocket socket;
     pAddress server_address;
@@ -248,7 +248,7 @@ int main(int argc, char* argv[]) {
 #else
     #define PE_MODEL_EXTENSION ".pp3d"
 #endif
-    client.model = pe_model_load(&temp_arena, "./res/assets/fox" PE_MODEL_EXTENSION);
+    client.model = p_model_load(&temp_arena, "./res/assets/fox" PE_MODEL_EXTENSION);
 
     {
         pArenaTemp pbm_arena_temp = p_arena_temp_begin(&temp_arena);
@@ -385,7 +385,7 @@ int main(int argc, char* argv[]) {
                 pEntity *entity = &entities[e];
                 if (!entity->active) continue;
 
-                pe_model_draw(&client.model, &temp_arena, entity->position, p_vec3(0.0f, entity->angle, 0.0f));
+                p_model_draw(&client.model, &temp_arena, entity->position, p_vec3(0.0f, entity->angle, 0.0f));
             }
         }
         p_graphics_mode_3d_end();
