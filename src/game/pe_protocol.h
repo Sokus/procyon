@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "game/pe_entity.h"
+#include "game/p_entity.h"
 
 #define MAX_MESSAGES_PER_PACKET 64
 

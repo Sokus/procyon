@@ -11,7 +11,7 @@
 
 #include "pe_config.h"
 #include "game/pe_protocol.h"
-#include "game/pe_entity.h"
+#include "game/p_entity.h"
 
 #include <string.h>
 

@@ -52,7 +52,7 @@ void p_allocate_entities(void);
 pEntity *p_get_entities(void);
 pEntity *p_make_entity(void);
 pEntity *p_get_entity_by_index(uint32_t index);
-void pe_destroy_entity(pEntity *entity);
+void p_destroy_entity(pEntity *entity);
 void p_destroy_entity_immediate(pEntity *entity);
 void p_cleanup_entities(void);
 void p_entity_property_set(pEntity *entity, pEntityProperty property);

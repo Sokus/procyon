@@ -19,7 +19,7 @@
 
 #include "pe_config.h"
 #include "game/pe_protocol.h"
-#include "game/pe_entity.h"
+#include "game/p_entity.h"
 
 #include "core/p_file.h"
 #include "graphics/p_pbm.h"

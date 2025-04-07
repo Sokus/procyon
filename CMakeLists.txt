@@ -106,7 +106,7 @@ target_link_libraries(utility PRIVATE settings core)
 
 add_library(game STATIC
     src/game/p_bit_stream.c
-    src/game/pe_entity.c
+    src/game/p_entity.c
     src/game/pe_protocol.c
 )
 target_link_libraries(game PRIVATE settings core math)
