@@ -69,7 +69,7 @@ typedef struct peSubskeleton {
 } peSubskeleton;
 
 typedef struct peModel {
-    peString model_path; // ./res/characters/fox (without extension!)
+    pString model_path; // ./res/characters/fox (without extension!)
 
     float scale;
     int num_mesh;
