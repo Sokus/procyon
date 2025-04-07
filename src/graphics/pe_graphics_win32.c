@@ -34,7 +34,7 @@ peTexture default_texture = {0};
 // GENERAL IMPLEMENTATIONS
 //
 
-void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) {
+void pe_graphics_init(pArena *temp_arena, int window_width, int window_height) {
     HRESULT hr;
 
     // create D3D11 device & context
@@ -518,7 +518,7 @@ ID3D11Buffer *pe_d3d11_create_buffer(void *data, UINT byte_width, D3D11_USAGE us
     return buffer;
 }
 
-peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int height) {
+peTexture pe_texture_create(pArena *temp_arena, void *data, int width, int height) {
     DXGI_FORMAT dxgi_format = DXGI_FORMAT_UNKNOWN;
     int bytes_per_pixel = 0;
     const int channels = 4;

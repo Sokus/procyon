@@ -11,10 +11,10 @@
 #include "HandmadeMath.h"
 
 int main(int argc, char *argv[]) {
-    peArena temp_arena;
+    pArena temp_arena;
     {
         size_t temp_arena_size = P_MEGABYTES(4);
-        pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
+        p_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
     }
 
     p_window_init(&temp_arena, 960, 540, "Procyon");
@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
 
         p_window_frame_end(false);
 
-        pe_arena_clear(&temp_arena);
+        p_arena_clear(&temp_arena);
 
         PE_TRACE_MARK_END(tm_game_loop);
         uint64_t frame_duration = p_time_since(frame_start_time);

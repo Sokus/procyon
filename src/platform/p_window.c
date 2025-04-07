@@ -30,7 +30,7 @@ float p_window_delta_time(void) {
     return 1.0f / (float)target_fps;
 }
 
-void p_window_init(peArena *temp_arena, int window_width, int window_height, const char *window_name) {
+void p_window_init(pArena *temp_arena, int window_width, int window_height, const char *window_name) {
     P_ASSERT(!p_window_state.initialized);
     uint64_t time_now = p_time_now();
     p_window_state.time.start = time_now;

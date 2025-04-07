@@ -27,8 +27,8 @@ void gl_debug_message_proc(
     GLsizei length, const GLchar *message, const void *userParam
 );
 
-typedef struct peArena peArena;
-GLuint pe_shader_create_from_file(peArena *temp_arena, const char *source_file_path);
+typedef struct pArena pArena;
+GLuint pe_shader_create_from_file(pArena *temp_arena, const char *source_file_path);
 
 typedef union pVec3 pVec3;
 typedef union pMat4 pMat4;

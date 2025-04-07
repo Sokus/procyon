@@ -17,10 +17,10 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    peArena temp_arena;
+    pArena temp_arena;
     {
         size_t temp_arena_size = P_MEGABYTES(256);
-        pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
+        p_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
     }
 
     char *binary_path = argv[1];

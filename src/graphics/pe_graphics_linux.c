@@ -22,7 +22,7 @@ peTexture default_texture;
 // GENERAL IMPLEMENTATIONS
 //
 
-void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) {
+void pe_graphics_init(pArena *temp_arena, int window_width, int window_height) {
     pe_opengl.framebuffer_width = window_width;
     pe_opengl.framebuffer_height = window_height;
 
@@ -52,7 +52,7 @@ void pe_graphics_init(peArena *temp_arena, int window_width, int window_height) 
     {
         size_t vertex_buffer_size = PE_MAX_DYNAMIC_DRAW_VERTEX_COUNT * sizeof(peDynamicDrawVertex);
         size_t batch_buffer_size = PE_MAX_DYNAMIC_DRAW_BATCH_COUNT * sizeof(peDynamicDrawBatch);
-    
+
         dynamic_draw.vertex = pe_heap_alloc(vertex_buffer_size);
         dynamic_draw.batch = pe_heap_alloc(batch_buffer_size);
         memset(dynamic_draw.vertex, 0, vertex_buffer_size);
@@ -370,14 +370,14 @@ static GLuint pe_shader_compile(GLenum type, const GLchar *shader_source) {
     return shader;
 }
 
-GLuint pe_shader_create_from_file(peArena *temp_arena, const char *source_file_path) {
+GLuint pe_shader_create_from_file(pArena *temp_arena, const char *source_file_path) {
     GLuint vertex_shader, fragment_shader;
     {
-        peArenaTemp arena_temp = pe_arena_temp_begin(temp_arena);
+        pArenaTemp arena_temp = p_arena_temp_begin(temp_arena);
         peFileContents shader_source_file_contents = pe_file_read_contents(temp_arena, source_file_path, true);
         vertex_shader = pe_shader_compile(GL_VERTEX_SHADER, shader_source_file_contents.data);
         fragment_shader = pe_shader_compile(GL_FRAGMENT_SHADER, shader_source_file_contents.data);
-        pe_arena_temp_end(arena_temp);
+        p_arena_temp_end(arena_temp);
     }
 
     GLuint shader_program = glCreateProgram();
@@ -431,7 +431,7 @@ void pe_shader_set_bool(GLuint shader_program, const GLchar *name, bool value) {
     glUniform1i(uniform_location, gl_value);
 }
 
-peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int height) {
+peTexture pe_texture_create(pArena *temp_arena, void *data, int width, int height) {
     GLint texture_object;
     glGenTextures(1, &texture_object);
     glBindTexture(GL_TEXTURE_2D, texture_object);

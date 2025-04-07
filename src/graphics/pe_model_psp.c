@@ -18,20 +18,20 @@ bool pe_parse_p3d_static_info(p3dStaticInfo *static_info) {
     return true;
 }
 
-void pe_model_alloc_mesh_data(peModel *model, peArena *arena, p3dFile *p3d) {
+void pe_model_alloc_mesh_data(peModel *model, pArena *arena, p3dFile *p3d) {
     size_t mesh_material_size = p3d->static_info->num_meshes * sizeof(int);
-    model->mesh_material = pe_arena_alloc(arena, mesh_material_size);
+    model->mesh_material = p_arena_alloc(arena, mesh_material_size);
 
     P_ASSERT(p3d->static_info->is_portable);
     size_t mesh_subskeleton_size = p3d->static_info->num_meshes * sizeof(int); // psp
     size_t subskeleton_size = p3d->static_info->num_subskeletons * sizeof(peSubskeleton); // psp
-    model->mesh_subskeleton = pe_arena_alloc(arena, mesh_subskeleton_size);
-    model->subskeleton = pe_arena_alloc(arena, subskeleton_size);
+    model->mesh_subskeleton = p_arena_alloc(arena, mesh_subskeleton_size);
+    model->subskeleton = p_arena_alloc(arena, subskeleton_size);
     size_t psp_vertex_memory_alignment = 16;
     for (int m = 0; m < p3d->static_info->num_meshes; m += 1) {
-    	model->mesh[m].vertex = pe_arena_alloc_align(arena, p3d->portable.vertex_size[m], psp_vertex_memory_alignment);
+    	model->mesh[m].vertex = p_arena_alloc_align(arena, p3d->portable.vertex_size[m], psp_vertex_memory_alignment);
     	if (p3d->mesh[m].num_index > 0) {
-    		model->mesh[m].index = pe_arena_alloc_align(arena, p3d->portable.index_size[m], psp_vertex_memory_alignment);
+    		model->mesh[m].index = p_arena_alloc_align(arena, p3d->portable.index_size[m], psp_vertex_memory_alignment);
     	}
     }
 }
@@ -45,7 +45,7 @@ void pe_model_load_static_info(peModel *model, p3dStaticInfo *static_info) {
     model->num_subskeleton = static_info->num_subskeletons;
 }
 
-void pe_model_load_mesh_data(peModel *model, peArena *temp_arena, p3dFile *p3d) {
+void pe_model_load_mesh_data(peModel *model, pArena *temp_arena, p3dFile *p3d) {
 	for (int m = 0; m < p3d->static_info->num_meshes; m += 1) {
     	model->mesh_material[m] = p3d->mesh[m].material_index;
 		model->mesh_subskeleton[m] = p3d->mesh[m].subskeleton_index;
@@ -103,7 +103,7 @@ void pe_model_load_animations(peModel *model, p3dStaticInfo *static_info, p3dAni
     }
 }
 
-void pe_model_load_writeback_arena(peArena *model_arena) {
+void pe_model_load_writeback_arena(pArena *model_arena) {
 	sceKernelDcacheWritebackInvalidateRange(model_arena->physical_start, model_arena->total_allocated);
 }
 

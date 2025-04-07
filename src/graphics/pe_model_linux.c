@@ -16,9 +16,9 @@ bool pe_parse_p3d_static_info(p3dStaticInfo *static_info) {
     return true;
 }
 
-void pe_model_alloc_mesh_data(peModel *model, peArena *arena, p3dFile *p3d) {
+void pe_model_alloc_mesh_data(peModel *model, pArena *arena, p3dFile *p3d) {
     size_t mesh_material_size = p3d->static_info->num_meshes * sizeof(int);
-    model->mesh_material = pe_arena_alloc(arena, mesh_material_size);
+    model->mesh_material = p_arena_alloc(arena, mesh_material_size);
 }
 
 void pe_model_load_static_info(peModel *model, p3dStaticInfo *static_info) {
@@ -29,14 +29,14 @@ void pe_model_load_static_info(peModel *model, p3dStaticInfo *static_info) {
     model->num_animations = (int)static_info->num_animations;
 }
 
-void pe_model_load_mesh_data(peModel *model, peArena *temp_arena, p3dFile *p3d) {
+void pe_model_load_mesh_data(peModel *model, pArena *temp_arena, p3dFile *p3d) {
     int vertex_offset = 0;
     int index_offset = 0;
     for (int m = 0; m < p3d->static_info->num_meshes; m += 1) {
-        peArenaTemp temp_arena_memory = pe_arena_temp_begin(temp_arena);
+        pArenaTemp temp_arena_memory = p_arena_temp_begin(temp_arena);
 
         size_t vertex_buffer_size = p3d->mesh[m].num_vertex * sizeof(peVertexSkinned);
-        peVertexSkinned *vertex_buffer = pe_arena_alloc(temp_arena, vertex_buffer_size);
+        peVertexSkinned *vertex_buffer = p_arena_alloc(temp_arena, vertex_buffer_size);
 
         for (int v = 0; v < p3d->mesh[m].num_vertex; v += 1) {
             p3dVertex *p3d_vertex = &p3d->desktop.vertex[v+vertex_offset];
@@ -83,7 +83,7 @@ void pe_model_load_mesh_data(peModel *model, peArena *temp_arena, p3dFile *p3d) 
         vertex_offset += p3d->mesh[m].num_vertex;
         index_offset += p3d->mesh[m].num_index;
 
-        pe_arena_temp_end(temp_arena_memory);
+        p_arena_temp_end(temp_arena_memory);
     }
 }
 
@@ -116,7 +116,7 @@ void pe_model_load_animations(peModel *model, p3dStaticInfo *static_info, p3dAni
     }
 }
 
-void pe_model_load_writeback_arena(peArena *model_arena) {
+void pe_model_load_writeback_arena(pArena *model_arena) {
     // NOTE: This does nothing since we only need to invalidate the memory cache on the PSP.
 }
 

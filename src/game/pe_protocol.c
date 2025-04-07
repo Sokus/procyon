@@ -42,7 +42,7 @@ static peSerializationError pe_serialize_world_state_message(peBitStream *bs, pe
     return err;
 }
 
-peMessage pe_message_create(peArena *arena, peMessageType type) {
+peMessage pe_message_create(pArena *arena, peMessageType type) {
     P_ASSERT(type >= 0);
     P_ASSERT(type < peMessageType_Count);
     peMessage message = {0};
@@ -57,7 +57,7 @@ peMessage pe_message_create(peArena *arena, peMessageType type) {
         default: P_PANIC(); return message;
     }
     message.type = type;
-    message.any = pe_arena_alloc(arena, message_size);
+    message.any = p_arena_alloc(arena, message_size);
     memset(message.any, 0, message_size);
     return message;
 }
@@ -112,7 +112,7 @@ bool pe_send_packet(peSocket socket, peAddress address, pePacket *packet) {
     return true;
 }
 
-bool pe_receive_packet(peSocket socket, peArena *arena, peAddress *address, pePacket *packet) {
+bool pe_receive_packet(peSocket socket, pArena *arena, peAddress *address, pePacket *packet) {
     P_ASSERT(packet->message_count == 0);
 
     uint8_t buffer[1400];

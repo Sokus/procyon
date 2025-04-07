@@ -24,8 +24,8 @@ peString pe_string_suffix(peString string, size_t size);
 peString pe_string_skip  (peString string, size_t size);
 peString pe_string_range (peString string, size_t first, size_t one_past_last);
 
-peString pe_string_format_variadic(peArena *arena, char *format, va_list argument_list);
-peString pe_string_format         (peArena *arena, char *format, ...);
+peString pe_string_format_variadic(pArena *arena, char *format, va_list argument_list);
+peString pe_string_format         (pArena *arena, char *format, ...);
 
 
 #endif // P_STRING_HEADER_GUARD
@@ -101,21 +101,21 @@ peString pe_string_range(peString string, size_t first, size_t one_past_last) {
     return result;
 }
 
-peString pe_string_format_variadic(peArena *arena, char *format, va_list argument_list) {
+peString pe_string_format_variadic(pArena *arena, char *format, va_list argument_list) {
     va_list argument_list_backup;
     va_copy(argument_list_backup, argument_list);
 
     size_t buffer_size = 1024;
-    char *buffer = pe_arena_alloc(arena, buffer_size);
+    char *buffer = p_arena_alloc(arena, buffer_size);
     size_t actual_size = vsnprintf(buffer, buffer_size, format, argument_list);
 
     peString result;
     if (actual_size < buffer_size) {
-        pe_arena_rewind(arena, buffer_size - actual_size - 1);
+        p_arena_rewind(arena, buffer_size - actual_size - 1);
         result = pe_string(buffer, actual_size);
     } else {
-        pe_arena_rewind(arena, buffer_size);
-        char *fixed_buffer = pe_arena_alloc(arena, actual_size + 1);
+        p_arena_rewind(arena, buffer_size);
+        char *fixed_buffer = p_arena_alloc(arena, actual_size + 1);
         size_t final_size = vsnprintf(fixed_buffer, actual_size + 1, format, argument_list_backup);
         P_ASSERT(actual_size == final_size);
         result = pe_string(fixed_buffer, final_size);
@@ -125,7 +125,7 @@ peString pe_string_format_variadic(peArena *arena, char *format, va_list argumen
     return result;
 }
 
-peString pe_string_format(peArena *arena, char *format, ...) {
+peString pe_string_format(pArena *arena, char *format, ...) {
     va_list argument_list;
     va_start(argument_list, format);
     peString result = pe_string_format_variadic(arena, format, argument_list);

@@ -71,16 +71,16 @@ typedef struct pePacket {
     int message_count;
 } pePacket;
 
-struct peArena;
+struct pArena;
 struct peBitStream;
 enum peSerializationError;
-peMessage pe_message_create(struct peArena *arena, peMessageType type);
+peMessage pe_message_create(struct pArena *arena, peMessageType type);
 enum peSerializationError pe_serialize_message(struct peBitStream *bs, peMessage *msg);
 void pe_append_message(pePacket *packet, peMessage msg);
 
 struct peSocket;
 struct peAddress;
 bool pe_send_packet(struct peSocket socket, struct peAddress address, pePacket *packet);
-bool pe_receive_packet(struct peSocket socket, struct peArena *arena, struct peAddress *address, pePacket *packet);
+bool pe_receive_packet(struct peSocket socket, struct pArena *arena, struct peAddress *address, pePacket *packet);
 
 #endif // PE_PROTOCOL_H

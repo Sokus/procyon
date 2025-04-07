@@ -208,12 +208,12 @@ void pe_process_input_state_message(peInputStateMessage *msg, peAddress address,
     }
 }
 
-void pe_receive_packets(peArena *temp_arena) {
+void pe_receive_packets(pArena *temp_arena) {
     peAddress address;
     pePacket packet = {0};
-    peArenaTemp receive_packets_arena_temp = pe_arena_temp_begin(temp_arena);
+    pArenaTemp receive_packets_arena_temp = p_arena_temp_begin(temp_arena);
     while (true) {
-        peArenaTemp loop_arena_temp = pe_arena_temp_begin(temp_arena);
+        pArenaTemp loop_arena_temp = p_arena_temp_begin(temp_arena);
         bool packet_received = pe_receive_packet(server.socket, temp_arena, &address, &packet);
         if (!packet_received) {
             break;
@@ -237,10 +237,10 @@ void pe_receive_packets(peArena *temp_arena) {
                     break;
             }
         }
-        pe_arena_temp_end(loop_arena_temp);
+        p_arena_temp_end(loop_arena_temp);
         packet.message_count = 0;
     }
-    pe_arena_temp_end(receive_packets_arena_temp);
+    p_arena_temp_end(receive_packets_arena_temp);
 }
 
 void pe_send_packets(void) {
@@ -275,10 +275,10 @@ void pe_check_for_time_out(void) {
 }
 
 int main(int argc, char *argv[]) {
-	peArena temp_arena;
+	pArena temp_arena;
     {
         size_t temp_arena_size = P_MEGABYTES(4);
-        pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
+        p_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
     }
 
     pe_net_init();
@@ -305,7 +305,7 @@ int main(int argc, char *argv[]) {
 
         pe_send_packets();
 
-        pe_arena_clear(&temp_arena);
+        p_arena_clear(&temp_arena);
 
         uint64_t ticks_spent_working = p_time_since(work_start_tick);
         double seconds_spent_working = p_time_sec(ticks_spent_working);

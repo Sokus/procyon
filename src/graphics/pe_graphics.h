@@ -8,7 +8,7 @@
 
 #include "HandmadeMath.h"
 
-typedef struct peArena peArena;
+typedef struct pArena pArena;
 
 #define PE_LIGHT_VECTOR_DEFAULT (pVec3){ 1.0f, -1.0f, 1.0f }
 
@@ -154,7 +154,7 @@ typedef struct peCamera {
 
 // GENERAL
 
-void pe_graphics_init(peArena *temp_arena, int window_width, int window_height);
+void pe_graphics_init(pArena *temp_arena, int window_width, int window_height);
 void pe_graphics_shutdown(void);
 void pe_graphics_set_framebuffer_size(int width, int height);
 int pe_screen_width(void);
@@ -189,8 +189,8 @@ uint32_t pe_color_to_8888(peColor color);
 // TEXTURE
 
 typedef struct pbmFile pbmFile;
-peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int height);
-peTexture pe_texture_create_pbm(peArena *temp_arena, pbmFile *pbm);
+peTexture pe_texture_create(pArena *temp_arena, void *data, int width, int height);
+peTexture pe_texture_create_pbm(pArena *temp_arena, pbmFile *pbm);
 void pe_texture_bind(peTexture texture);
 void pe_texture_bind_default(void);
 

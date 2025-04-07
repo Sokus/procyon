@@ -87,12 +87,12 @@ void pe_client_process_message(peMessage message) {
     PE_TRACE_FUNCTION_END();
 }
 
-void pe_receive_packets(peArena *temp_arena, peSocket socket) {
+void pe_receive_packets(pArena *temp_arena, peSocket socket) {
     PE_TRACE_FUNCTION_BEGIN();
     peAddress address;
     pePacket packet = {0};
     while (true) {
-        peArenaTemp loop_arena_temp = pe_arena_temp_begin(temp_arena);
+        pArenaTemp loop_arena_temp = p_arena_temp_begin(temp_arena);
         bool packet_received = pe_receive_packet(socket, temp_arena, &address, &packet);
         if (!packet_received) {
             break;
@@ -105,15 +105,15 @@ void pe_receive_packets(peArena *temp_arena, peSocket socket) {
         for (int i = 0; i < packet.message_count; i += 1) {
             pe_client_process_message(packet.messages[i]);
         }
-        pe_arena_temp_end(loop_arena_temp);
+        p_arena_temp_end(loop_arena_temp);
         packet.message_count = 0;
     }
     PE_TRACE_FUNCTION_END();
 }
 
-void pe_send_packets(peArena *temp_arena, peInput input) {
+void pe_send_packets(pArena *temp_arena, peInput input) {
     peTraceMark send_packets_tm = PE_TRACE_MARK_BEGIN("prepare packet");
-    peArenaTemp send_packets_arena_temp = pe_arena_temp_begin(temp_arena);
+    pArenaTemp send_packets_arena_temp = p_arena_temp_begin(temp_arena);
     pePacket outgoing_packet = {0};
     switch (client.network_state) {
         case peClientNetworkState_Disconnected: {
@@ -153,7 +153,7 @@ void pe_send_packets(peArena *temp_arena, peInput input) {
         client.last_packet_send_time = p_time_now();
     }
     outgoing_packet.message_count = 0;
-    pe_arena_temp_end(send_packets_arena_temp);
+    p_arena_temp_end(send_packets_arena_temp);
 }
 
 static pVec2 last_nonzero_gamepad_input = { 0.0f, 1.0f };
@@ -226,10 +226,10 @@ void pe_graphics_draw_text(char *text, int pos_x, int pos_y, peColor color) {
 }
 
 int main(int argc, char* argv[]) {
-	peArena temp_arena;
+	pArena temp_arena;
     {
         size_t temp_arena_size = P_MEGABYTES(4);
-        pe_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
+        p_arena_init(&temp_arena, pe_heap_alloc(temp_arena_size), temp_arena_size);
     }
 
     pe_net_init();
@@ -251,7 +251,7 @@ int main(int argc, char* argv[]) {
     client.model = pe_model_load(&temp_arena, "./res/assets/fox" PE_MODEL_EXTENSION);
 
     {
-        peArenaTemp pbm_arena_temp = pe_arena_temp_begin(&temp_arena);
+        pArenaTemp pbm_arena_temp = p_arena_temp_begin(&temp_arena);
         peFileContents pbm_file_contents = pe_file_read_contents(&temp_arena, "./res/cp437.pbm", false);
         pbmFile pbm_file;
         bool pbm_parse_result = pbm_parse(pbm_file_contents.data, pbm_file_contents.size, &pbm_file);
@@ -276,7 +276,7 @@ int main(int argc, char* argv[]) {
         // pe_file_write_async(pbm_file, pbm_palette, sizeof(pbm_palette));
 
         // int index_count = 2 * ((w * h + 1) / 2);
-        // uint8_t *index = pe_arena_alloc(&temp_arena, index_count/2 * sizeof(uint8_t));
+        // uint8_t *index = p_arena_alloc(&temp_arena, index_count/2 * sizeof(uint8_t));
         // memset(index, 0x0, index_count/2 * sizeof(uint8_t));
 
         // uint8_t index_value = 0x0;
@@ -298,7 +298,7 @@ int main(int argc, char* argv[]) {
 
         codepage = pe_texture_create_pbm(&temp_arena, &pbm_file);
         // codepage = pe_texture_create(&temp_arena, stbi_data, w, h);
-        pe_arena_temp_end(pbm_arena_temp);
+        p_arena_temp_end(pbm_arena_temp);
         // stbi_image_free(stbi_data);
 
         // pe_file_close(pbm_file);
@@ -416,7 +416,7 @@ int main(int argc, char* argv[]) {
 
         bool vsync = true;
         p_window_frame_end(vsync);
-        pe_arena_clear(&temp_arena);
+        p_arena_clear(&temp_arena);
     }
 
     pe_socket_destroy(client.socket);

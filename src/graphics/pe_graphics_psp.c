@@ -18,7 +18,7 @@
 #define PSP_SCREEN_W (480)
 #define PSP_SCREEN_H (272)
 
-static peArena edram_arena;
+static pArena edram_arena;
 static bool gu_initialized = false;
 
 static unsigned int __attribute__((aligned(16))) list[262144];
@@ -27,15 +27,15 @@ static unsigned int __attribute__((aligned(16))) list[262144];
 // GENERAL IMPLEMENTATIONS
 //
 
-void pe_graphics_init(peArena *, int, int) {
-	pe_arena_init(&edram_arena, sceGeEdramGetAddr(), sceGeEdramGetSize());
+void pe_graphics_init(pArena *, int, int) {
+	p_arena_init(&edram_arena, sceGeEdramGetAddr(), sceGeEdramGetSize());
 
 	unsigned int framebuffer_size = p_pixel_bytes(PSP_BUFF_W*PSP_SCREEN_H, GU_PSM_5650);
-	void *framebuffer0 = pe_arena_alloc_align(&edram_arena, framebuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
-	void *framebuffer1 = pe_arena_alloc_align(&edram_arena, framebuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
+	void *framebuffer0 = p_arena_alloc_align(&edram_arena, framebuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
+	void *framebuffer1 = p_arena_alloc_align(&edram_arena, framebuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
 
     unsigned int depthbuffer_size = p_pixel_bytes(PSP_BUFF_W*PSP_SCREEN_H, GU_PSM_4444);
-	void *depthbuffer = pe_arena_alloc_align(&edram_arena, depthbuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
+	void *depthbuffer = p_arena_alloc_align(&edram_arena, depthbuffer_size, 4) - (uintptr_t)sceGeEdramGetAddr();
 
 	sceGuInit();
 	sceGuStart(GU_DIRECT,list);
@@ -170,7 +170,7 @@ pMat4 pe_matrix_orthographic(float left, float right, float bottom, float top, f
     return p_orthographic_rh_no(left, right, bottom, top, near_z, far_z);
 }
 
-peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int height) {
+peTexture pe_texture_create(pArena *temp_arena, void *data, int width, int height) {
     const int format = GU_PSM_8888;
 	int pow2_width = closest_greater_power_of_two(width);
 	int pow2_height = closest_greater_power_of_two(height);
@@ -180,7 +180,7 @@ peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int heig
 	int pow2_byte_width = p_pixel_bytes(pow2_width, format);
 	int size = p_pixel_bytes(pow2_width * block_height, format);
 
-    unsigned int* swizzled_pixels = pe_arena_alloc_align(&edram_arena, size, 16);
+    unsigned int* swizzled_pixels = p_arena_alloc_align(&edram_arena, size, 16);
     p_swizzle(swizzled_pixels, data, byte_width, pow2_byte_width, height);
     sceKernelDcacheWritebackRange(swizzled_pixels, size);
 
@@ -198,7 +198,7 @@ peTexture pe_texture_create(peArena *temp_arena, void *data, int width, int heig
 
 #include "graphics/p_pbm.h"
 
-peTexture pe_texture_create_pbm(peArena *temp_arena, pbmFile *pbm) {
+peTexture pe_texture_create_pbm(pArena *temp_arena, pbmFile *pbm) {
     int width = pbm->static_info->width;
     int height = pbm->static_info->height;
     int power_of_two_width = closest_greater_power_of_two(width);
@@ -210,7 +210,7 @@ peTexture pe_texture_create_pbm(peArena *temp_arena, pbmFile *pbm) {
 	int power_of_two_byte_width = p_pixel_bytes(power_of_two_width, pixel_format);
 	int pixel_size = p_pixel_bytes(power_of_two_width * block_size_height, pixel_format);
 
-    unsigned int* swizzled_pixels = pe_arena_alloc_align(&edram_arena, pixel_size, 16);
+    unsigned int* swizzled_pixels = p_arena_alloc_align(&edram_arena, pixel_size, 16);
     p_swizzle(swizzled_pixels, pbm->index, byte_width, power_of_two_byte_width, height);
     sceKernelDcacheWritebackRange(swizzled_pixels, pixel_size);
 
@@ -225,7 +225,7 @@ peTexture pe_texture_create_pbm(peArena *temp_arena, pbmFile *pbm) {
 
     int palette_padded_length = 8 * ((pbm->static_info->palette_length + 7) / 8);
     int palette_size = p_pixel_bytes(palette_padded_length, palette_format);
-    void *palette = pe_arena_alloc_align(&edram_arena, palette_size, 16);
+    void *palette = p_arena_alloc_align(&edram_arena, palette_size, 16);
     memcpy(palette, pbm->palette, palette_size);
     sceKernelDcacheWritebackRange(palette, palette_size);
 

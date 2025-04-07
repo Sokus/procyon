@@ -37,8 +37,8 @@ typedef struct peFileContents {
     size_t size;
 } peFileContents;
 
-struct peArena;
-peFileContents pe_file_read_contents(struct peArena *arena, const char *file_path, bool zero_terminate);
+struct pArena;
+peFileContents pe_file_read_contents(struct pArena *arena, const char *file_path, bool zero_terminate);
 
 #endif // P_FILE_HEADER_GUARD
 
@@ -185,7 +185,7 @@ bool pe_file_wait(peFileHandle file) {
     return success;
 }
 
-peFileContents pe_file_read_contents(peArena *arena, const char *file_path, bool zero_terminate) {
+peFileContents pe_file_read_contents(pArena *arena, const char *file_path, bool zero_terminate) {
     peFileContents result = {0};
 
 #if defined(_WIN32)
@@ -245,7 +245,7 @@ peFileContents pe_file_read_contents(peArena *arena, const char *file_path, bool
         total_size = (size_t)(zero_terminate ? file_size + 1 : file_size);
     }
 
-    void *data = pe_arena_alloc(arena, total_size);
+    void *data = p_arena_alloc(arena, total_size);
     if (data == NULL) {
 #if defined(_WIN32)
         CloseHandle(file_handle);
