@@ -24,13 +24,13 @@ int main(int argc, char *argv[]) {
     }
 
     char *binary_path = argv[1];
-    peFileContents binary_file_contents = pe_file_read_contents(&temp_arena, binary_path, false);
+    pFileContents binary_file_contents = p_file_read_contents(&temp_arena, binary_path, false);
     if (binary_file_contents.size == 0) {
         return 1;
     }
 
     char *input_path = argv[2];
-    peFileContents input_file_contents = pe_file_read_contents(&temp_arena, input_path, false);
+    pFileContents input_file_contents = p_file_read_contents(&temp_arena, input_path, false);
     if (input_file_contents.size == 0) {
         return 1;
     }

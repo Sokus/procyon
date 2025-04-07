@@ -9,7 +9,7 @@
 #include "pe_trace.h"
 
 struct peTraceState {
-    peFileHandle output_file;
+    pFileHandle output_file;
     uint8_t data[2][PE_TRACE_DATA_BATCH_SIZE];
     size_t data_used[2];
     int current_data_index;
@@ -20,16 +20,16 @@ struct peTraceState {
 
 void pe_trace_init(void) {
 #if defined(PE_TRACE_ENABLED)
-    pe_file_open("./trace.pt", &pe_trace_state.output_file);
+    p_file_open("./trace.pt", &pe_trace_state.output_file);
     peTraceHeader trace_header = {
         .address_bytes = sizeof(void*),
         .address = (void*)PE_TRACE_REFERENCE_LITERAL
     };
-    pe_file_write_async(pe_trace_state.output_file, &trace_header, sizeof(peTraceHeader));
+    p_file_write_async(pe_trace_state.output_file, &trace_header, sizeof(peTraceHeader));
     bool should_wait;
-    bool poll_success = pe_file_poll(pe_trace_state.output_file, &should_wait);
+    bool poll_success = p_file_poll(pe_trace_state.output_file, &should_wait);
     if (poll_success && should_wait) {
-        pe_file_wait(pe_trace_state.output_file);
+        p_file_wait(pe_trace_state.output_file);
     }
 #endif
 }
@@ -40,11 +40,11 @@ void pe_trace_shutdown(void) {
 #if defined(PE_TRACE_ENABLED)
     pe_trace_data_flush();
     bool should_wait;
-    bool poll_success = pe_file_poll(pe_trace_state.output_file, &should_wait);
+    bool poll_success = p_file_poll(pe_trace_state.output_file, &should_wait);
     if (poll_success && should_wait) {
-        pe_file_wait(pe_trace_state.output_file);
+        p_file_wait(pe_trace_state.output_file);
     }
-    pe_file_close(pe_trace_state.output_file);
+    p_file_close(pe_trace_state.output_file);
 #endif
 }
 
@@ -89,16 +89,16 @@ void pe_trace_mark_end_internal(peTraceMark trace_mark) {
 static void pe_trace_data_flush(void) {
     if (pe_trace_state.data_used[pe_trace_state.current_data_index] > 0) {
         bool wait_for_write_async;
-        bool file_poll_success = pe_file_poll(pe_trace_state.output_file, &wait_for_write_async);
+        bool file_poll_success = p_file_poll(pe_trace_state.output_file, &wait_for_write_async);
         uint64_t write_async_wait_start;
         uint64_t write_async_wait_duration;
         if (file_poll_success && wait_for_write_async) {
             write_async_wait_start = p_time_now();
-            pe_file_wait(pe_trace_state.output_file);
+            p_file_wait(pe_trace_state.output_file);
             write_async_wait_duration = p_time_since(write_async_wait_start);
         }
 
-        pe_file_write_async(
+        p_file_write_async(
             pe_trace_state.output_file,
             pe_trace_state.data[pe_trace_state.current_data_index],
             pe_trace_state.data_used[pe_trace_state.current_data_index]

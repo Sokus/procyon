@@ -252,12 +252,12 @@ int main(int argc, char* argv[]) {
 
     {
         pArenaTemp pbm_arena_temp = p_arena_temp_begin(&temp_arena);
-        peFileContents pbm_file_contents = pe_file_read_contents(&temp_arena, "./res/cp437.pbm", false);
+        pFileContents pbm_file_contents = p_file_read_contents(&temp_arena, "./res/cp437.pbm", false);
         pbmFile pbm_file;
         bool pbm_parse_result = pbm_parse(pbm_file_contents.data, pbm_file_contents.size, &pbm_file);
 
-        // peFileHandle pbm_file;
-        // pe_file_open("./res/cp437.pbm", &pbm_file);
+        // pFileHandle pbm_file;
+        // p_file_open("./res/cp437.pbm", &pbm_file);
 
         // int w, h, channels;
         // stbi_uc *stbi_data = stbi_load("./res/CP437.png", &w, &h, &channels, STBI_rgb_alpha);
@@ -270,10 +270,10 @@ int main(int argc, char* argv[]) {
         //     .height = (int16_t)h,
         //     .bits_per_pixel = 4,
         // };
-        // pe_file_write_async(pbm_file, &pbm_static_info, sizeof(pbm_static_info));
+        // p_file_write_async(pbm_file, &pbm_static_info, sizeof(pbm_static_info));
 
         // uint16_t pbm_palette[2] = { 0x0000, 0xFFFF };
-        // pe_file_write_async(pbm_file, pbm_palette, sizeof(pbm_palette));
+        // p_file_write_async(pbm_file, pbm_palette, sizeof(pbm_palette));
 
         // int index_count = 2 * ((w * h + 1) / 2);
         // uint8_t *index = p_arena_alloc(&temp_arena, index_count/2 * sizeof(uint8_t));
@@ -294,14 +294,14 @@ int main(int argc, char* argv[]) {
         // if (index_value) {
         //     index[p/2] = index_value;
         // }
-        // pe_file_write_async(pbm_file, index, index_count/2 * sizeof(uint8_t));
+        // p_file_write_async(pbm_file, index, index_count/2 * sizeof(uint8_t));
 
         codepage = pe_texture_create_pbm(&temp_arena, &pbm_file);
         // codepage = pe_texture_create(&temp_arena, stbi_data, w, h);
         p_arena_temp_end(pbm_arena_temp);
         // stbi_image_free(stbi_data);
 
-        // pe_file_close(pbm_file);
+        // p_file_close(pbm_file);
     }
 
     client.camera = (peCamera){

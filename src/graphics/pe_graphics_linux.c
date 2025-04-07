@@ -374,7 +374,7 @@ GLuint pe_shader_create_from_file(pArena *temp_arena, const char *source_file_pa
     GLuint vertex_shader, fragment_shader;
     {
         pArenaTemp arena_temp = p_arena_temp_begin(temp_arena);
-        peFileContents shader_source_file_contents = pe_file_read_contents(temp_arena, source_file_path, true);
+        pFileContents shader_source_file_contents = p_file_read_contents(temp_arena, source_file_path, true);
         vertex_shader = pe_shader_compile(GL_VERTEX_SHADER, shader_source_file_contents.data);
         fragment_shader = pe_shader_compile(GL_FRAGMENT_SHADER, shader_source_file_contents.data);
         p_arena_temp_end(arena_temp);

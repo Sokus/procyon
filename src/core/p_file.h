@@ -14,7 +14,7 @@
     #include <windows.h>
 #endif
 
-typedef struct peFileHandle {
+typedef struct pFileHandle {
 #if defined(__PSP__)
     SceUID fd_psp;
 #elif defined(_WIN32)
@@ -24,21 +24,21 @@ typedef struct peFileHandle {
 #else
     int dummy;
 #endif
-} peFileHandle;
+} pFileHandle;
 
-bool pe_file_open(const char *file_path, peFileHandle *result);
-bool pe_file_close(peFileHandle file);
-bool pe_file_write_async(peFileHandle file, void *data, size_t data_size);
-bool pe_file_poll(peFileHandle file, bool *result);
-bool pe_file_wait(peFileHandle file);
+bool p_file_open(const char *file_path, pFileHandle *result);
+bool p_file_close(pFileHandle file);
+bool p_file_write_async(pFileHandle file, void *data, size_t data_size);
+bool p_file_poll(pFileHandle file, bool *result);
+bool p_file_wait(pFileHandle file);
 
-typedef struct peFileContents {
+typedef struct pFileContents {
     void *data;
     size_t size;
-} peFileContents;
+} pFileContents;
 
 struct pArena;
-peFileContents pe_file_read_contents(struct pArena *arena, const char *file_path, bool zero_terminate);
+pFileContents p_file_read_contents(struct pArena *arena, const char *file_path, bool zero_terminate);
 
 #endif // P_FILE_HEADER_GUARD
 
@@ -65,14 +65,14 @@ peFileContents pe_file_read_contents(struct pArena *arena, const char *file_path
 #include <stdbool.h>
 #include <stddef.h>
 
-bool pe_file_open(const char *file_path, peFileHandle *result) {
+bool p_file_open(const char *file_path, pFileHandle *result) {
     bool success = false;
 #if defined(__PSP__)
     int sce_flags = PSP_O_NBLOCK | PSP_O_WRONLY | PSP_O_CREAT | PSP_O_TRUNC | PSP_O_APPEND;
     SceUID sce_fd = sceIoOpen(file_path, sce_flags, 0777);
     if (sce_fd >= 0) {
         success = true;
-        *result = (peFileHandle){
+        *result = (pFileHandle){
             .fd_psp = sce_fd
         };
         sceIoChangeAsyncPriority(sce_fd, 16);
@@ -89,7 +89,7 @@ bool pe_file_open(const char *file_path, peFileHandle *result) {
     );
     if (handle_win32 != INVALID_HANDLE_VALUE) {
         success = true;
-        *result = (peFileHandle){
+        *result = (pFileHandle){
             .handle_win32 = handle_win32
         };
     }
@@ -98,7 +98,7 @@ bool pe_file_open(const char *file_path, peFileHandle *result) {
     int fd_linux = open(file_path, flags_linux);
     if (fd_linux >= 0) {
         success = true;
-        *result = (peFileHandle){
+        *result = (pFileHandle){
             .fd_linux = fd_linux
         };
     }
@@ -108,7 +108,7 @@ bool pe_file_open(const char *file_path, peFileHandle *result) {
     return success;
 }
 
-bool pe_file_close(peFileHandle file) {
+bool p_file_close(pFileHandle file) {
     bool success = false;
 #if defined(__PSP__)
     int rc_sce = sceIoClose(file.fd_psp);
@@ -124,7 +124,7 @@ bool pe_file_close(peFileHandle file) {
     return success;
 }
 
-bool pe_file_write_async(peFileHandle file, void *data, size_t data_size) {
+bool p_file_write_async(pFileHandle file, void *data, size_t data_size) {
     bool success = false;
 #if defined(__PSP__)
     int sce_rc = sceIoWriteAsync(file.fd_psp, data, (SceSize)data_size);
@@ -146,7 +146,7 @@ bool pe_file_write_async(peFileHandle file, void *data, size_t data_size) {
     return success;
 }
 
-bool pe_file_poll(peFileHandle file, bool *result) {
+bool p_file_poll(pFileHandle file, bool *result) {
     bool success = false;
 #if defined(__PSP__)
     SceInt64 sce_result;
@@ -167,7 +167,7 @@ bool pe_file_poll(peFileHandle file, bool *result) {
     return success;
 }
 
-bool pe_file_wait(peFileHandle file) {
+bool p_file_wait(pFileHandle file) {
     bool success = false;
 #if defined(__PSP__)
     SceInt64 sce_result;
@@ -185,8 +185,8 @@ bool pe_file_wait(peFileHandle file) {
     return success;
 }
 
-peFileContents pe_file_read_contents(pArena *arena, const char *file_path, bool zero_terminate) {
-    peFileContents result = {0};
+pFileContents p_file_read_contents(pArena *arena, const char *file_path, bool zero_terminate) {
+    pFileContents result = {0};
 
 #if defined(_WIN32)
     HANDLE file_handle;

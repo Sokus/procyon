@@ -55,7 +55,7 @@ static void* pe_push_buffer_pointer(void **ptr, size_t amount, size_t *contents_
     return result;
 }
 
-bool pe_parse_p3d(pArena *arena, peFileContents p3d_file_contents, p3dFile *p3d) {
+bool pe_parse_p3d(pArena *arena, pFileContents p3d_file_contents, p3dFile *p3d) {
 	void *p3d_file_pointer = p3d_file_contents.data;
 	size_t p3d_file_contents_left = p3d_file_contents.size;
 
@@ -226,7 +226,7 @@ peModel pe_model_load(pArena *temp_arena, char *file_path) {
     pArenaTemp temp_arena_memory = p_arena_temp_begin(temp_arena);
 
 	p3dFile p3d;
-	peFileContents p3d_file_contents = pe_file_read_contents(temp_arena, file_path, false);
+	pFileContents p3d_file_contents = p_file_read_contents(temp_arena, file_path, false);
 	pe_parse_p3d(temp_arena, p3d_file_contents, &p3d);
 
     peModel model = {0};
