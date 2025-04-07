@@ -29,21 +29,21 @@
 
 #define SECONDS_TO_TIME_OUT 10.0f
 
-typedef enum peClientNetworkState {
-	peClientNetworkState_Disconnected,
-	peClientNetworkState_Connecting,
-	peClientNetworkState_Connected,
-	peClientNetworkState_Error,
-} peClientNetworkState;
+typedef enum pClientNetworkState {
+	pClientNetworkState_Disconnected,
+	pClientNetworkState_Connecting,
+	pClientNetworkState_Connected,
+	pClientNetworkState_Error,
+} pClientNetworkState;
 
-struct peClientState {
+struct pClientState {
     pCamera camera;
     pVec3 camera_offset;
     pModel model;
 
     pSocket socket;
     pAddress server_address;
-    peClientNetworkState network_state;
+    pClientNetworkState network_state;
     int client_index;
     uint32_t entity_index;
     pInput client_input[MAX_CLIENT_COUNT];
@@ -51,34 +51,34 @@ struct peClientState {
     uint64_t last_packet_receive_time;
 } client = {0};
 
-void pe_client_process_message(pMessage message) {
+void p_client_process_message(pMessage message) {
     P_TRACE_FUNCTION_BEGIN();
     switch (message.type) {
         case pMessageType_ConnectionDenied: {
             fprintf(stdout, "connection request denied (reason = %d)\n", message.connection_denied->reason);
-            client.network_state = peClientNetworkState_Error;
+            client.network_state = pClientNetworkState_Error;
         } break;
         case pMessageType_ConnectionAccepted: {
-            if (client.network_state == peClientNetworkState_Connecting) {
+            if (client.network_state == pClientNetworkState_Connecting) {
                 char address_string[256];
                 fprintf(stdout, "connected to the server (address = %s)\n", p_address_to_string(client.server_address, address_string, sizeof(address_string)));
-                client.network_state = peClientNetworkState_Connected;
+                client.network_state = pClientNetworkState_Connected;
                 client.client_index = message.connection_accepted->client_index;
                 client.entity_index = message.connection_accepted->entity_index;
                 client.last_packet_receive_time = p_time_now();
-            } else if (client.network_state == peClientNetworkState_Connected) {
+            } else if (client.network_state == pClientNetworkState_Connected) {
                 P_ASSERT(client.client_index == message.connection_accepted->client_index);
                 client.last_packet_receive_time = p_time_now();
             }
         } break;
         case pMessageType_ConnectionClosed: {
-            if (client.network_state == peClientNetworkState_Connected) {
+            if (client.network_state == pClientNetworkState_Connected) {
                 fprintf(stdout, "connection closed (reason = %d)\n", message.connection_closed->reason);
-                client.network_state = peClientNetworkState_Error;
+                client.network_state = pClientNetworkState_Error;
             }
         } break;
         case pMessageType_WorldState:
-            if (client.network_state == peClientNetworkState_Connected) {
+            if (client.network_state == pClientNetworkState_Connected) {
                 memcpy(p_get_entities(), message.world_state->entities, MAX_ENTITY_COUNT*sizeof(pEntity));
             }
         default:
@@ -103,7 +103,7 @@ void p_receive_packets(pArena *temp_arena, pSocket socket) {
         }
 
         for (int i = 0; i < packet.message_count; i += 1) {
-            pe_client_process_message(packet.messages[i]);
+            p_client_process_message(packet.messages[i]);
         }
         p_arena_temp_end(loop_arena_temp);
         packet.message_count = 0;
@@ -116,17 +116,17 @@ void p_send_packets(pArena *temp_arena, pInput input) {
     pArenaTemp send_packets_arena_temp = p_arena_temp_begin(temp_arena);
     pPacket outgoing_packet = {0};
     switch (client.network_state) {
-        case peClientNetworkState_Disconnected: {
+        case pClientNetworkState_Disconnected: {
             fprintf(stdout, "connecting to the server\n");
-            client.network_state = peClientNetworkState_Connecting;
+            client.network_state = pClientNetworkState_Connecting;
             client.last_packet_receive_time = p_time_now();
         } break;
-        case peClientNetworkState_Connecting: {
+        case pClientNetworkState_Connecting: {
             uint64_t ticks_since_last_received_packet = p_time_since(client.last_packet_receive_time);
             float seconds_since_last_received_packet = (float)p_time_sec(ticks_since_last_received_packet);
             if (seconds_since_last_received_packet > (float)CONNECTION_REQUEST_TIME_OUT) {
                 //fprintf(stdout, "connection request timed out");
-                client.network_state = peClientNetworkState_Error;
+                client.network_state = pClientNetworkState_Error;
                 break;
             }
             float connection_request_send_interval = 1.0f / (float)CONNECTION_REQUEST_SEND_RATE;
@@ -137,7 +137,7 @@ void p_send_packets(pArena *temp_arena, pInput input) {
                 p_append_message(&outgoing_packet, message);
             }
         } break;
-        case peClientNetworkState_Connected: {
+        case pClientNetworkState_Connected: {
             pMessage message = p_message_create(temp_arena, pMessageType_InputState);
             message.input_state->input = input;
             p_append_message(&outgoing_packet, message);
@@ -158,7 +158,7 @@ void p_send_packets(pArena *temp_arena, pInput input) {
 
 static pVec2 last_nonzero_gamepad_input = { 0.0f, 1.0f };
 
-pInput pe_get_input(pCamera camera) {
+pInput p_get_input(pCamera camera) {
     pVec2 gamepad_input = {
         .x = p_input_gamepad_axis(pGamepadAxis_LeftX),
         .y = p_input_gamepad_axis(pGamepadAxis_LeftY)
@@ -296,7 +296,7 @@ int main(int argc, char* argv[]) {
         // }
         // p_file_write_async(pbm_file, index, index_count/2 * sizeof(uint8_t));
 
-        codepage = p_texture_create_pbm(&temp_arena, &pbm_file);
+        // codepage = p_texture_create_pbm(&temp_arena, &pbm_file);
         // codepage = p_texture_create(&temp_arena, stbi_data, w, h);
         p_arena_temp_end(pbm_arena_temp);
         // stbi_image_free(stbi_data);
@@ -352,7 +352,7 @@ int main(int argc, char* argv[]) {
         };
         P_TRACE_MARK_END(entity_logic_tm);
 
-        pInput input = pe_get_input(client.camera);
+        pInput input = p_get_input(client.camera);
         if (multiplayer) {
             p_send_packets(&temp_arena, input);
         } else {

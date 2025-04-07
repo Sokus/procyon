@@ -18,29 +18,29 @@
 #define SECONDS_TO_TIME_OUT 10 // seconds
 #define CONNECTION_REQUEST_RESPONSE_SEND_RATE 1 // per second
 
-typedef struct peClientData {
+typedef struct pClientData {
     uint64_t connect_time;
     uint64_t last_packet_send_time;
     uint64_t last_packet_receive_time;
     uint32_t entity_index;
-} peClientData;
+} pClientData;
 
-struct peServerState {
+struct pServerState {
     pSocket socket;
     int client_count;
     bool client_connected[MAX_CLIENT_COUNT];
     pAddress client_address[MAX_CLIENT_COUNT];
     pInput client_input[MAX_CLIENT_COUNT];
-    peClientData client_data[MAX_CLIENT_COUNT];
+    pClientData client_data[MAX_CLIENT_COUNT];
 } server = {0};
 
-void pe_reset_client_state(int client_index) {
+void p_reset_client_state(int client_index) {
     server.client_connected[client_index] = false;
     memset(&server.client_address[client_index], 0, sizeof(pAddress));
-    memset(&server.client_data[client_index], 0, sizeof(peClientData));
+    memset(&server.client_data[client_index], 0, sizeof(pClientData));
 }
 
-bool pe_find_free_client_index(int *index) {
+bool p_find_free_client_index(int *index) {
     if (server.client_count == MAX_CLIENT_COUNT) {
         return false;
     }
@@ -53,7 +53,7 @@ bool pe_find_free_client_index(int *index) {
     return false;
 }
 
-bool pe_find_existing_client_index(pAddress address, int *index) {
+bool p_find_existing_client_index(pAddress address, int *index) {
     for (int i = 0; i < MAX_CLIENT_COUNT; i += 1) {
         if (server.client_connected[i] && p_address_compare(server.client_address[i], address)) {
             *index = i;
@@ -70,7 +70,7 @@ void p_send_packet_to_connected_client(int client_index, pPacket *packet) {
     server.client_data[client_index].last_packet_send_time = p_time_now();
 }
 
-void pe_connect_client(int client_index, pAddress address) {
+void p_connect_client(int client_index, pAddress address) {
     P_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
     P_ASSERT(server.client_count < MAX_CLIENT_COUNT-1);
     P_ASSERT(!server.client_connected[client_index]);
@@ -109,7 +109,7 @@ void pe_connect_client(int client_index, pAddress address) {
     p_send_packet_to_connected_client(client_index, &packet);
 }
 
-void pe_disconnect_client(int client_index, pConnectionClosedReason reason) {
+void p_disconnect_client(int client_index, pConnectionClosedReason reason) {
     P_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
     P_ASSERT(server.client_count > 0);
     P_ASSERT(server.client_connected[client_index]);
@@ -131,7 +131,7 @@ void pe_disconnect_client(int client_index, pConnectionClosedReason reason) {
     p_append_message(&packet, message);
     p_send_packet_to_connected_client(client_index, &packet);
 
-    pe_reset_client_state(client_index);
+    p_reset_client_state(client_index);
     server.client_count -= 1;
 
     pEntity *entities = p_get_entities();
@@ -143,7 +143,7 @@ void pe_disconnect_client(int client_index, pConnectionClosedReason reason) {
     }
 }
 
-void pe_process_connection_request_message(pConnectionRequestMessage *msg, pAddress address, bool client_exists, int client_index) {
+void p_process_connection_request_message(pConnectionRequestMessage *msg, pAddress address, bool client_exists, int client_index) {
     if (client_exists) {
         P_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
         P_ASSERT(p_address_compare(address, server.client_address[client_index]));
@@ -186,20 +186,20 @@ void pe_process_connection_request_message(pConnectionRequestMessage *msg, pAddr
     }
 
     int free_client_index;
-    bool found_free_client_index = pe_find_free_client_index(&free_client_index);
+    bool found_free_client_index = p_find_free_client_index(&free_client_index);
     P_ASSERT(found_free_client_index);
-    pe_connect_client(free_client_index, address);
+    p_connect_client(free_client_index, address);
 }
 
-void pe_process_connection_closed_message(pConnectionClosedMessage *msg, pAddress address, bool client_exists, int client_index) {
+void p_process_connection_closed_message(pConnectionClosedMessage *msg, pAddress address, bool client_exists, int client_index) {
     if (client_exists) {
         P_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
         P_ASSERT(p_address_compare(address, server.client_address[client_index]));
-        pe_disconnect_client(client_index, pConnectionClosedReason_ClientDisconnected);
+        p_disconnect_client(client_index, pConnectionClosedReason_ClientDisconnected);
     }
 }
 
-void pe_process_input_state_message(pInputStateMessage *msg, pAddress address, bool client_exists, int client_index) {
+void p_process_input_state_message(pInputStateMessage *msg, pAddress address, bool client_exists, int client_index) {
     if (client_exists) {
         P_ASSERT(client_index >= 0 && client_index < MAX_CLIENT_COUNT);
         P_ASSERT(p_address_compare(address, server.client_address[client_index]));
@@ -220,18 +220,18 @@ void p_receive_packets(pArena *temp_arena) {
         }
 
         int client_index;
-        bool client_exists = pe_find_existing_client_index(address, &client_index);
+        bool client_exists = p_find_existing_client_index(address, &client_index);
         for (int i = 0; i < packet.message_count; i += 1) {
             pMessage *message = &packet.messages[i];
             switch (message->type) {
                 case pMessageType_ConnectionRequest:
-                    pe_process_connection_request_message(message->connection_request, address, client_exists, client_index);
+                    p_process_connection_request_message(message->connection_request, address, client_exists, client_index);
                     break;
                 case pMessageType_ConnectionClosed:
-                    pe_process_connection_closed_message(message->connection_closed, address, client_exists, client_index);
+                    p_process_connection_closed_message(message->connection_closed, address, client_exists, client_index);
                     break;
                 case pMessageType_InputState:
-                    pe_process_input_state_message(message->input_state, address, client_exists, client_index);
+                    p_process_input_state_message(message->input_state, address, client_exists, client_index);
                     break;
                 default:
                     break;
@@ -262,13 +262,13 @@ void p_send_packets(void) {
     }
 }
 
-void pe_check_for_time_out(void) {
+void p_check_for_time_out(void) {
     for (int i = 0; i < MAX_CLIENT_COUNT; i += 1) {
         if (server.client_connected[i]) {
             uint64_t ticks_since_last_received_packet = p_time_since(server.client_data[i].last_packet_receive_time);
             float seconds_since_last_received_packet = (float)p_time_sec(ticks_since_last_received_packet);
             if (seconds_since_last_received_packet > (float)SECONDS_TO_TIME_OUT) {
-                pe_disconnect_client(i, pConnectionClosedReason_TimedOut);
+                p_disconnect_client(i, pConnectionClosedReason_TimedOut);
             }
         }
     }
@@ -298,7 +298,7 @@ int main(int argc, char *argv[]) {
 
         p_receive_packets(&temp_arena);
 
-        pe_check_for_time_out();
+        p_check_for_time_out();
 
         p_update_entities(dt, server.client_input);
         p_cleanup_entities();
