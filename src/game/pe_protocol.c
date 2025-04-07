@@ -2,7 +2,7 @@
 
 #include "core/p_assert.h"
 #include "core/p_arena.h"
-#include "pe_bit_stream.h"
+#include "p_bit_stream.h"
 #include "platform/pe_net.h"
 #include "game/pe_entity.h"
 #include "pe_config.h"

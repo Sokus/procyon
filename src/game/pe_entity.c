@@ -3,7 +3,7 @@
 #include "core/p_heap.h"
 #include "pe_config.h"
 
-#include "pe_bit_stream.h"
+#include "p_bit_stream.h"
 
 #include "HandmadeMath.h"
 
