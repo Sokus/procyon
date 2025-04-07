@@ -10,22 +10,22 @@
 
 struct peTraceState {
     pFileHandle output_file;
-    uint8_t data[2][PE_TRACE_DATA_BATCH_SIZE];
+    uint8_t data[2][P_TRACE_DATA_BATCH_SIZE];
     size_t data_used[2];
     int current_data_index;
 };
-#if defined(PE_TRACE_ENABLED)
+#if defined(P_TRACE_ENABLED)
     struct peTraceState pe_trace_state = {0};
 #endif
 
-void pe_trace_init(void) {
-#if defined(PE_TRACE_ENABLED)
+void p_trace_init(void) {
+#if defined(P_TRACE_ENABLED)
     p_file_open("./trace.pt", &pe_trace_state.output_file);
-    peTraceHeader trace_header = {
+    pTraceHeader trace_header = {
         .address_bytes = sizeof(void*),
-        .address = (void*)PE_TRACE_REFERENCE_LITERAL
+        .address = (void*)P_TRACE_REFERENCE_LITERAL
     };
-    p_file_write_async(pe_trace_state.output_file, &trace_header, sizeof(peTraceHeader));
+    p_file_write_async(pe_trace_state.output_file, &trace_header, sizeof(pTraceHeader));
     bool should_wait;
     bool poll_success = p_file_poll(pe_trace_state.output_file, &should_wait);
     if (poll_success && should_wait) {
@@ -36,8 +36,8 @@ void pe_trace_init(void) {
 
 static void pe_trace_data_flush(void);
 
-void pe_trace_shutdown(void) {
-#if defined(PE_TRACE_ENABLED)
+void p_trace_shutdown(void) {
+#if defined(P_TRACE_ENABLED)
     pe_trace_data_flush();
     bool should_wait;
     bool poll_success = p_file_poll(pe_trace_state.output_file, &should_wait);
@@ -48,18 +48,18 @@ void pe_trace_shutdown(void) {
 #endif
 }
 
-#if defined(PE_TRACE_ENABLED)
+#if defined(P_TRACE_ENABLED)
 
 static void pe_trace_event_add(const char *name, uint64_t timestamp, uint64_t duration) {
-    size_t trace_event_space_needed = sizeof(peTraceEventData);
-    if (pe_trace_state.data_used[pe_trace_state.current_data_index] + trace_event_space_needed > PE_TRACE_DATA_BATCH_SIZE) {
+    size_t trace_event_space_needed = sizeof(pTraceEventData);
+    if (pe_trace_state.data_used[pe_trace_state.current_data_index] + trace_event_space_needed > P_TRACE_DATA_BATCH_SIZE) {
         pe_trace_data_flush();
     }
 
     uint8_t *current_trace_data = pe_trace_state.data[pe_trace_state.current_data_index];
     size_t *current_trace_data_used = &pe_trace_state.data_used[pe_trace_state.current_data_index];
 
-    peTraceEventData trace_event_data = {
+    pTraceEventData trace_event_data = {
         .timestamp = timestamp,
         .duration = duration,
         .address = (void*)name,
@@ -69,15 +69,15 @@ static void pe_trace_event_add(const char *name, uint64_t timestamp, uint64_t du
     *current_trace_data_used += sizeof(trace_event_data);
 }
 
-peTraceMark pe_trace_mark_begin_internal(const char *name) {
-    peTraceMark result = {
+pTraceMark p_trace_mark_begin_internal(const char *name) {
+    pTraceMark result = {
         .name = name,
         .timestamp = p_time_now()
     };
     return result;
 }
 
-void pe_trace_mark_end_internal(peTraceMark trace_mark) {
+void p_trace_mark_end_internal(pTraceMark trace_mark) {
     uint64_t trace_mark_duration = p_time_since(trace_mark.timestamp);
     pe_trace_event_add(
         trace_mark.name,

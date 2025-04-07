@@ -121,12 +121,12 @@ void p_model_load_writeback_arena(pArena *model_arena) {
 }
 
 void p_model_draw_meshes(pModel *model, pMat4 *final_bone_matrix) {
-    PE_TRACE_FUNCTION_BEGIN();
+    P_TRACE_FUNCTION_BEGIN();
     p_shader_set_bool(pe_opengl.shader_program, "has_skeleton", true);
     p_shader_set_mat4_array(pe_opengl.shader_program, "matrix_bone", final_bone_matrix, model->num_bone);
 
     for (int m = 0; m < model->num_mesh; m += 1) {
-		peTraceMark tm_draw_mesh = PE_TRACE_MARK_BEGIN("draw mesh");
+		pTraceMark tm_draw_mesh = P_TRACE_MARK_BEGIN("draw mesh");
         pMaterial *mesh_material = &model->material[model->mesh_material[m]];
 
 		if (mesh_material->has_diffuse_map) {
@@ -144,7 +144,7 @@ void p_model_draw_meshes(pModel *model, pMat4 *final_bone_matrix) {
             glDrawArrays(GL_TRIANGLES, 0, model->mesh[m].num_vertex);
         }
     	glBindVertexArray(0);
-		PE_TRACE_MARK_END(tm_draw_mesh);
+		P_TRACE_MARK_END(tm_draw_mesh);
     }
-    PE_TRACE_FUNCTION_END();
+    P_TRACE_FUNCTION_END();
 }

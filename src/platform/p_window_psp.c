@@ -35,12 +35,12 @@ void p_window_poll_events(void) {
 }
 
 void p_window_swap_buffers(bool vsync) {
-    PE_TRACE_FUNCTION_BEGIN();
+    P_TRACE_FUNCTION_BEGIN();
     if (vsync) {
         sceDisplayWaitVblankStart();
     }
     sceGuSwapBuffers();
-    PE_TRACE_FUNCTION_END();
+    P_TRACE_FUNCTION_END();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

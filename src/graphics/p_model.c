@@ -261,7 +261,7 @@ uint64_t last_frame_time;
 bool last_frame_time_initialized = false;
 
 void p_model_draw_set_model_matrix(pModel *model, pVec3 position, pVec3 rotation) {
-    PE_TRACE_FUNCTION_BEGIN();
+    P_TRACE_FUNCTION_BEGIN();
     p_graphics_matrix_mode(pMatrixMode_Model);
     pMat4 translate = p_translate(position);
     pMat4 rotate = p_rotate_xyz(rotation);
@@ -269,11 +269,11 @@ void p_model_draw_set_model_matrix(pModel *model, pVec3 position, pVec3 rotation
     pMat4 model_matrix = p_mat4_mul(translate, p_mat4_mul(rotate, scale));
     p_graphics_matrix_set(&model_matrix);
     p_graphics_matrix_update();
-    PE_TRACE_FUNCTION_END();
+    P_TRACE_FUNCTION_END();
 }
 
 pAnimationJoint *p_model_draw_get_model_space_animation_joints(pModel *model, pArena *arena) {
-    PE_TRACE_FUNCTION_BEGIN();
+    P_TRACE_FUNCTION_BEGIN();
     pAnimationJoint *model_space_joints = p_arena_alloc(arena, model->num_bone * sizeof(pAnimationJoint));
     pAnimationJoint *animation_joints = &model->animation[0].frames[frame_index * model->num_bone];
     for (int b = 0; b < model->num_bone; b += 1) {
@@ -284,12 +284,12 @@ pAnimationJoint *p_model_draw_get_model_space_animation_joints(pModel *model, pA
             model_space_joints[b] = animation_joints[b];
         }
     }
-    PE_TRACE_FUNCTION_END();
+    P_TRACE_FUNCTION_END();
     return model_space_joints;
 }
 
 pMat4 *p_model_draw_get_final_bone_matrix(pModel *model, pArena *arena, pAnimationJoint *model_space_joints) {
-    PE_TRACE_FUNCTION_BEGIN();
+    P_TRACE_FUNCTION_BEGIN();
     pMat4 *final_bone_matrix = p_arena_alloc(arena, model->num_bone * sizeof(pMat4));
     for (int b = 0; b < model->num_bone; b += 1) {
         pAnimationJoint *animation_joint = &model_space_joints[b];
@@ -299,12 +299,12 @@ pMat4 *p_model_draw_get_final_bone_matrix(pModel *model, pArena *arena, pAnimati
 		pMat4 transform = p_mat4_mul(translation, p_mat4_mul(scale, rotation));
         final_bone_matrix[b] = p_mat4_mul(transform, model->bone_inverse_model_space_pose_matrix[b]);
     }
-    PE_TRACE_FUNCTION_END();
+    P_TRACE_FUNCTION_END();
     return final_bone_matrix;
 }
 
 void p_model_draw(pModel *model, pArena *temp_arena, pVec3 position, pVec3 rotation) {
-	PE_TRACE_FUNCTION_BEGIN();
+	P_TRACE_FUNCTION_BEGIN();
     pArenaTemp temp_arena_memory = p_arena_temp_begin(temp_arena);
 	if (!last_frame_time_initialized) {
 		last_frame_time = p_time_now();
@@ -327,5 +327,5 @@ void p_model_draw(pModel *model, pArena *temp_arena, pVec3 position, pVec3 rotat
     p_model_draw_meshes(model, final_bone_matrix);
 
 	p_arena_temp_end(temp_arena_memory);
-	PE_TRACE_FUNCTION_END();
+	P_TRACE_FUNCTION_END();
 }

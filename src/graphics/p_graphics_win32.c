@@ -406,7 +406,7 @@ pMat4 p_matrix_orthographic(float left, float right, float bottom, float top, fl
 }
 
 void p_graphics_dynamic_draw_draw_batches(void) {
-    PE_TRACE_FUNCTION_BEGIN();
+    P_TRACE_FUNCTION_BEGIN();
     if (dynamic_draw.vertex_used > 0) {
         pMatrixMode old_matrix_mode = p_graphics.matrix_mode;
         pMat4 old_matrix_model = p_graphics.matrix[p_graphics.mode][pMatrixMode_Model];
@@ -476,7 +476,7 @@ void p_graphics_dynamic_draw_draw_batches(void) {
 
         dynamic_draw.batch_drawn_count = dynamic_draw.batch_current + 1;
     }
-    PE_TRACE_FUNCTION_END();
+    P_TRACE_FUNCTION_END();
 }
 
 void p_graphics_dynamic_draw_push_vec3(pVec3 position) {

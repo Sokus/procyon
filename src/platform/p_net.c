@@ -92,7 +92,7 @@ bool p_net_init(void) {
 // to an Access Point on PSP in case the connection was lost
 void p_net_update(void) {
 #if defined(PSP)
-    PE_TRACE_FUNCTION_BEGIN();
+    P_TRACE_FUNCTION_BEGIN();
 
 	u64 apclt_get_state_cooldown_ms = 100;
 	u64 apctl_connect_cooldown_ms = 5000;
@@ -120,7 +120,7 @@ void p_net_update(void) {
 		}
 	}
 
-	PE_TRACE_FUNCTION_END();
+	P_TRACE_FUNCTION_END();
 #endif
 }
 

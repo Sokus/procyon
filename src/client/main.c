@@ -52,7 +52,7 @@ struct peClientState {
 } client = {0};
 
 void pe_client_process_message(pMessage message) {
-    PE_TRACE_FUNCTION_BEGIN();
+    P_TRACE_FUNCTION_BEGIN();
     switch (message.type) {
         case pMessageType_ConnectionDenied: {
             fprintf(stdout, "connection request denied (reason = %d)\n", message.connection_denied->reason);
@@ -84,11 +84,11 @@ void pe_client_process_message(pMessage message) {
         default:
             break;
     }
-    PE_TRACE_FUNCTION_END();
+    P_TRACE_FUNCTION_END();
 }
 
 void p_receive_packets(pArena *temp_arena, pSocket socket) {
-    PE_TRACE_FUNCTION_BEGIN();
+    P_TRACE_FUNCTION_BEGIN();
     pAddress address;
     pPacket packet = {0};
     while (true) {
@@ -108,11 +108,11 @@ void p_receive_packets(pArena *temp_arena, pSocket socket) {
         p_arena_temp_end(loop_arena_temp);
         packet.message_count = 0;
     }
-    PE_TRACE_FUNCTION_END();
+    P_TRACE_FUNCTION_END();
 }
 
 void p_send_packets(pArena *temp_arena, pInput input) {
-    peTraceMark send_packets_tm = PE_TRACE_MARK_BEGIN("prepare packet");
+    pTraceMark send_packets_tm = P_TRACE_MARK_BEGIN("prepare packet");
     pArenaTemp send_packets_arena_temp = p_arena_temp_begin(temp_arena);
     pPacket outgoing_packet = {0};
     switch (client.network_state) {
@@ -144,12 +144,12 @@ void p_send_packets(pArena *temp_arena, pInput input) {
         } break;
         default: break;
     }
-    PE_TRACE_MARK_END(send_packets_tm);
+    P_TRACE_MARK_END(send_packets_tm);
 
     if (outgoing_packet.message_count > 0) {
-        peTraceMark send_packet_tm = PE_TRACE_MARK_BEGIN("p_send_packet");
+        pTraceMark send_packet_tm = P_TRACE_MARK_BEGIN("p_send_packet");
         p_send_packet(client.socket, client.server_address, &outgoing_packet);
-        PE_TRACE_MARK_END(send_packet_tm);
+        P_TRACE_MARK_END(send_packet_tm);
         client.last_packet_send_time = p_time_now();
     }
     outgoing_packet.message_count = 0;
@@ -233,7 +233,7 @@ int main(int argc, char* argv[]) {
     }
 
     p_net_init();
-    pe_trace_init();
+    p_trace_init();
 
     p_window_set_target_fps(60);
     p_window_init(&temp_arena, 960, 540, "Procyon");
@@ -339,7 +339,7 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        peTraceMark entity_logic_tm = PE_TRACE_MARK_BEGIN("entity logic");
+        pTraceMark entity_logic_tm = P_TRACE_MARK_BEGIN("entity logic");
         pEntity *entities = p_get_entities();
         for (int i = 0; i < MAX_ENTITY_COUNT; i += 1) {
             pEntity *entity = &entities[i];
@@ -350,7 +350,7 @@ int main(int argc, char* argv[]) {
                 client.camera.position = p_vec3_add(client.camera.target, client.camera_offset);
             }
         };
-        PE_TRACE_MARK_END(entity_logic_tm);
+        P_TRACE_MARK_END(entity_logic_tm);
 
         pInput input = pe_get_input(client.camera);
         if (multiplayer) {
@@ -401,7 +401,7 @@ int main(int argc, char* argv[]) {
             { 0, 0, 255, 64 },
             { 255, 255, 255, 64 },
         };
-        peTraceMark tm_issue_rectangles = PE_TRACE_MARK_BEGIN("issue rectangles");
+        pTraceMark tm_issue_rectangles = P_TRACE_MARK_BEGIN("issue rectangles");
         // p_graphics_draw_texture(&codepage, 0.0f, 0.0f, 1.0f, P_COLOR_WHITE);
         p_graphics_draw_text("Hello, World!", 5, 5, P_COLOR_WHITE);
         for (int y = 0; y < 6; y += 1) {
@@ -412,7 +412,7 @@ int main(int argc, char* argv[]) {
                 // p_graphics_draw_rectangle_strip(x*w+x*5.0f, y*h+y*5.0f, w, h, color);
             }
         }
-        PE_TRACE_MARK_END(tm_issue_rectangles);
+        P_TRACE_MARK_END(tm_issue_rectangles);
 
         bool vsync = true;
         p_window_frame_end(vsync);
@@ -421,7 +421,7 @@ int main(int argc, char* argv[]) {
 
     p_socket_destroy(client.socket);
     p_net_shutdown();
-    pe_trace_shutdown();
+    p_trace_shutdown();
     p_window_shutdown();
     return 0;
 }

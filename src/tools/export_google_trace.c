@@ -37,16 +37,16 @@ int main(int argc, char *argv[]) {
 
     bool trace_reference_literal_found = false;
     size_t trace_reference_literal_offset;
-    if (binary_file_contents.size >= sizeof(PE_TRACE_REFERENCE_LITERAL)) {
+    if (binary_file_contents.size >= sizeof(P_TRACE_REFERENCE_LITERAL)) {
         for (
             size_t binary_offset = 0;
-            binary_offset <= binary_file_contents.size - sizeof(PE_TRACE_REFERENCE_LITERAL);
+            binary_offset <= binary_file_contents.size - sizeof(P_TRACE_REFERENCE_LITERAL);
             binary_offset += 1
         ) {
             int memcmp_result = memcmp(
                 (uint8_t*)binary_file_contents.data + binary_offset,
-                PE_TRACE_REFERENCE_LITERAL,
-                sizeof(PE_TRACE_REFERENCE_LITERAL)
+                P_TRACE_REFERENCE_LITERAL,
+                sizeof(P_TRACE_REFERENCE_LITERAL)
             );
             if (memcmp_result == 0) {
                 printf("trace reference literal found at 0x%zx\n", binary_offset);
@@ -66,14 +66,14 @@ int main(int argc, char *argv[]) {
     size_t input_file_contents_offset = 0;
     size_t input_file_contents_left = input_file_contents.size;
 
-    peTraceHeader *trace_header;
-    if (sizeof(peTraceHeader) > input_file_contents_left) {
+    pTraceHeader *trace_header;
+    if (sizeof(pTraceHeader) > input_file_contents_left) {
         printf("not enough content left for trace header\n");
         input_file_contents_left = 0;
     }
     trace_header = (void*)((uint8_t*)input_file_contents.data + input_file_contents_offset);
-    input_file_contents_offset += sizeof(peTraceHeader);
-    input_file_contents_left -= sizeof(peTraceHeader);
+    input_file_contents_offset += sizeof(pTraceHeader);
+    input_file_contents_left -= sizeof(pTraceHeader);
     size_t reference_literal_address = (
         trace_header->address_bytes == 8
         ? trace_header->address_64
@@ -86,15 +86,15 @@ int main(int argc, char *argv[]) {
     printf("address correction: %lld\n", trace_address_correction);
 
     while (input_file_contents_left > 0) {
-        peTraceEventData *trace_event_data;
+        pTraceEventData *trace_event_data;
 
-        if (sizeof(peTraceEventData) > input_file_contents_left) {
+        if (sizeof(pTraceEventData) > input_file_contents_left) {
             printf("not enough content left for event data\n");
             break;
         }
         trace_event_data = (void*)((uint8_t*)input_file_contents.data + input_file_contents_offset);
-        input_file_contents_offset += sizeof(peTraceEventData);
-        input_file_contents_left -= sizeof(peTraceEventData);
+        input_file_contents_offset += sizeof(pTraceEventData);
+        input_file_contents_left -= sizeof(pTraceEventData);
 
         void *trace_event_name_address = (void*)(
             trace_header->address_bytes == 8

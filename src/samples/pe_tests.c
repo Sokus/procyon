@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
     }
 
     p_window_init(&temp_arena, 960, 540, "Procyon");
-    pe_trace_init();
+    p_trace_init();
 
 #if !defined(PSP)
     #define PE_MODEL_EXTENSION ".p3d"
@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 
     while(p_window_should_quit()) {
         uint64_t frame_start_time = p_time_now();
-        peTraceMark tm_game_loop = PE_TRACE_MARK_BEGIN("game loop");
+        pTraceMark tm_game_loop = P_TRACE_MARK_BEGIN("game loop");
 
 
         // pe_camera_update(camera);
@@ -78,14 +78,14 @@ int main(int argc, char *argv[]) {
 
         p_arena_clear(&temp_arena);
 
-        PE_TRACE_MARK_END(tm_game_loop);
+        P_TRACE_MARK_END(tm_game_loop);
         uint64_t frame_duration = p_time_since(frame_start_time);
         float frame_duration_ms = (float)p_time_ms(frame_duration);
         average_frame_duration += 0.05f * (frame_duration_ms - average_frame_duration);
         // printf("average frame duration: %6.3f\n", average_frame_duration);
     }
 
-    pe_trace_shutdown();
+    p_trace_shutdown();
     p_graphics_shutdown();
     p_window_shutdown();
 

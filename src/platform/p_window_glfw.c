@@ -83,7 +83,7 @@ void p_window_poll_events(void) {
 }
 
 void p_window_swap_buffers(bool vsync) {
-    PE_TRACE_FUNCTION_BEGIN();
+    P_TRACE_FUNCTION_BEGIN();
 #if defined(_WIN32)
     UINT sync_interval = (vsync ? 1 : 0);
     IDXGISwapChain1_Present(p_d3d.swapchain, sync_interval, 0);
@@ -94,7 +94,7 @@ void p_window_swap_buffers(bool vsync) {
 	glfwSwapInterval(interval);
 	glfwSwapBuffers(p_window_state_glfw.window);
 #endif
-    PE_TRACE_FUNCTION_END();
+    P_TRACE_FUNCTION_END();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

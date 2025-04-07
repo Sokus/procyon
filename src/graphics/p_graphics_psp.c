@@ -115,12 +115,12 @@ void p_graphics_frame_begin(void) {
 
 void p_graphics_frame_end(void) {
     // TODO: check if sceGuFinish is even worth tracing
-	peTraceMark tm_finish = PE_TRACE_MARK_BEGIN("sceGuFinish");
+	pTraceMark tm_finish = P_TRACE_MARK_BEGIN("sceGuFinish");
     sceGuFinish();
-    PE_TRACE_MARK_END(tm_finish);
-	peTraceMark tm_sync = PE_TRACE_MARK_BEGIN("sceGuSync");
+    P_TRACE_MARK_END(tm_finish);
+	pTraceMark tm_sync = P_TRACE_MARK_BEGIN("sceGuSync");
     sceGuSync(0, 0);
-	PE_TRACE_MARK_END(tm_sync);
+	P_TRACE_MARK_END(tm_sync);
 }
 
 void p_graphics_set_depth_test(bool enable) {
@@ -246,7 +246,7 @@ pTexture p_texture_create_pbm(pArena *temp_arena, pbmFile *pbm) {
 }
 
 void p_texture_bind(pTexture texture) {
-    PE_TRACE_FUNCTION_BEGIN();
+    P_TRACE_FUNCTION_BEGIN();
 	sceGuEnable(GU_TEXTURE_2D);
     sceGuTexMode(texture.format, 0, 0, texture.swizzle);
     // sceGuTexMode(texture.format, 0, 0, 0);
@@ -276,7 +276,7 @@ void p_texture_bind(pTexture texture) {
         sceGuClutLoad(palette_num_blocks, texture.palette);
     }
 
-	PE_TRACE_FUNCTION_END();
+	P_TRACE_FUNCTION_END();
 }
 
 void p_texture_bind_default(void) {
@@ -285,7 +285,7 @@ void p_texture_bind_default(void) {
 
 void p_graphics_dynamic_draw_draw_batches(void) {
     if (dynamic_draw.vertex_used > 0) {
-        PE_TRACE_FUNCTION_BEGIN();
+        P_TRACE_FUNCTION_BEGIN();
         pMatrixMode old_matrix_mode = p_graphics.matrix_mode;
         pMat4 old_matrix_model = p_graphics.matrix[p_graphics.mode][pMatrixMode_Model];
         bool old_matrix_model_is_identity = p_graphics.matrix_model_is_identity[p_graphics.mode];
@@ -297,7 +297,7 @@ void p_graphics_dynamic_draw_draw_batches(void) {
         sceKernelDcacheWritebackRange(dynamic_draw.vertex, sizeof(pDynamicDrawVertex)*P_MAX_DYNAMIC_DRAW_VERTEX_COUNT);
 
         for (int b = dynamic_draw.batch_drawn_count; b <= dynamic_draw.batch_current; b += 1) {
-            peTraceMark tm_draw_batch = PE_TRACE_MARK_BEGIN("draw batch");
+            pTraceMark tm_draw_batch = P_TRACE_MARK_BEGIN("draw batch");
             P_ASSERT(dynamic_draw.batch[b].vertex_count > 0);
 
             if (dynamic_draw.batch[b].texture) {
@@ -325,7 +325,7 @@ void p_graphics_dynamic_draw_draw_batches(void) {
                 NULL,
                 dynamic_draw.vertex + dynamic_draw.batch[b].vertex_offset
             );
-            PE_TRACE_MARK_END(tm_draw_batch);
+            P_TRACE_MARK_END(tm_draw_batch);
         }
 
         p_graphics_matrix_set(&old_matrix_model);
@@ -334,7 +334,7 @@ void p_graphics_dynamic_draw_draw_batches(void) {
         p_graphics.matrix_model_is_identity[p_graphics.mode] = old_matrix_model_is_identity;
 
         dynamic_draw.batch_drawn_count = dynamic_draw.batch_current + 1;
-        PE_TRACE_FUNCTION_END();
+        P_TRACE_FUNCTION_END();
     }
 }
 
@@ -407,7 +407,7 @@ unsigned int closest_greater_power_of_two(unsigned int value) {
     . . . .:. . . .:. . . .:. . . .:
 */
 void p_swizzle(void *out, void *in, int byte_width, int pow2_byte_width, int height) {
-    PE_TRACE_FUNCTION_BEGIN();
+    P_TRACE_FUNCTION_BEGIN();
     const int BLOCK_WIDTH = 16;
     const int BLOCK_HEIGHT = 8;
     int full_block_count_x = byte_width / BLOCK_WIDTH;
@@ -469,19 +469,19 @@ void p_swizzle(void *out, void *in, int byte_width, int pow2_byte_width, int hei
             in_col_ptr += BLOCK_WIDTH;
         }
     }
-    PE_TRACE_FUNCTION_END();
+    P_TRACE_FUNCTION_END();
 }
 
 static void copy_texture_data(void *dest, const void *src, const int rows, size_t pitch, size_t pitch_pow2) {
-    PE_TRACE_FUNCTION_BEGIN();
+    P_TRACE_FUNCTION_BEGIN();
     for (int r = 0; r < rows; r += 1) {
         memcpy((uint8_t*)dest + r * pitch_pow2, (uint8_t*)src + r * pitch, pitch);
     }
-    PE_TRACE_FUNCTION_END();
+    P_TRACE_FUNCTION_END();
 }
 
 static void swizzle_fast(void *out, void *in, int width, int height) {
-    PE_TRACE_FUNCTION_BEGIN();
+    P_TRACE_FUNCTION_BEGIN();
 	int width_blocks = width / 16;
 	int height_blocks = height / 8;
 
@@ -507,5 +507,5 @@ static void swizzle_fast(void *out, void *in, int width, int height) {
 		}
 		ysrc += src_row;
 	}
-	PE_TRACE_FUNCTION_END();
+	P_TRACE_FUNCTION_END();
 }
