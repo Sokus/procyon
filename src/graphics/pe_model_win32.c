@@ -1,6 +1,6 @@
 #include "graphics/pe_model.h"
 
-#include "graphics/pe_graphics_win32.h"
+#include "graphics/p_graphics_win32.h"
 #include "graphics/p3d.h"
 #include "utility/pe_trace.h"
 

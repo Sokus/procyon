@@ -1,7 +1,7 @@
 #include "graphics/pe_model.h"
 
 #include "core/p_assert.h"
-#include "graphics/pe_graphics_linux.h"
+#include "graphics/p_graphics_linux.h"
 #include "graphics/p3d.h"
 #include "utility/pe_trace.h"
 

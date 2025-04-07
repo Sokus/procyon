@@ -3,7 +3,7 @@
 
 #include "core/p_string.h"
 #include "math/p_math.h"
-#include "pe_graphics.h"
+#include "p_graphics.h"
 
 #include <stdint.h>
 #include <stdbool.h>

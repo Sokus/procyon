@@ -65,7 +65,7 @@ endif()
 # GRAPHICS LIBRARY
 
 add_library(graphics STATIC
-    src/graphics/pe_graphics.c
+    src/graphics/p_graphics.c
     src/graphics/pe_model.c
     src/graphics/pe_math.c
     src/graphics/p_pbm.c
@@ -77,19 +77,19 @@ target_link_libraries(graphics PRIVATE
 target_link_libraries(graphics PUBLIC math)
 if(WIN32)
     target_sources(graphics PRIVATE
-        src/graphics/pe_graphics_win32.c
+        src/graphics/p_graphics_win32.c
         src/graphics/pe_model_win32.c
     )
 elseif(LINUX)
     target_sources(graphics PRIVATE
         ext/glad-gl-4.2-core/src/glad.c # TODO: get rid of this...
-        src/graphics/pe_graphics_linux.c
+        src/graphics/p_graphics_linux.c
         src/graphics/pe_model_linux.c
     )
     target_link_libraries(graphics PUBLIC glad)
 elseif(PSP)
     target_sources(graphics PRIVATE
-        src/graphics/pe_graphics_psp.c
+        src/graphics/p_graphics_psp.c
         src/graphics/pe_model_psp.c
     )
     target_link_libraries(graphics PUBLIC

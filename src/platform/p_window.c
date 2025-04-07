@@ -5,7 +5,7 @@
 #include "core/p_time.h"
 
 #include "platform/p_input.h"
-#include "graphics/pe_graphics.h"
+#include "graphics/p_graphics.h"
 
 #include <stdbool.h>
 

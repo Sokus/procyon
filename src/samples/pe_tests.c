@@ -1,6 +1,6 @@
 #include "core/p_heap.h"
 #include "core/p_time.h"
-#include "graphics/pe_graphics.h"
+#include "graphics/p_graphics.h"
 #include "graphics/pe_model.h"
 #include "platform/p_input.h"
 #include "platform/p_window.h"

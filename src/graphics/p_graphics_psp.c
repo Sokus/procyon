@@ -1,5 +1,5 @@
-#include "pe_graphics.h"
-#include "pe_graphics_psp.h"
+#include "p_graphics.h"
+#include "p_graphics_psp.h"
 #include "core/p_assert.h"
 #include "core/p_arena.h"
 #include "core/p_heap.h"

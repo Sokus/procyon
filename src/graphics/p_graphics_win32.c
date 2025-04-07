@@ -1,5 +1,5 @@
-#include "pe_graphics.h"
-#include "pe_graphics_win32.h"
+#include "p_graphics.h"
+#include "p_graphics_win32.h"
 
 #include "core/p_defines.h"
 #include "core/p_assert.h"
