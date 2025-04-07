@@ -10,7 +10,7 @@
 #include "core/p_arena.h"
 #include "math/p_math.h"
 #include "graphics/pe_math.h"
-#include "platform/pe_net.h"
+#include "platform/p_net.h"
 #include "platform/p_window.h"
 #include "graphics/pe_graphics.h"
 #include "graphics/pe_model.h"

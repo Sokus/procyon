@@ -34,7 +34,7 @@ endif()
 
 add_library(platform STATIC
     src/platform/p_input.c
-    src/platform/pe_net.c
+    src/platform/p_net.c
     src/platform/p_window.c
 )
 target_link_libraries(platform PRIVATE settings core)

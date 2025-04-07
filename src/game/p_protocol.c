@@ -3,7 +3,7 @@
 #include "core/p_assert.h"
 #include "core/p_arena.h"
 #include "p_bit_stream.h"
-#include "platform/pe_net.h"
+#include "platform/p_net.h"
 #include "game/p_entity.h"
 #include "pe_config.h"
 
