@@ -10,7 +10,7 @@
 #include "platform/pe_net.h"
 
 #include "pe_config.h"
-#include "game/pe_protocol.h"
+#include "game/p_protocol.h"
 #include "game/p_entity.h"
 
 #include <string.h>
