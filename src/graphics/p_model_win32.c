@@ -84,11 +84,11 @@ void p_model_load_animations(pModel *model, p3dStaticInfo *static_info, p3dAnima
     for (int a = 0; a < static_info->num_animations; a += 1) {
         for (int f = 0; f < model->animation[a].num_frames; f += 1) {
             for (int j = 0; j < static_info->num_bones; j += 1) {
-                pAnimationJoint *pe_animation_joint = &model->animation[a].frames[f * static_info->num_bones + j];
+                pAnimationJoint *p_animation_joint = &model->animation[a].frames[f * static_info->num_bones + j];
                 p3dAnimationJoint *p3d_animation_joint_ptr = animation_joint + p3d_animation_joint_offset;
-                memcpy(pe_animation_joint->translation.elements, &p3d_animation_joint_ptr->position, 3*sizeof(float));
-                memcpy(pe_animation_joint->rotation.elements, &p3d_animation_joint_ptr->rotation, 4*sizeof(float));
-                memcpy(pe_animation_joint->scale.elements, &p3d_animation_joint_ptr->scale, 3*sizeof(float));
+                memcpy(p_animation_joint->translation.elements, &p3d_animation_joint_ptr->position, 3*sizeof(float));
+                memcpy(p_animation_joint->rotation.elements, &p3d_animation_joint_ptr->rotation, 4*sizeof(float));
+                memcpy(p_animation_joint->scale.elements, &p3d_animation_joint_ptr->scale, 3*sizeof(float));
                 p3d_animation_joint_offset += 1;
             }
         }

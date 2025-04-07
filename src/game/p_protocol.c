@@ -5,7 +5,7 @@
 #include "p_bit_stream.h"
 #include "platform/p_net.h"
 #include "game/p_entity.h"
-#include "pe_config.h"
+#include "p_config.h"
 
 #include <stdio.h>
 #include <string.h>

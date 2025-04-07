@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
         pTraceMark tm_game_loop = P_TRACE_MARK_BEGIN("game loop");
 
 
-        // pe_camera_update(camera);
+        // p_camera_update(camera);
 
         p_window_frame_begin();
         p_clear_background((pColor){ 20, 20, 20, 255 });

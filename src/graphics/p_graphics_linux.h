@@ -14,7 +14,7 @@ typedef struct pOpenGL {
 
     GLuint shader_program;
 } pOpenGL;
-extern pOpenGL pe_opengl;
+extern pOpenGL p_opengl;
 
 typedef struct pDynamicDrawStateOpenGL {
     GLuint vertex_array_object;

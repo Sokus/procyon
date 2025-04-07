@@ -14,7 +14,7 @@
 #include <stddef.h>
 #include <string.h>
 
-pOpenGL pe_opengl = {0};
+pOpenGL p_opengl = {0};
 pDynamicDrawStateOpenGL dynamic_draw_opengl = {0};
 pTexture default_texture;
 
@@ -23,8 +23,8 @@ pTexture default_texture;
 //
 
 void p_graphics_init(pArena *temp_arena, int window_width, int window_height) {
-    pe_opengl.framebuffer_width = window_width;
-    pe_opengl.framebuffer_height = window_height;
+    p_opengl.framebuffer_width = window_width;
+    p_opengl.framebuffer_height = window_height;
 
 #if !defined(NDEBUG) && defined(GL_ARB_debug_output)
     if (glDebugMessageCallbackARB) {
@@ -45,8 +45,8 @@ void p_graphics_init(pArena *temp_arena, int window_width, int window_height) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // init shader_program
-    pe_opengl.shader_program = p_shader_create_from_file(temp_arena, "res/shader.glsl");
-    glUseProgram(pe_opengl.shader_program);
+    p_opengl.shader_program = p_shader_create_from_file(temp_arena, "res/shader.glsl");
+    glUseProgram(p_opengl.shader_program);
 
     // init dynamic_draw
     {
@@ -122,8 +122,8 @@ void p_graphics_shutdown(void) {
 
 void p_graphics_set_framebuffer_size(int width, int height) {
     glViewport(0, 0, width, height);
-    pe_opengl.framebuffer_width = width;
-    pe_opengl.framebuffer_height = height;
+    p_opengl.framebuffer_width = width;
+    p_opengl.framebuffer_height = height;
 
     P_ASSERT(p_graphics.mode == pGraphicsMode_2D);
     p_graphics.matrix_mode = pMatrixMode_Projection;
@@ -137,11 +137,11 @@ void p_graphics_set_framebuffer_size(int width, int height) {
 }
 
 int p_screen_width(void) {
-    return pe_opengl.framebuffer_width;
+    return p_opengl.framebuffer_width;
 }
 
 int p_screen_height(void) {
-    return pe_opengl.framebuffer_height;
+    return p_opengl.framebuffer_height;
 }
 
 void p_clear_background(pColor color) {
@@ -171,15 +171,15 @@ void p_graphics_set_depth_test(bool enable) {
 }
 
 void p_graphics_set_lighting(bool enable) {
-    p_shader_set_bool(pe_opengl.shader_program, "do_lighting", enable);
+    p_shader_set_bool(p_opengl.shader_program, "do_lighting", enable);
 }
 
 void p_graphics_set_light_vector(pVec3 light_vector) {
-    p_shader_set_vec3(pe_opengl.shader_program, "light_vector", light_vector);
+    p_shader_set_vec3(p_opengl.shader_program, "light_vector", light_vector);
 }
 
 void p_graphics_set_diffuse_color(pColor color) {
-    p_shader_set_vec3(pe_opengl.shader_program, "diffuse_color", p_color_to_vec4(color).rgb);
+    p_shader_set_vec3(p_opengl.shader_program, "diffuse_color", p_color_to_vec4(color).rgb);
 }
 
 void p_graphics_matrix_update(void) {
@@ -191,7 +191,7 @@ void p_graphics_matrix_update(void) {
     for (int matrix_mode = 0; matrix_mode < pMatrixMode_Count; matrix_mode += 1) {
         if (p_graphics.matrix_dirty[p_graphics.mode][matrix_mode]) {
             pMat4 *matrix = &p_graphics.matrix[p_graphics.mode][matrix_mode];
-            p_shader_set_mat4(pe_opengl.shader_program, uniform_names[matrix_mode], matrix);
+            p_shader_set_mat4(p_opengl.shader_program, uniform_names[matrix_mode], matrix);
             p_graphics.matrix_dirty[p_graphics.mode][matrix_mode] = false;
         }
     }
@@ -214,7 +214,7 @@ void p_graphics_dynamic_draw_draw_batches(void) {
         p_graphics_matrix_mode(pMatrixMode_Model);
         p_graphics_matrix_identity();
         p_graphics_matrix_update();
-        p_shader_set_bool(pe_opengl.shader_program, "has_skeleton", false);
+        p_shader_set_bool(p_opengl.shader_program, "has_skeleton", false);
 
         glBindVertexArray(dynamic_draw_opengl.vertex_array_object);
         glBindBuffer(GL_ARRAY_BUFFER, dynamic_draw_opengl.vertex_buffer_object);

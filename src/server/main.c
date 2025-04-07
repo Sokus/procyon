@@ -9,7 +9,7 @@
 #include "core/p_time.h"
 #include "platform/p_net.h"
 
-#include "pe_config.h"
+#include "p_config.h"
 #include "game/p_protocol.h"
 #include "game/p_entity.h"
 

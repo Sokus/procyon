@@ -330,8 +330,8 @@ pRay p_get_mouse_ray(pVec2 mouse, pCamera camera) {
     pMat4 projection = p_matrix_perspective(55.0f, window_width_float/window_height_float, 1.0f, 1000.0f);
     pMat4 view = p_look_at_rh(camera.position, camera.target, camera.up);
 
-    pVec3 near_point = pe_unproject_vec3(p_vec3(mouse.x, mouse.y, 0.0f), 0.0f, 0.0f, window_width_float, window_height_float, 0.0f, 1.0f, projection, view);
-    pVec3 far_point = pe_unproject_vec3(p_vec3(mouse.x, mouse.y, 1.0f), 0.0f, 0.0f, window_width_float, window_height_float, 0.0f, 1.0f, projection, view);
+    pVec3 near_point = p_unproject_vec3(p_vec3(mouse.x, mouse.y, 0.0f), 0.0f, 0.0f, window_width_float, window_height_float, 0.0f, 1.0f, projection, view);
+    pVec3 far_point = p_unproject_vec3(p_vec3(mouse.x, mouse.y, 1.0f), 0.0f, 0.0f, window_width_float, window_height_float, 0.0f, 1.0f, projection, view);
     pVec3 direction = p_vec3_norm(p_vec3_sub(far_point, near_point));
     pRay ray = {
         .position = camera.position,

@@ -17,7 +17,7 @@
 #include "platform/p_input.h"
 #include "utility/p_trace.h"
 
-#include "pe_config.h"
+#include "p_config.h"
 #include "game/p_protocol.h"
 #include "game/p_entity.h"
 

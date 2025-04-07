@@ -130,7 +130,7 @@ endif()
 
 # COMPILE OTHER TARGETS:
 
-add_executable(tests src/samples/pe_tests.c)
+add_executable(tests src/samples/p_tests.c)
 target_link_libraries(tests PRIVATE settings core platform graphics utility)
 
 if(WIN32 OR LINUX)

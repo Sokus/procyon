@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <float.h>
 
-pVec3 pe_unproject_vec3(
+pVec3 p_unproject_vec3(
     pVec3 v,
     float viewport_x, float viewport_y,
     float viewport_width, float viewport_height,

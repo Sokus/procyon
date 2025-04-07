@@ -105,11 +105,11 @@ void p_model_load_animations(pModel *model, p3dStaticInfo *static_info, p3dAnima
     for (int a = 0; a < static_info->num_animations; a += 1) {
         for (int f = 0; f < model->animation[a].num_frames; f += 1) {
             for (int j = 0; j < static_info->num_bones; j += 1) {
-                pAnimationJoint *pe_animation_joint = &model->animation[a].frames[f * static_info->num_bones + j];
+                pAnimationJoint *p_animation_joint = &model->animation[a].frames[f * static_info->num_bones + j];
                 p3dAnimationJoint *p3d_animation_joint_ptr = animation_joint + p3d_animation_joint_offset;
-                memcpy(pe_animation_joint->translation.elements, &p3d_animation_joint_ptr->position, 3*sizeof(float));
-                memcpy(pe_animation_joint->rotation.elements, &p3d_animation_joint_ptr->rotation, 4*sizeof(float));
-                memcpy(pe_animation_joint->scale.elements, &p3d_animation_joint_ptr->scale, 3*sizeof(float));
+                memcpy(p_animation_joint->translation.elements, &p3d_animation_joint_ptr->position, 3*sizeof(float));
+                memcpy(p_animation_joint->rotation.elements, &p3d_animation_joint_ptr->rotation, 4*sizeof(float));
+                memcpy(p_animation_joint->scale.elements, &p3d_animation_joint_ptr->scale, 3*sizeof(float));
                 p3d_animation_joint_offset += 1;
             }
         }
@@ -122,8 +122,8 @@ void p_model_load_writeback_arena(pArena *model_arena) {
 
 void p_model_draw_meshes(pModel *model, pMat4 *final_bone_matrix) {
     P_TRACE_FUNCTION_BEGIN();
-    p_shader_set_bool(pe_opengl.shader_program, "has_skeleton", true);
-    p_shader_set_mat4_array(pe_opengl.shader_program, "matrix_bone", final_bone_matrix, model->num_bone);
+    p_shader_set_bool(p_opengl.shader_program, "has_skeleton", true);
+    p_shader_set_mat4_array(p_opengl.shader_program, "matrix_bone", final_bone_matrix, model->num_bone);
 
     for (int m = 0; m < model->num_mesh; m += 1) {
 		pTraceMark tm_draw_mesh = P_TRACE_MARK_BEGIN("draw mesh");

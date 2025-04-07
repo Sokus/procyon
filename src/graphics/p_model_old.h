@@ -1,10 +1,10 @@
 // NOTE: This is being kept just for reference, I don't want to delete
-// the code yet but it really annoyed me while in pe_model.c
+// the code yet but it really annoyed me while in p_model.c
 
 // FIXME: This needs a rework probably, it wasn't really modified since I
 // started working on the 3D model format (P3D).
 #if 0 // WIN32
-pMesh pe_gen_mesh_cube(float width, float height, float length) {
+pMesh p_gen_mesh_cube(float width, float height, float length) {
     float pos[] = {
 		-width/2.0f, -height/2.0f,  length/2.0f,
 		 width/2.0f, -height/2.0f,  length/2.0f,
@@ -77,7 +77,7 @@ pMesh pe_gen_mesh_cube(float width, float height, float length) {
     return mesh;
 }
 
-pMesh pe_gen_mesh_quad(float width, float length) {
+pMesh p_gen_mesh_quad(float width, float length) {
 	float pos[] = {
 		-width/2.0f, 0.0f, -length/2.0f,
 		-width/2.0f, 0.0f,  length/2.0f,
@@ -121,7 +121,7 @@ pMesh pe_gen_mesh_quad(float width, float length) {
     return mesh;
 }
 
-void pe_draw_mesh(pMesh *mesh, pMaterial material, HMM_Vec3 position, HMM_Vec3 rotation) {
+void p_draw_mesh(pMesh *mesh, pMaterial material, HMM_Vec3 position, HMM_Vec3 rotation) {
     HMM_Mat4 rotate_x = HMM_Rotate_RH(rotation.X, (HMM_Vec3){1.0f, 0.0f, 0.0f});
     HMM_Mat4 rotate_y = HMM_Rotate_RH(rotation.Y, (HMM_Vec3){0.0f, 1.0f, 0.0f});
     HMM_Mat4 rotate_z = HMM_Rotate_RH(rotation.Z, (HMM_Vec3){0.0f, 0.0f, 1.0f});
@@ -137,7 +137,7 @@ void pe_draw_mesh(pMesh *mesh, pMaterial material, HMM_Vec3 position, HMM_Vec3 r
     constant_material->diffuse_color = p_color_to_vec4(material.diffuse_color);
     p_shader_constant_end_map(p_d3d.context, p_shader_constant_material_buffer);
 
-    pe_bind_texture(material.diffuse_map);
+    p_bind_texture(material.diffuse_map);
 
     ID3D11Buffer *vertex_buffers[] = {
         mesh->pos_buffer,
@@ -253,8 +253,8 @@ Mesh gen_mesh_cube(float width, float height, float length, pColor color) {
 	int index_count = P_COUNT_OF(indices);
 	mesh.vertex_count = vertex_count;
 	mesh.index_count = index_count;
-	mesh.vertices = pe_alloc_align(pe_heap_allocator(), vertex_count*sizeof(VertexTCP), 16);
-	mesh.indices = pe_alloc_align(pe_heap_allocator(), sizeof(indices), 16);
+	mesh.vertices = p_alloc_align(p_heap_allocator(), vertex_count*sizeof(VertexTCP), 16);
+	mesh.indices = p_alloc_align(p_heap_allocator(), sizeof(indices), 16);
 	mesh.vertex_type = GU_TEXTURE_32BITF|GU_COLOR_5650|GU_VERTEX_32BITF|GU_TRANSFORM_3D|GU_INDEX_16BIT;
 
 	for (int i = 0; i < vertex_count; i += 1) {
@@ -274,7 +274,7 @@ Mesh gen_mesh_cube(float width, float height, float length, pColor color) {
 	return mesh;
 }
 
-Mesh pe_gen_mesh_quad(float width, float length, pColor color) {
+Mesh p_gen_mesh_quad(float width, float length, pColor color) {
 	float vertices[] = {
 		-width/2.0f, 0.0f, -length/2.0f,
 		-width/2.0f, 0.0f,  length/2.0f,
@@ -302,8 +302,8 @@ Mesh pe_gen_mesh_quad(float width, float length, pColor color) {
 	int index_count = P_COUNT_OF(indices);
 	mesh.vertex_count = vertex_count;
 	mesh.index_count = index_count;
-	mesh.vertices = pe_alloc_align(pe_heap_allocator(), vertex_count*sizeof(VertexTCP), 16);
-	mesh.indices = pe_alloc_align(pe_heap_allocator(), sizeof(indices), 16);
+	mesh.vertices = p_alloc_align(p_heap_allocator(), vertex_count*sizeof(VertexTCP), 16);
+	mesh.indices = p_alloc_align(p_heap_allocator(), sizeof(indices), 16);
 	mesh.vertex_type = GU_TEXTURE_32BITF|GU_COLOR_5650|GU_VERTEX_32BITF|GU_TRANSFORM_3D|GU_INDEX_16BIT;
 
 	for (int i = 0; i < vertex_count; i += 1) {
@@ -323,7 +323,7 @@ Mesh pe_gen_mesh_quad(float width, float length, pColor color) {
 	return mesh;
 }
 
-void pe_draw_mesh(Mesh mesh, HMM_Vec3 position, HMM_Vec3 rotation) {
+void p_draw_mesh(Mesh mesh, HMM_Vec3 position, HMM_Vec3 rotation) {
 	sceGumMatrixMode(GU_MODEL);
 	sceGumPushMatrix();
 	sceGumLoadIdentity();

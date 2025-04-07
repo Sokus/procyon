@@ -41,7 +41,7 @@ static uint32_t p_jenkins_one_at_a_time_hash(const void *data, size_t size) {
 // TODO: the user should hash the time and pass it as seed
 #if 0
 pRandom p_random_from_time(void) {
-    peTime time = pe_time_local();
+    peTime time = p_time_local();
     uint32_t seed = p_jenkins_one_at_a_time_hash(&time, sizeof(time));
     return p_random_from_seed(seed);
 }
