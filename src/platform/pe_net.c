@@ -55,7 +55,7 @@ static u64 next_apctl_get_state_tick;
 static u64 next_apctl_connect_tick;
 #endif
 
-bool pe_net_init(void) {
+bool p_net_init(void) {
     P_ASSERT(!network_initialized);
     bool result = true;
 #if defined(_WIN32)
@@ -88,9 +88,9 @@ bool pe_net_init(void) {
     return result;
 }
 
-// NOTE: For now the only use for `pe_net_update` is to reconnect
+// NOTE: For now the only use for `p_net_update` is to reconnect
 // to an Access Point on PSP in case the connection was lost
-void pe_net_update(void) {
+void p_net_update(void) {
 #if defined(PSP)
     PE_TRACE_FUNCTION_BEGIN();
 
@@ -124,7 +124,7 @@ void pe_net_update(void) {
 #endif
 }
 
-void pe_net_shutdown(void) {
+void p_net_shutdown(void) {
     P_ASSERT(network_initialized);
 #if defined(_WIN32)
     WSACleanup();
@@ -140,29 +140,29 @@ void pe_net_shutdown(void) {
     network_initialized = false;
 }
 
-peAddress pe_address4(uint8_t a, uint8_t b, uint8_t c, uint8_t d, uint16_t port) {
-    peAddress result = {0};
-    result.family = peAddressFamily_IPv4;
+pAddress p_address4(uint8_t a, uint8_t b, uint8_t c, uint8_t d, uint16_t port) {
+    pAddress result = {0};
+    result.family = pAddressFamily_IPv4;
     result.ipv4 = (uint32_t)a | ((uint32_t)b << 8) | ((uint32_t)c << 16) | ((uint32_t)d << 24);
     result.port = port;
     return result;
 }
 
-peAddress pe_address4_from_int(uint32_t address, uint16_t port) {
-    peAddress result = {0};
-    result.family = peAddressFamily_IPv4;
+pAddress p_address4_from_int(uint32_t address, uint16_t port) {
+    pAddress result = {0};
+    result.family = pAddressFamily_IPv4;
     result.ipv4 = htonl(address);
     result.port = port;
     return result;
 }
 
-peAddress pe_address6(
+pAddress p_address6(
     uint16_t a, uint16_t b, uint16_t c, uint16_t d,
     uint16_t e, uint16_t f, uint16_t g, uint16_t h,
     uint16_t port
 ) {
-    peAddress result = {0};
-    result.family = peAddressFamily_IPv6;
+    pAddress result = {0};
+    result.family = pAddressFamily_IPv6;
     result.ipv6[0] = htons(a);
     result.ipv6[1] = htons(b);
     result.ipv6[2] = htons(c);
@@ -175,9 +175,9 @@ peAddress pe_address6(
     return result;
 }
 
-peAddress pe_address6_from_array(uint16_t address[], uint16_t port) {
-    peAddress result = {0};
-    result.family = peAddressFamily_IPv6;
+pAddress p_address6_from_array(uint16_t address[], uint16_t port) {
+    pAddress result = {0};
+    result.family = pAddressFamily_IPv6;
     for (int i = 0; i < 8; i++) {
         result.ipv6[i] = htons(address[i]);
     }
@@ -186,7 +186,7 @@ peAddress pe_address6_from_array(uint16_t address[], uint16_t port) {
 }
 
 #if defined(PSP)
-static peAddress pe_address_from_sockaddr(struct sockaddr *addr) {
+static pAddress p_address_from_sockaddr(struct sockaddr *addr) {
     struct peSockaddrDataLayout {
         uint8_t port_msb;
         uint8_t port_lsb;
@@ -194,21 +194,21 @@ static peAddress pe_address_from_sockaddr(struct sockaddr *addr) {
     };
     struct peSockaddrDataLayout *data = (void *)addr->sa_data;
     uint16_t port = (uint16_t)data->port_msb << 8 | data->port_lsb;
-    peAddress result = pe_address4(data->a, data->b, data->c, data->d, port);
+    pAddress result = p_address4(data->a, data->b, data->c, data->d, port);
     return result;
 }
 #else
-static peAddress pe_address_from_sockaddr_storage(struct sockaddr_storage *addr) {
+static pAddress p_address_from_sockaddr_storage(struct sockaddr_storage *addr) {
     P_ASSERT(addr->ss_family == AF_INET || addr->ss_family == AF_INET6);
-    peAddress result = {0};
+    pAddress result = {0};
     if (addr->ss_family == AF_INET) {
         struct sockaddr_in *addr_ipv4 = (struct sockaddr_in *)addr;
-        result.family = peAddressFamily_IPv4;
+        result.family = pAddressFamily_IPv4;
         result.ipv4 = addr_ipv4->sin_addr.s_addr;
         result.port = ntohs(addr_ipv4->sin_port);
     } else if (addr->ss_family == AF_INET6) {
         struct sockaddr_in6 *addr_ipv6 = (struct sockaddr_in6 *)addr;
-        result.family = peAddressFamily_IPv6;
+        result.family = pAddressFamily_IPv6;
         memcpy(result.ipv6, &addr_ipv6->sin6_addr, 16);
         result.port = ntohs(addr_ipv6->sin6_port);
     }
@@ -216,9 +216,9 @@ static peAddress pe_address_from_sockaddr_storage(struct sockaddr_storage *addr)
 }
 #endif
 
-peAddress pe_address_parse(char *address_in) {
+pAddress p_address_parse(char *address_in) {
     P_ASSERT(address_in != NULL);
-    peAddress result = {0};
+    pAddress result = {0};
 
     char buffer[256] = {0};
     char *address = buffer;
@@ -249,7 +249,7 @@ peAddress pe_address_parse(char *address_in) {
     }
     struct in6_addr sockaddr6;
     if (inet_pton(AF_INET6, address, &sockaddr6) == 1) {
-        result.family = peAddressFamily_IPv6;
+        result.family = pAddressFamily_IPv6;
         memcpy(result.ipv6, &sockaddr6, 16);
         return result;
     }
@@ -273,19 +273,19 @@ peAddress pe_address_parse(char *address_in) {
 
     struct sockaddr_in sockaddr4;
     if (inet_pton(AF_INET, address, &sockaddr4.sin_addr) == 1) {
-        result.family  = peAddressFamily_IPv4;
+        result.family  = pAddressFamily_IPv4;
         result.ipv4 = sockaddr4.sin_addr.s_addr;
     }
     else {
         // nope: it's not an IPv4 address. maybe it's a hostname? set address as undefined.
-        result = (peAddress){0};
+        result = (pAddress){0};
     }
 
     return result;
 }
 
-peAddress pe_address_parse_ex(char *address_in, uint16_t port) {
-    peAddress result = pe_address_parse(address_in);
+pAddress p_address_parse_ex(char *address_in, uint16_t port) {
+    pAddress result = p_address_parse(address_in);
     result.port = port;
     return result;
 }
@@ -293,8 +293,8 @@ peAddress pe_address_parse_ex(char *address_in, uint16_t port) {
 #if defined(PSP) && !defined(INET6_ADDRSTRLEN)
 #define INET6_ADDRSTRLEN 46
 #endif
-char *pe_address_to_string(peAddress address, char buffer[], int buffer_size) {
-    if (address.family == peAddressFamily_IPv4) {
+char *p_address_to_string(pAddress address, char buffer[], int buffer_size) {
+    if (address.family == pAddressFamily_IPv4) {
         uint8_t a = address.ipv4 & 0xFF;
         uint8_t b = (address.ipv4 >> 8) & 0xFF;
         uint8_t c = (address.ipv4 >> 16) & 0xFF;
@@ -304,7 +304,7 @@ char *pe_address_to_string(peAddress address, char buffer[], int buffer_size) {
         else
             snprintf(buffer, buffer_size, "%u.%u.%u.%u", a, b, c, d);
         return buffer;
-    } else if (address.family == peAddressFamily_IPv6) {
+    } else if (address.family == pAddressFamily_IPv6) {
         if (address.port == 0) {
             inet_ntop(AF_INET6, (void *)&address.ipv6, buffer, buffer_size);
             return buffer;
@@ -319,77 +319,77 @@ char *pe_address_to_string(peAddress address, char buffer[], int buffer_size) {
     }
 }
 
-bool pe_address_compare(peAddress a, peAddress b) {
+bool p_address_compare(pAddress a, pAddress b) {
     if (a.port != b.port)
         return false;
-    if (a.family == peAddressFamily_IPv4 && b.family == peAddressFamily_IPv4) {
+    if (a.family == pAddressFamily_IPv4 && b.family == pAddressFamily_IPv4) {
         if (a.ipv4 == b.ipv4)
             return true;
     }
-    if (a.family == peAddressFamily_IPv6 && b.family == peAddressFamily_IPv6) {
+    if (a.family == pAddressFamily_IPv6 && b.family == pAddressFamily_IPv6) {
         if (memcmp(a.ipv6, b.ipv6, sizeof(a.ipv6)) == 0)
             return true;
     }
     return false;
 }
 
-peSocketCreateError pe_socket_create(peAddressFamily address_family, peSocket *out_socket) {
+pSocketCreateError p_socket_create(pAddressFamily address_family, pSocket *out_socket) {
     P_ASSERT(network_initialized);
 #if defined(PSP)
-    P_ASSERT(address_family != peAddressFamily_IPv6);
-    if (address_family == peAddressFamily_IPv6) {
-        return peSocketCreateError_InvalidParameter;
+    P_ASSERT(address_family != pAddressFamily_IPv6);
+    if (address_family == pAddressFamily_IPv6) {
+        return pSocketCreateError_InvalidParameter;
     }
 #endif
 
     // Create socket
-    peSocket result;
+    pSocket result;
 #if defined(_WIN32)
-    result.handle = socket((address_family == peAddressFamily_IPv6) ? AF_INET6 : AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    result.handle = socket((address_family == pAddressFamily_IPv6) ? AF_INET6 : AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (result.handle == INVALID_SOCKET) {
-        return peSocketCreateError_CreateFailed;
+        return pSocketCreateError_CreateFailed;
     }
 #else
-    result.handle = socket((address_family == peAddressFamily_IPv6) ? AF_INET6 : AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    result.handle = socket((address_family == pAddressFamily_IPv6) ? AF_INET6 : AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (result.handle <= 0) {
-        return peSocketCreateError_CreateFailed;
+        return pSocketCreateError_CreateFailed;
     }
 #endif
 
     // Force IPv6 if necessary
-    if (address_family == peAddressFamily_IPv6) {
+    if (address_family == pAddressFamily_IPv6) {
 #if !defined(PSP)
         char optval = 1;
         if (setsockopt(result.handle, IPPROTO_IPV6, IPV6_V6ONLY, &optval, sizeof(optval)) != 0) {
-            pe_socket_destroy(result);
-            return peSocketCreateError_SockoptIPv6OnlyFailed;
+            p_socket_destroy(result);
+            return pSocketCreateError_SockoptIPv6OnlyFailed;
         }
 #endif
     }
 
     *out_socket = result;
-    return peSocketCreateError_None;
+    return pSocketCreateError_None;
 }
 
-peSocketBindError pe_socket_bind(peSocket socket, peAddressFamily address_family, uint16_t port) {
+pSocketBindError p_socket_bind(pSocket socket, pAddressFamily address_family, uint16_t port) {
 P_ASSERT(network_initialized);
 #if defined(PSP)
-    P_ASSERT(address_family != peAddressFamily_IPv6);
-    if (address_family == peAddressFamily_IPv6) {
-        return peSocketBindError_InvalidParameter;
+    P_ASSERT(address_family != pAddressFamily_IPv6);
+    if (address_family == pAddressFamily_IPv6) {
+        return pSocketBindError_InvalidParameter;
     }
 #endif
 
-    if (address_family == peAddressFamily_IPv4) {
+    if (address_family == pAddressFamily_IPv4) {
         struct sockaddr_in sock_address;
         sock_address.sin_family = AF_INET;
         sock_address.sin_addr.s_addr = INADDR_ANY;
         sock_address.sin_port = htons(port);
 
         if (bind(socket.handle, (const struct sockaddr *)&sock_address, sizeof(sock_address)) < 0) {
-            return peSocketBindError_BindFailed;
+            return pSocketBindError_BindFailed;
         }
-    } else if (address_family == peAddressFamily_IPv6) {
+    } else if (address_family == pAddressFamily_IPv6) {
 #if !defined(PSP)
         struct sockaddr_in6 sock_address;
         sock_address.sin6_family = AF_INET6;
@@ -397,15 +397,15 @@ P_ASSERT(network_initialized);
         sock_address.sin6_port = htons(port);
 
         if (bind(socket.handle, (const struct sockaddr *)&sock_address, sizeof(sock_address)) < 0) {
-            return peSocketBindError_BindFailed;
+            return pSocketBindError_BindFailed;
         }
 #endif
     }
 
-    return peSocketBindError_None;
+    return pSocketBindError_None;
 }
 
-bool pe_socket_set_nonblocking(peSocket socket) {
+bool p_socket_set_nonblocking(pSocket socket) {
 #if defined(_WIN32)
     DWORD non_blocking = 1;
     if (ioctlsocket(socket.handle, FIONBIO, &non_blocking) != 0) {
@@ -420,7 +420,7 @@ bool pe_socket_set_nonblocking(peSocket socket) {
     return true;
 }
 
-void pe_socket_destroy(peSocket socket) {
+void p_socket_destroy(pSocket socket) {
 #if defined(_WIN32)
     closesocket(socket.handle);
 #elif defined(__linux__) || defined(PSP)
@@ -428,11 +428,11 @@ void pe_socket_destroy(peSocket socket) {
 #endif
 }
 
-peSocketSendError pe_socket_send(peSocket socket, peAddress address, void *packet_data, size_t packet_bytes) {
+pSocketSendError p_socket_send(pSocket socket, pAddress address, void *packet_data, size_t packet_bytes) {
     P_ASSERT(packet_bytes > 0);
 
     int sendto_result;
-    if (address.family == peAddressFamily_IPv6) {
+    if (address.family == pAddressFamily_IPv6) {
 #if defined(PSP)
         P_PANIC();
         return -1; // TODO: Unsupported address type error
@@ -443,7 +443,7 @@ peSocketSendError pe_socket_send(peSocket socket, peAddress address, void *packe
         memcpy(&socket_address.sin6_addr, address.ipv6, sizeof(socket_address.sin6_addr));
         sendto_result = sendto(socket.handle, packet_data, (int)packet_bytes, 0, (struct sockaddr *)&socket_address, sizeof(socket_address));
 #endif
-    } else if (address.family == peAddressFamily_IPv4) {
+    } else if (address.family == pAddressFamily_IPv4) {
         struct sockaddr_in socket_address = {0};
         socket_address.sin_family = AF_INET;
         socket_address.sin_addr.s_addr = address.ipv4;
@@ -462,10 +462,10 @@ peSocketSendError pe_socket_send(peSocket socket, peAddress address, void *packe
         return error;
     }
 #endif
-    return peSocketSendError_None;
+    return pSocketSendError_None;
 }
 
-peSocketReceiveError pe_socket_receive(peSocket socket, void *packet_data, int max_packet_size, int *bytes_received, peAddress *from) {
+pSocketReceiveError p_socket_receive(pSocket socket, void *packet_data, int max_packet_size, int *bytes_received, pAddress *from) {
 // TODO: Maybe split it into three different functions (WIN32, LINUX, PSP) to improve readability?
 #if defined(PSP)
     struct sockaddr sockaddr_from;
@@ -482,17 +482,17 @@ peSocketReceiveError pe_socket_receive(peSocket socket, void *packet_data, int m
 #if defined(_WIN32)
     if (result == SOCKET_ERROR) {
         int error = WSAGetLastError();
-        return (peSocketReceiveError)error;
+        return (pSocketReceiveError)error;
     }
 #else
     if (result < 0) {
         int error = errno;
-        return (peSocketReceiveError)error;
+        return (pSocketReceiveError)error;
     }
 #endif
     if (result == 0) {
         *bytes_received = 0;
-        return peSocketReceiveError_None; // TODO: connection closed error?
+        return pSocketReceiveError_None; // TODO: connection closed error?
     }
 
     P_ASSERT(result > 0);
@@ -500,10 +500,10 @@ peSocketReceiveError pe_socket_receive(peSocket socket, void *packet_data, int m
 
     if (from != NULL) {
 #if defined(PSP)
-        *from = pe_address_from_sockaddr(&sockaddr_from);
+        *from = p_address_from_sockaddr(&sockaddr_from);
 #else
-        *from = pe_address_from_sockaddr_storage(&sockaddr_from);
+        *from = p_address_from_sockaddr_storage(&sockaddr_from);
 #endif
     }
-    return peSocketReceiveError_None;
+    return pSocketReceiveError_None;
 }

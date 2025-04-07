@@ -89,7 +89,7 @@ void p_append_message(pPacket *packet, pMessage msg) {
     packet->message_count += 1;
 }
 
-bool p_send_packet(peSocket socket, peAddress address, pPacket *packet) {
+bool p_send_packet(pSocket socket, pAddress address, pPacket *packet) {
     uint8_t buffer[1400];
 
     pBitStream write_stream = p_create_write_stream(buffer, sizeof(buffer));
@@ -103,33 +103,33 @@ bool p_send_packet(peSocket socket, peAddress address, pPacket *packet) {
     p_bit_stream_flush_bits(&write_stream);
     int bytes_written = p_bit_stream_bytes_processed(&write_stream);
 
-    peSocketSendError send_error = pe_socket_send(socket, address, buffer, bytes_written);
-    if (send_error != peSocketSendError_None) {
-        fprintf(stdout, "peSocketSendError: %u\n", send_error);
+    pSocketSendError send_error = p_socket_send(socket, address, buffer, bytes_written);
+    if (send_error != pSocketSendError_None) {
+        fprintf(stdout, "pSocketSendError: %u\n", send_error);
         return false;
     }
 
     return true;
 }
 
-bool p_receive_packet(peSocket socket, pArena *arena, peAddress *address, pPacket *packet) {
+bool p_receive_packet(pSocket socket, pArena *arena, pAddress *address, pPacket *packet) {
     P_ASSERT(packet->message_count == 0);
 
     uint8_t buffer[1400];
     int bytes_received;
-    peSocketReceiveError srcv_error = pe_socket_receive(socket, buffer, sizeof(buffer), &bytes_received, address);
-    if (srcv_error != peSocketReceiveError_None) {
+    pSocketReceiveError srcv_error = p_socket_receive(socket, buffer, sizeof(buffer), &bytes_received, address);
+    if (srcv_error != pSocketReceiveError_None) {
         switch (srcv_error) {
         #if defined(_WIN32)
-            case peSocketReceiveError_WouldBlock:
-            case peSocketReceiveError_RemoteNotListening:
+            case pSocketReceiveError_WouldBlock:
+            case pSocketReceiveError_RemoteNotListening:
                 return false;
         #else
-            case peSocketReceiveError_Timeout:
+            case pSocketReceiveError_Timeout:
                 return false;
         #endif
             default: {
-                fprintf(stdout, "peSocketReceiveError: %u\n", srcv_error);
+                fprintf(stdout, "pSocketReceiveError: %u\n", srcv_error);
                 return false;
             } break;
         }

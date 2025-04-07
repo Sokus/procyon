@@ -41,8 +41,8 @@ struct peClientState {
     pVec3 camera_offset;
     peModel model;
 
-    peSocket socket;
-    peAddress server_address;
+    pSocket socket;
+    pAddress server_address;
     peClientNetworkState network_state;
     int client_index;
     uint32_t entity_index;
@@ -61,7 +61,7 @@ void pe_client_process_message(pMessage message) {
         case pMessageType_ConnectionAccepted: {
             if (client.network_state == peClientNetworkState_Connecting) {
                 char address_string[256];
-                fprintf(stdout, "connected to the server (address = %s)\n", pe_address_to_string(client.server_address, address_string, sizeof(address_string)));
+                fprintf(stdout, "connected to the server (address = %s)\n", p_address_to_string(client.server_address, address_string, sizeof(address_string)));
                 client.network_state = peClientNetworkState_Connected;
                 client.client_index = message.connection_accepted->client_index;
                 client.entity_index = message.connection_accepted->entity_index;
@@ -87,9 +87,9 @@ void pe_client_process_message(pMessage message) {
     PE_TRACE_FUNCTION_END();
 }
 
-void p_receive_packets(pArena *temp_arena, peSocket socket) {
+void p_receive_packets(pArena *temp_arena, pSocket socket) {
     PE_TRACE_FUNCTION_BEGIN();
-    peAddress address;
+    pAddress address;
     pPacket packet = {0};
     while (true) {
         pArenaTemp loop_arena_temp = p_arena_temp_begin(temp_arena);
@@ -98,7 +98,7 @@ void p_receive_packets(pArena *temp_arena, peSocket socket) {
             break;
         }
 
-        if (!pe_address_compare(address, client.server_address)) {
+        if (!p_address_compare(address, client.server_address)) {
             return;
         }
 
@@ -232,14 +232,14 @@ int main(int argc, char* argv[]) {
         p_arena_init(&temp_arena, p_heap_alloc(temp_arena_size), temp_arena_size);
     }
 
-    pe_net_init();
+    p_net_init();
     pe_trace_init();
 
     p_window_set_target_fps(60);
     p_window_init(&temp_arena, 960, 540, "Procyon");
 
-    pe_socket_create(peAddressFamily_IPv4, &client.socket);
-    pe_socket_set_nonblocking(client.socket);
+    p_socket_create(pAddressFamily_IPv4, &client.socket);
+    p_socket_set_nonblocking(client.socket);
 
     p_allocate_entities();
 
@@ -327,10 +327,10 @@ int main(int argc, char* argv[]) {
 
     while(!p_window_should_quit()) {
         if (multiplayer) {
-            pe_net_update();
+            p_net_update();
             p_receive_packets(&temp_arena, client.socket);
         } else {
-                client.server_address = pe_address4(127, 0, 0, 1, SERVER_PORT);
+                client.server_address = p_address4(127, 0, 0, 1, SERVER_PORT);
             if (
                 p_input_key_pressed(pKeyboardKey_O)
                 || p_input_gamepad_pressed(pGamepadButton_ActionUp)
@@ -419,8 +419,8 @@ int main(int argc, char* argv[]) {
         p_arena_clear(&temp_arena);
     }
 
-    pe_socket_destroy(client.socket);
-    pe_net_shutdown();
+    p_socket_destroy(client.socket);
+    p_net_shutdown();
     pe_trace_shutdown();
     p_window_shutdown();
     return 0;

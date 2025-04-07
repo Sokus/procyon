@@ -78,9 +78,9 @@ pMessage p_message_create(struct pArena *arena, pMessageType type);
 enum pSerializationError p_serialize_message(struct pBitStream *bs, pMessage *msg);
 void p_append_message(pPacket *packet, pMessage msg);
 
-struct peSocket;
-struct peAddress;
-bool p_send_packet(struct peSocket socket, struct peAddress address, pPacket *packet);
-bool p_receive_packet(struct peSocket socket, struct pArena *arena, struct peAddress *address, pPacket *packet);
+struct pSocket;
+struct pAddress;
+bool p_send_packet(struct pSocket socket, struct pAddress address, pPacket *packet);
+bool p_receive_packet(struct pSocket socket, struct pArena *arena, struct pAddress *address, pPacket *packet);
 
 #endif // P_PROTOCOL_H
