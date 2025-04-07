@@ -10,30 +10,30 @@
 #include <stdio.h>
 #include <string.h>
 
-static pSerializationError p_serialize_connection_request_message(pBitStream *bs, peConnectionRequestMessage *msg) {
+static pSerializationError p_serialize_connection_request_message(pBitStream *bs, pConnectionRequestMessage *msg) {
     return pSerializationError_None;
 }
 
-static pSerializationError p_serialize_connection_denied_message(pBitStream *bs, peConnectionDeniedMessage *msg) {
-    return p_serialize_enum(bs, &msg->reason, peConnectionDeniedReason_Count);
+static pSerializationError p_serialize_connection_denied_message(pBitStream *bs, pConnectionDeniedMessage *msg) {
+    return p_serialize_enum(bs, &msg->reason, pConnectionDeniedReason_Count);
 }
 
-static pSerializationError p_serialize_connection_accepted_message(pBitStream *bs, peConnectionAcceptedMessage *msg) {
+static pSerializationError p_serialize_connection_accepted_message(pBitStream *bs, pConnectionAcceptedMessage *msg) {
     pSerializationError err = pSerializationError_None;
     err = p_serialize_range_int(bs, &msg->client_index, 0, MAX_CLIENT_COUNT); if (err) return err;
     err = p_serialize_u32(bs, &msg->entity_index); if (err) return err;
     return err;
 }
 
-static pSerializationError p_serialize_connection_closed_message(pBitStream *bs, peConnectionClosedMessage *msg) {
-    return p_serialize_enum(bs, &msg->reason, peConnectionClosedReason_Count);
+static pSerializationError p_serialize_connection_closed_message(pBitStream *bs, pConnectionClosedMessage *msg) {
+    return p_serialize_enum(bs, &msg->reason, pConnectionClosedReason_Count);
 }
 
-static pSerializationError p_serialize_input_state_message(pBitStream *bs, peInputStateMessage *msg) {
+static pSerializationError p_serialize_input_state_message(pBitStream *bs, pInputStateMessage *msg) {
     return p_serialize_input(bs, &msg->input);
 }
 
-static pSerializationError p_serialize_world_state_message(pBitStream *bs, peWorldStateMessage *msg) {
+static pSerializationError p_serialize_world_state_message(pBitStream *bs, pWorldStateMessage *msg) {
     pSerializationError err = pSerializationError_None;
     for (int i = 0; i < P_COUNT_OF(msg->entities); i += 1) {
         err = p_serialize_entity(bs, &msg->entities[i]);
@@ -42,18 +42,18 @@ static pSerializationError p_serialize_world_state_message(pBitStream *bs, peWor
     return err;
 }
 
-peMessage pe_message_create(pArena *arena, peMessageType type) {
+pMessage p_message_create(pArena *arena, pMessageType type) {
     P_ASSERT(type >= 0);
-    P_ASSERT(type < peMessageType_Count);
-    peMessage message = {0};
+    P_ASSERT(type < pMessageType_Count);
+    pMessage message = {0};
     size_t message_size;
     switch (type) {
-        case peMessageType_ConnectionRequest: message_size = sizeof(peConnectionRequestMessage); break;
-        case peMessageType_ConnectionDenied: message_size = sizeof(peConnectionDeniedMessage); break;
-        case peMessageType_ConnectionAccepted: message_size = sizeof(peConnectionAcceptedMessage); break;
-        case peMessageType_ConnectionClosed: message_size = sizeof(peConnectionClosedMessage); break;
-        case peMessageType_InputState: message_size = sizeof(peInputStateMessage); break;
-        case peMessageType_WorldState: message_size = sizeof(peWorldStateMessage); break;
+        case pMessageType_ConnectionRequest: message_size = sizeof(pConnectionRequestMessage); break;
+        case pMessageType_ConnectionDenied: message_size = sizeof(pConnectionDeniedMessage); break;
+        case pMessageType_ConnectionAccepted: message_size = sizeof(pConnectionAcceptedMessage); break;
+        case pMessageType_ConnectionClosed: message_size = sizeof(pConnectionClosedMessage); break;
+        case pMessageType_InputState: message_size = sizeof(pInputStateMessage); break;
+        case pMessageType_WorldState: message_size = sizeof(pWorldStateMessage); break;
         default: P_PANIC(); return message;
     }
     message.type = type;
@@ -62,19 +62,19 @@ peMessage pe_message_create(pArena *arena, peMessageType type) {
     return message;
 }
 
-pSerializationError p_serialize_message(pBitStream *bs, peMessage *msg) {
+pSerializationError p_serialize_message(pBitStream *bs, pMessage *msg) {
     switch (msg->type) {
-        case peMessageType_ConnectionRequest:
+        case pMessageType_ConnectionRequest:
             return p_serialize_connection_request_message(bs, msg->connection_request);
-        case peMessageType_ConnectionDenied:
+        case pMessageType_ConnectionDenied:
             return p_serialize_connection_denied_message(bs, msg->connection_denied);
-        case peMessageType_ConnectionAccepted:
+        case pMessageType_ConnectionAccepted:
             return p_serialize_connection_accepted_message(bs, msg->connection_accepted);
-        case peMessageType_ConnectionClosed:
+        case pMessageType_ConnectionClosed:
             return p_serialize_connection_closed_message(bs, msg->connection_closed);
-        case peMessageType_InputState:
+        case pMessageType_InputState:
             return p_serialize_input_state_message(bs, msg->input_state);
-        case peMessageType_WorldState:
+        case pMessageType_WorldState:
             return p_serialize_world_state_message(bs, msg->world_state);
         default: P_PANIC(); break;
     }
@@ -82,20 +82,20 @@ pSerializationError p_serialize_message(pBitStream *bs, peMessage *msg) {
     return pSerializationError_ValueOutOfRange;
 }
 
-void pe_append_message(pePacket *packet, peMessage msg) {
+void p_append_message(pPacket *packet, pMessage msg) {
     P_ASSERT(packet->message_count < MAX_MESSAGES_PER_PACKET);
     packet->messages[packet->message_count].type = msg.type;
     packet->messages[packet->message_count].any = msg.any;
     packet->message_count += 1;
 }
 
-bool pe_send_packet(peSocket socket, peAddress address, pePacket *packet) {
+bool p_send_packet(peSocket socket, peAddress address, pPacket *packet) {
     uint8_t buffer[1400];
 
     pBitStream write_stream = p_create_write_stream(buffer, sizeof(buffer));
     pSerializationError err = pSerializationError_None;
     for (int i = 0; i < packet->message_count; i += 1) {
-        err = p_serialize_enum(&write_stream, &packet->messages[i].type, peMessageType_Count);
+        err = p_serialize_enum(&write_stream, &packet->messages[i].type, pMessageType_Count);
         if (err) return false;
         err = p_serialize_message(&write_stream, &packet->messages[i]);
         if (err) return false;
@@ -112,7 +112,7 @@ bool pe_send_packet(peSocket socket, peAddress address, pePacket *packet) {
     return true;
 }
 
-bool pe_receive_packet(peSocket socket, pArena *arena, peAddress *address, pePacket *packet) {
+bool p_receive_packet(peSocket socket, pArena *arena, peAddress *address, pPacket *packet) {
     P_ASSERT(packet->message_count == 0);
 
     uint8_t buffer[1400];
@@ -138,11 +138,11 @@ bool pe_receive_packet(peSocket socket, pArena *arena, peAddress *address, pePac
     packet->message_count = 0;
     pBitStream read_stream = p_create_read_stream(buffer, sizeof(buffer), bytes_received);
     while (p_bit_stream_bytes_processed(&read_stream) < bytes_received) {
-        peMessageType message_type;
+        pMessageType message_type;
         pSerializationError s_error;
-        s_error = p_serialize_enum(&read_stream, &message_type, peMessageType_Count);
+        s_error = p_serialize_enum(&read_stream, &message_type, pMessageType_Count);
         if (s_error) return false;
-        peMessage msg = pe_message_create(arena, message_type);
+        pMessage msg = p_message_create(arena, message_type);
         packet->messages[packet->message_count] = msg;
         packet->message_count += 1;
         s_error = p_serialize_message(&read_stream, &msg);

@@ -51,14 +51,14 @@ struct peClientState {
     uint64_t last_packet_receive_time;
 } client = {0};
 
-void pe_client_process_message(peMessage message) {
+void pe_client_process_message(pMessage message) {
     PE_TRACE_FUNCTION_BEGIN();
     switch (message.type) {
-        case peMessageType_ConnectionDenied: {
+        case pMessageType_ConnectionDenied: {
             fprintf(stdout, "connection request denied (reason = %d)\n", message.connection_denied->reason);
             client.network_state = peClientNetworkState_Error;
         } break;
-        case peMessageType_ConnectionAccepted: {
+        case pMessageType_ConnectionAccepted: {
             if (client.network_state == peClientNetworkState_Connecting) {
                 char address_string[256];
                 fprintf(stdout, "connected to the server (address = %s)\n", pe_address_to_string(client.server_address, address_string, sizeof(address_string)));
@@ -71,13 +71,13 @@ void pe_client_process_message(peMessage message) {
                 client.last_packet_receive_time = p_time_now();
             }
         } break;
-        case peMessageType_ConnectionClosed: {
+        case pMessageType_ConnectionClosed: {
             if (client.network_state == peClientNetworkState_Connected) {
                 fprintf(stdout, "connection closed (reason = %d)\n", message.connection_closed->reason);
                 client.network_state = peClientNetworkState_Error;
             }
         } break;
-        case peMessageType_WorldState:
+        case pMessageType_WorldState:
             if (client.network_state == peClientNetworkState_Connected) {
                 memcpy(p_get_entities(), message.world_state->entities, MAX_ENTITY_COUNT*sizeof(pEntity));
             }
@@ -87,13 +87,13 @@ void pe_client_process_message(peMessage message) {
     PE_TRACE_FUNCTION_END();
 }
 
-void pe_receive_packets(pArena *temp_arena, peSocket socket) {
+void p_receive_packets(pArena *temp_arena, peSocket socket) {
     PE_TRACE_FUNCTION_BEGIN();
     peAddress address;
-    pePacket packet = {0};
+    pPacket packet = {0};
     while (true) {
         pArenaTemp loop_arena_temp = p_arena_temp_begin(temp_arena);
-        bool packet_received = pe_receive_packet(socket, temp_arena, &address, &packet);
+        bool packet_received = p_receive_packet(socket, temp_arena, &address, &packet);
         if (!packet_received) {
             break;
         }
@@ -111,10 +111,10 @@ void pe_receive_packets(pArena *temp_arena, peSocket socket) {
     PE_TRACE_FUNCTION_END();
 }
 
-void pe_send_packets(pArena *temp_arena, pInput input) {
+void p_send_packets(pArena *temp_arena, pInput input) {
     peTraceMark send_packets_tm = PE_TRACE_MARK_BEGIN("prepare packet");
     pArenaTemp send_packets_arena_temp = p_arena_temp_begin(temp_arena);
-    pePacket outgoing_packet = {0};
+    pPacket outgoing_packet = {0};
     switch (client.network_state) {
         case peClientNetworkState_Disconnected: {
             fprintf(stdout, "connecting to the server\n");
@@ -133,22 +133,22 @@ void pe_send_packets(pArena *temp_arena, pInput input) {
             uint64_t ticks_since_last_sent_packet = p_time_since(client.last_packet_send_time);
             float seconds_since_last_sent_packet = (float)p_time_sec(ticks_since_last_sent_packet);
             if (seconds_since_last_sent_packet > connection_request_send_interval) {
-                peMessage message = pe_message_create(temp_arena, peMessageType_ConnectionRequest);
-                pe_append_message(&outgoing_packet, message);
+                pMessage message = p_message_create(temp_arena, pMessageType_ConnectionRequest);
+                p_append_message(&outgoing_packet, message);
             }
         } break;
         case peClientNetworkState_Connected: {
-            peMessage message = pe_message_create(temp_arena, peMessageType_InputState);
+            pMessage message = p_message_create(temp_arena, pMessageType_InputState);
             message.input_state->input = input;
-            pe_append_message(&outgoing_packet, message);
+            p_append_message(&outgoing_packet, message);
         } break;
         default: break;
     }
     PE_TRACE_MARK_END(send_packets_tm);
 
     if (outgoing_packet.message_count > 0) {
-        peTraceMark send_packet_tm = PE_TRACE_MARK_BEGIN("pe_send_packet");
-        pe_send_packet(client.socket, client.server_address, &outgoing_packet);
+        peTraceMark send_packet_tm = PE_TRACE_MARK_BEGIN("p_send_packet");
+        p_send_packet(client.socket, client.server_address, &outgoing_packet);
         PE_TRACE_MARK_END(send_packet_tm);
         client.last_packet_send_time = p_time_now();
     }
@@ -328,7 +328,7 @@ int main(int argc, char* argv[]) {
     while(!p_window_should_quit()) {
         if (multiplayer) {
             pe_net_update();
-            pe_receive_packets(&temp_arena, client.socket);
+            p_receive_packets(&temp_arena, client.socket);
         } else {
                 client.server_address = pe_address4(127, 0, 0, 1, SERVER_PORT);
             if (
@@ -354,7 +354,7 @@ int main(int argc, char* argv[]) {
 
         pInput input = pe_get_input(client.camera);
         if (multiplayer) {
-            pe_send_packets(&temp_arena, input);
+            p_send_packets(&temp_arena, input);
         } else {
             client.client_input[0] = input;
             p_update_entities(dt, client.client_input);

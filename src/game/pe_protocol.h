@@ -1,5 +1,5 @@
-#ifndef PE_PROTOCOL_H
-#define PE_PROTOCOL_H
+#ifndef P_PROTOCOL_H
+#define P_PROTOCOL_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -8,79 +8,79 @@
 
 #define MAX_MESSAGES_PER_PACKET 64
 
-typedef struct peConnectionRequestMessage {
+typedef struct pConnectionRequestMessage {
     uint8_t zero;
-} peConnectionRequestMessage;
+} pConnectionRequestMessage;
 
-typedef enum peConnectionDeniedReason {
-    peConnectionDeniedReason_ServerFull,
-    peConnectionDeniedReason_Count,
-} peConnectionDeniedReason;
-typedef struct peConnectionDeniedMessage {
-    peConnectionDeniedReason reason;
-} peConnectionDeniedMessage;
+typedef enum pConnectionDeniedReason {
+    pConnectionDeniedReason_ServerFull,
+    pConnectionDeniedReason_Count,
+} pConnectionDeniedReason;
+typedef struct pConnectionDeniedMessage {
+    pConnectionDeniedReason reason;
+} pConnectionDeniedMessage;
 
-typedef struct peConnectionAcceptedMessage {
+typedef struct pConnectionAcceptedMessage {
     int client_index;
     uint32_t entity_index;
-} peConnectionAcceptedMessage;
+} pConnectionAcceptedMessage;
 
-typedef enum peConnectionClosedReason {
-    peConnectionClosedReason_ClientDisconnected,
-    peConnectionClosedReason_ServerShutdown,
-    peConnectionClosedReason_TimedOut,
-    peConnectionClosedReason_Count,
-} peConnectionClosedReason;
-typedef struct peConnectionClosedMessage {
-    peConnectionClosedReason reason;
-} peConnectionClosedMessage;
+typedef enum pConnectionClosedReason {
+    pConnectionClosedReason_ClientDisconnected,
+    pConnectionClosedReason_ServerShutdown,
+    pConnectionClosedReason_TimedOut,
+    pConnectionClosedReason_Count,
+} pConnectionClosedReason;
+typedef struct pConnectionClosedMessage {
+    pConnectionClosedReason reason;
+} pConnectionClosedMessage;
 
-typedef struct peInputStateMessage {
+typedef struct pInputStateMessage {
     pInput input;
-} peInputStateMessage;
+} pInputStateMessage;
 
-typedef struct peWorldStateMessage {
+typedef struct pWorldStateMessage {
     pEntity entities[MAX_ENTITY_COUNT];
-} peWorldStateMessage;
+} pWorldStateMessage;
 
-typedef enum peMessageType {
-    peMessageType_ConnectionRequest,
-    peMessageType_ConnectionDenied,
-    peMessageType_ConnectionAccepted,
-    peMessageType_ConnectionClosed,
-    peMessageType_InputState,
-    peMessageType_WorldState,
-    peMessageType_Count,
-} peMessageType;
+typedef enum pMessageType {
+    pMessageType_ConnectionRequest,
+    pMessageType_ConnectionDenied,
+    pMessageType_ConnectionAccepted,
+    pMessageType_ConnectionClosed,
+    pMessageType_InputState,
+    pMessageType_WorldState,
+    pMessageType_Count,
+} pMessageType;
 
-typedef struct peMessage {
-    peMessageType type;
+typedef struct pMessage {
+    pMessageType type;
     union {
         void *any;
-        peConnectionRequestMessage *connection_request;
-        peConnectionDeniedMessage *connection_denied;
-        peConnectionAcceptedMessage *connection_accepted;
-        peConnectionClosedMessage *connection_closed;
-        peInputStateMessage *input_state;
-        peWorldStateMessage *world_state;
+        pConnectionRequestMessage *connection_request;
+        pConnectionDeniedMessage *connection_denied;
+        pConnectionAcceptedMessage *connection_accepted;
+        pConnectionClosedMessage *connection_closed;
+        pInputStateMessage *input_state;
+        pWorldStateMessage *world_state;
     };
-} peMessage;
+} pMessage;
 
-typedef struct pePacket {
-    peMessage messages[MAX_MESSAGES_PER_PACKET];
+typedef struct pPacket {
+    pMessage messages[MAX_MESSAGES_PER_PACKET];
     int message_count;
-} pePacket;
+} pPacket;
 
 struct pArena;
 struct pBitStream;
 enum pSerializationError;
-peMessage pe_message_create(struct pArena *arena, peMessageType type);
-enum pSerializationError p_serialize_message(struct pBitStream *bs, peMessage *msg);
-void pe_append_message(pePacket *packet, peMessage msg);
+pMessage p_message_create(struct pArena *arena, pMessageType type);
+enum pSerializationError p_serialize_message(struct pBitStream *bs, pMessage *msg);
+void p_append_message(pPacket *packet, pMessage msg);
 
 struct peSocket;
 struct peAddress;
-bool pe_send_packet(struct peSocket socket, struct peAddress address, pePacket *packet);
-bool pe_receive_packet(struct peSocket socket, struct pArena *arena, struct peAddress *address, pePacket *packet);
+bool p_send_packet(struct peSocket socket, struct peAddress address, pPacket *packet);
+bool p_receive_packet(struct peSocket socket, struct pArena *arena, struct peAddress *address, pPacket *packet);
 
-#endif // PE_PROTOCOL_H
+#endif // P_PROTOCOL_H
