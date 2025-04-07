@@ -38,7 +38,7 @@ pVec3 pe_unproject_vec3(
     return result.xyz;
 }
 
-bool pe_collision_ray_plane(pRay ray, pVec3 plane_normal, float plane_d, pVec3 *collision_point) {
+bool p_collision_ray_plane(pRay ray, pVec3 plane_normal, float plane_d, pVec3 *collision_point) {
     // https://www.cs.princeton.edu/courses/archive/fall00/cs426/lectures/raycast/sld017.htm
 
     float dot_product = p_vec3_dot(ray.direction, plane_normal);

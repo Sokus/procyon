@@ -181,7 +181,7 @@ pInput pe_get_input(pCamera camera) {
         pRay ray = p_get_mouse_ray(p_vec2(pos_x, pos_y), client.camera);
 
         pVec3 collision_point;
-        if (pe_collision_ray_plane(ray, (pVec3){.y = 1.0f}, 0.0f, &collision_point)) {
+        if (p_collision_ray_plane(ray, (pVec3){.y = 1.0f}, 0.0f, &collision_point)) {
             pVec3 relative_collision_point = p_vec3_sub(client.camera.target, collision_point);
             look_angle = atan2f(relative_collision_point.x, relative_collision_point.z);
         }

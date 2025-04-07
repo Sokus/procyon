@@ -21,7 +21,7 @@ typedef struct pRay {
     pVec3 direction;
 } pRay;
 
-bool pe_collision_ray_plane(pRay ray, pVec3 plane_normal, float plane_d, pVec3* collision_point);
+bool p_collision_ray_plane(pRay ray, pVec3 plane_normal, float plane_d, pVec3* collision_point);
 
 
 
