@@ -2,6 +2,7 @@
 
 #include "graphics/p_graphics_win32.h"
 #include "graphics/p3d.h"
+#include "core/p_scratch.h"
 #include "utility/p_trace.h"
 
 #include <stdbool.h>
@@ -32,14 +33,15 @@ void p_model_load_static_info(pModel *model, p3dStaticInfo *static_info) {
     model->num_animations = (int)static_info->num_animations;
 }
 
-void p_model_load_mesh_data(pModel *model, pArena *temp_arena, p3dFile *p3d) {
+void p_model_load_mesh_data(pModel *model, p3dFile *p3d) {
+    pArenaTemp scratch = p_scratch_begin(NULL, 0);
     int vertex_offset = 0;
     int index_offset = 0;
     for (int m = 0; m < p3d->static_info->num_meshes; m += 1) {
-        pArenaTemp temp_arena_memory = p_arena_temp_begin(temp_arena);
+        pArenaTemp temp_arena_memory = p_arena_temp_begin(scratch.arena);
 
         size_t vertex_buffer_size = p3d->mesh[m].num_vertex * sizeof(pVertexSkinned);
-        pVertexSkinned *vertex_buffer = p_arena_alloc(temp_arena, vertex_buffer_size);
+        pVertexSkinned *vertex_buffer = p_arena_alloc(scratch.arena, vertex_buffer_size);
 
         for (int v = 0; v < p3d->mesh[m].num_vertex; v += 1) {
             p3dVertex *p3d_vertex = &p3d->desktop.vertex[v+vertex_offset];
@@ -64,6 +66,7 @@ void p_model_load_mesh_data(pModel *model, pArena *temp_arena, p3dFile *p3d) {
 
         p_arena_temp_end(temp_arena_memory);
     }
+    p_scratch_end(scratch);
 }
 
 void p_model_load_skeleton(pModel *model, p3dFile *p3d) {

@@ -28,7 +28,7 @@ void gl_debug_message_proc(
 );
 
 typedef struct pArena pArena;
-GLuint p_shader_create_from_file(pArena *temp_arena, const char *source_file_path);
+GLuint p_shader_create_from_file(const char *source_file_path);
 
 typedef union pVec3 pVec3;
 typedef union pMat4 pMat4;

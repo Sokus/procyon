@@ -8,6 +8,7 @@
 #include "core/p_heap.h"
 #include "core/p_time.h"
 #include "core/p_arena.h"
+#include "core/p_scratch.h"
 #include "math/p_math.h"
 #include "graphics/p_graphics_math.h"
 #include "platform/p_net.h"
@@ -87,13 +88,14 @@ void p_client_process_message(pMessage message) {
     P_TRACE_FUNCTION_END();
 }
 
-void p_receive_packets(pArena *temp_arena, pSocket socket) {
+void p_receive_packets(pSocket socket) {
     P_TRACE_FUNCTION_BEGIN();
     pAddress address;
     pPacket packet = {0};
+    pArenaTemp scratch = p_scratch_begin(NULL, 0);
     while (true) {
-        pArenaTemp loop_arena_temp = p_arena_temp_begin(temp_arena);
-        bool packet_received = p_receive_packet(socket, temp_arena, &address, &packet);
+        pArenaTemp loop_arena_temp = p_arena_temp_begin(scratch.arena);
+        bool packet_received = p_receive_packet(socket, scratch.arena, &address, &packet);
         if (!packet_received) {
             break;
         }
@@ -108,12 +110,13 @@ void p_receive_packets(pArena *temp_arena, pSocket socket) {
         p_arena_temp_end(loop_arena_temp);
         packet.message_count = 0;
     }
+    p_scratch_end(scratch);
     P_TRACE_FUNCTION_END();
 }
 
-void p_send_packets(pArena *temp_arena, pInput input) {
+void p_send_packets(pInput input) {
     pTraceMark send_packets_tm = P_TRACE_MARK_BEGIN("prepare packet");
-    pArenaTemp send_packets_arena_temp = p_arena_temp_begin(temp_arena);
+    pArenaTemp scratch = p_scratch_begin(NULL, 0);
     pPacket outgoing_packet = {0};
     switch (client.network_state) {
         case pClientNetworkState_Disconnected: {
@@ -133,12 +136,12 @@ void p_send_packets(pArena *temp_arena, pInput input) {
             uint64_t ticks_since_last_sent_packet = p_time_since(client.last_packet_send_time);
             float seconds_since_last_sent_packet = (float)p_time_sec(ticks_since_last_sent_packet);
             if (seconds_since_last_sent_packet > connection_request_send_interval) {
-                pMessage message = p_message_create(temp_arena, pMessageType_ConnectionRequest);
+                pMessage message = p_message_create(scratch.arena, pMessageType_ConnectionRequest);
                 p_append_message(&outgoing_packet, message);
             }
         } break;
         case pClientNetworkState_Connected: {
-            pMessage message = p_message_create(temp_arena, pMessageType_InputState);
+            pMessage message = p_message_create(scratch.arena, pMessageType_InputState);
             message.input_state->input = input;
             p_append_message(&outgoing_packet, message);
         } break;
@@ -153,7 +156,7 @@ void p_send_packets(pArena *temp_arena, pInput input) {
         client.last_packet_send_time = p_time_now();
     }
     outgoing_packet.message_count = 0;
-    p_arena_temp_end(send_packets_arena_temp);
+    p_scratch_end(scratch);
 }
 
 static pVec2 last_nonzero_gamepad_input = { 0.0f, 1.0f };
@@ -226,17 +229,11 @@ void p_graphics_draw_text(char *text, int pos_x, int pos_y, pColor color) {
 }
 
 int main(int argc, char* argv[]) {
-	pArena temp_arena;
-    {
-        size_t temp_arena_size = P_MEGABYTES(4);
-        p_arena_init(&temp_arena, p_heap_alloc(temp_arena_size), temp_arena_size);
-    }
-
     p_net_init();
     p_trace_init();
 
     p_window_set_target_fps(60);
-    p_window_init(&temp_arena, 960, 540, "Procyon");
+    p_window_init(960, 540, "Procyon");
 
     p_socket_create(pAddressFamily_IPv4, &client.socket);
     p_socket_set_nonblocking(client.socket);
@@ -248,14 +245,14 @@ int main(int argc, char* argv[]) {
 #else
     #define PE_MODEL_EXTENSION ".pp3d"
 #endif
-    client.model = p_model_load(&temp_arena, "./res/assets/fox" PE_MODEL_EXTENSION);
+    client.model = p_model_load("./res/assets/fox" PE_MODEL_EXTENSION);
 
     {
-        pArenaTemp pbm_arena_temp = p_arena_temp_begin(&temp_arena);
-        pFileContents pbm_file_contents = p_file_read_contents(&temp_arena, "./res/cp437.pbm", false);
+        pArenaTemp scratch = p_scratch_begin(NULL, 0);
+        pFileContents pbm_file_contents = p_file_read_contents(scratch.arena, "./res/cp437.pbm", false);
         pbmFile pbm_file;
         bool pbm_parse_result = pbm_parse(pbm_file_contents.data, pbm_file_contents.size, &pbm_file);
-
+        p_scratch_end(scratch);
         // pFileHandle pbm_file;
         // p_file_open("./res/cp437.pbm", &pbm_file);
 
@@ -298,7 +295,7 @@ int main(int argc, char* argv[]) {
 
         // codepage = p_texture_create_pbm(&temp_arena, &pbm_file);
         // codepage = p_texture_create(&temp_arena, stbi_data, w, h);
-        p_arena_temp_end(pbm_arena_temp);
+        // p_arena_temp_end(pbm_arena_temp);
         // stbi_image_free(stbi_data);
 
         // p_file_close(pbm_file);
@@ -328,7 +325,7 @@ int main(int argc, char* argv[]) {
     while(!p_window_should_quit()) {
         if (multiplayer) {
             p_net_update();
-            p_receive_packets(&temp_arena, client.socket);
+            p_receive_packets(client.socket);
         } else {
                 client.server_address = p_address4(127, 0, 0, 1, SERVER_PORT);
             if (
@@ -354,7 +351,7 @@ int main(int argc, char* argv[]) {
 
         pInput input = p_get_input(client.camera);
         if (multiplayer) {
-            p_send_packets(&temp_arena, input);
+            p_send_packets(input);
         } else {
             client.client_input[0] = input;
             p_update_entities(dt, client.client_input);
@@ -385,7 +382,7 @@ int main(int argc, char* argv[]) {
                 pEntity *entity = &entities[e];
                 if (!entity->active) continue;
 
-                p_model_draw(&client.model, &temp_arena, entity->position, p_vec3(0.0f, entity->angle, 0.0f));
+                p_model_draw(&client.model, entity->position, p_vec3(0.0f, entity->angle, 0.0f));
             }
         }
         p_graphics_mode_3d_end();
@@ -406,7 +403,7 @@ int main(int argc, char* argv[]) {
         p_graphics_draw_text("Hello, World!", 5, 5, P_COLOR_WHITE);
         for (int y = 0; y < 6; y += 1) {
             for (int x = 0; x < 5; x += 1) {
-                pColor color = colors[(y*5+x)%P_COUNT_OF(colors)];
+                // pColor color = colors[(y*5+x)%P_COUNT_OF(colors)];
                 // p_graphics_draw_texture_strip(&codepage, x*w, y*h, P_COLOR_WHITE);
                 // p_graphics_draw_texture(&codepage, x*w, y*h, 0.25f, P_COLOR_WHITE);
                 // p_graphics_draw_rectangle_strip(x*w+x*5.0f, y*h+y*5.0f, w, h, color);
@@ -416,7 +413,7 @@ int main(int argc, char* argv[]) {
 
         bool vsync = true;
         p_window_frame_end(vsync);
-        p_arena_clear(&temp_arena);
+        p_scratch_clear();
     }
 
     p_socket_destroy(client.socket);

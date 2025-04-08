@@ -1,5 +1,6 @@
 #include "core/p_heap.h"
 #include "core/p_time.h"
+#include "core/p_scratch.h"
 #include "graphics/p_graphics.h"
 #include "graphics/p_model.h"
 #include "platform/p_input.h"
@@ -11,13 +12,7 @@
 #include "HandmadeMath.h"
 
 int main(int argc, char *argv[]) {
-    pArena temp_arena;
-    {
-        size_t temp_arena_size = P_MEGABYTES(4);
-        p_arena_init(&temp_arena, p_heap_alloc(temp_arena_size), temp_arena_size);
-    }
-
-    p_window_init(&temp_arena, 960, 540, "Procyon");
+    p_window_init(960, 540, "Procyon");
     p_trace_init();
 
 #if !defined(PSP)
@@ -25,7 +20,7 @@ int main(int argc, char *argv[]) {
 #else
     #define PE_MODEL_EXTENSION ".pp3d"
 #endif
-    pModel model = p_model_load(&temp_arena, "./res/fox" PE_MODEL_EXTENSION);
+    pModel model = p_model_load("./res/fox" PE_MODEL_EXTENSION);
 
     // pCamera camera = {
     //     .target = {0.0f, 0.7f, 0.0f},
@@ -67,7 +62,7 @@ int main(int argc, char *argv[]) {
                     float position_x = draw_x_range.Elements[0] + ((float)x * diff_x);
                     float position_z = draw_z_range.Elements[0] + ((float)z * diff_z);
                     pVec3 position = p_vec3(position_x, 0.0f, position_z);
-                    p_model_draw(&model, &temp_arena, position, p_vec3(0.0f, 0.0f, 0.0f));
+                    p_model_draw(&model, position, p_vec3(0.0f, 0.0f, 0.0f));
                 }
             }
         }
@@ -76,7 +71,7 @@ int main(int argc, char *argv[]) {
 
         p_window_frame_end(false);
 
-        p_arena_clear(&temp_arena);
+        p_scratch_clear();
 
         P_TRACE_MARK_END(tm_game_loop);
         uint64_t frame_duration = p_time_since(frame_start_time);

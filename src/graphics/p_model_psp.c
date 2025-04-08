@@ -45,7 +45,7 @@ void p_model_load_static_info(pModel *model, p3dStaticInfo *static_info) {
     model->num_subskeleton = static_info->num_subskeletons;
 }
 
-void p_model_load_mesh_data(pModel *model, pArena *temp_arena, p3dFile *p3d) {
+void p_model_load_mesh_data(pModel *model, p3dFile *p3d) {
 	for (int m = 0; m < p3d->static_info->num_meshes; m += 1) {
     	model->mesh_material[m] = p3d->mesh[m].material_index;
 		model->mesh_subskeleton[m] = p3d->mesh[m].subskeleton_index;

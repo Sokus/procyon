@@ -7,6 +7,7 @@
 #include "core/p_heap.h"
 #include "core/p_arena.h"
 #include "core/p_time.h"
+#include "core/p_scratch.h"
 #include "platform/p_net.h"
 
 #include "p_config.h"
@@ -208,13 +209,13 @@ void p_process_input_state_message(pInputStateMessage *msg, pAddress address, bo
     }
 }
 
-void p_receive_packets(pArena *temp_arena) {
+void p_receive_packets() {
     pAddress address;
     pPacket packet = {0};
-    pArenaTemp receive_packets_arena_temp = p_arena_temp_begin(temp_arena);
+    pArenaTemp scratch = p_scratch_begin(NULL, 0);
     while (true) {
-        pArenaTemp loop_arena_temp = p_arena_temp_begin(temp_arena);
-        bool packet_received = p_receive_packet(server.socket, temp_arena, &address, &packet);
+        pArenaTemp loop_arena_temp = p_arena_temp_begin(scratch.arena);
+        bool packet_received = p_receive_packet(server.socket, scratch.arena, &address, &packet);
         if (!packet_received) {
             break;
         }
@@ -240,7 +241,7 @@ void p_receive_packets(pArena *temp_arena) {
         p_arena_temp_end(loop_arena_temp);
         packet.message_count = 0;
     }
-    p_arena_temp_end(receive_packets_arena_temp);
+    p_scratch_end(scratch);
 }
 
 void p_send_packets(void) {
@@ -275,12 +276,6 @@ void p_check_for_time_out(void) {
 }
 
 int main(int argc, char *argv[]) {
-	pArena temp_arena;
-    {
-        size_t temp_arena_size = P_MEGABYTES(4);
-        p_arena_init(&temp_arena, p_heap_alloc(temp_arena_size), temp_arena_size);
-    }
-
     p_net_init();
 
     p_socket_create(pAddressFamily_IPv4, &server.socket);
@@ -296,7 +291,7 @@ int main(int argc, char *argv[]) {
     while(true) {
         uint64_t work_start_tick = p_time_now();
 
-        p_receive_packets(&temp_arena);
+        p_receive_packets();
 
         p_check_for_time_out();
 
@@ -305,7 +300,7 @@ int main(int argc, char *argv[]) {
 
         p_send_packets();
 
-        p_arena_clear(&temp_arena);
+        p_scratch_clear();
 
         uint64_t ticks_spent_working = p_time_since(work_start_tick);
         double seconds_spent_working = p_time_sec(ticks_spent_working);

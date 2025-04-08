@@ -34,7 +34,7 @@ pTexture default_texture = {0};
 // GENERAL IMPLEMENTATIONS
 //
 
-void p_graphics_init(pArena *temp_arena, int window_width, int window_height) {
+void p_graphics_init(int window_width, int window_height) {
     HRESULT hr;
 
     // create D3D11 device & context
@@ -302,7 +302,7 @@ void p_graphics_init(pArena *temp_arena, int window_width, int window_height) {
     // init default texture
 	{
 		uint32_t texture_data[] = { 0xFFFFFFFF };
-		default_texture = p_texture_create(temp_arena, texture_data, 1, 1);
+		default_texture = p_texture_create(texture_data, 1, 1);
 	}
 
     p_d3d.framebuffer_width = window_width;
@@ -518,7 +518,7 @@ ID3D11Buffer *p_d3d11_create_buffer(void *data, UINT byte_width, D3D11_USAGE usa
     return buffer;
 }
 
-pTexture p_texture_create(pArena *temp_arena, void *data, int width, int height) {
+pTexture p_texture_create(void *data, int width, int height) {
     DXGI_FORMAT dxgi_format = DXGI_FORMAT_UNKNOWN;
     int bytes_per_pixel = 0;
     const int channels = 4;

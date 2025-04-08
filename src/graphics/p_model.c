@@ -4,6 +4,7 @@
 #include "core/p_heap.h"
 #include "core/p_file.h"
 #include "core/p_time.h"
+#include "core/p_scratch.h"
 #include "graphics/p3d.h"
 #include "utility/p_trace.h"
 
@@ -192,7 +193,7 @@ pVertexSkinned p_vertex_skinned_from_p3d(p3dVertex vertex_p3d, float scale) {
     return result;
 }
 
-static void p_model_load_materials(pModel *model, pArena *temp_arena, char *file_path, p3dStaticInfo *static_info, p3dMaterial *material) {
+static void p_model_load_materials(pModel *model, char *file_path, p3dStaticInfo *static_info, p3dMaterial *material) {
     stbi_set_flip_vertically_on_load(false);
 	for (int m = 0; m < static_info->num_materials; m += 1) {
 		model->material[m] = p_default_material();
@@ -216,18 +217,18 @@ static void p_model_load_materials(pModel *model, pArena *temp_arena, char *file
 
 			int w, h, channels;
 			stbi_uc *stbi_data = stbi_load(diffuse_texture_path, &w, &h, &channels, STBI_rgb_alpha);
-			model->material[m].diffuse_map = p_texture_create(temp_arena, stbi_data, w, h);
+			model->material[m].diffuse_map = p_texture_create(stbi_data, w, h);
 			stbi_image_free(stbi_data);
 		}
 	}
 }
 
-pModel p_model_load(pArena *temp_arena, char *file_path) {
-    pArenaTemp temp_arena_memory = p_arena_temp_begin(temp_arena);
+pModel p_model_load(char *file_path) {
+    pArenaTemp scratch = p_scratch_begin(NULL, 0);
 
 	p3dFile p3d;
-	pFileContents p3d_file_contents = p_file_read_contents(temp_arena, file_path, false);
-	p_parse_p3d(temp_arena, p3d_file_contents, &p3d);
+	pFileContents p3d_file_contents = p_file_read_contents(scratch.arena, file_path, false);
+	p_parse_p3d(scratch.arena, p3d_file_contents, &p3d);
 
     pModel model = {0};
 	pArena model_arena;
@@ -243,14 +244,13 @@ pModel p_model_load(pArena *temp_arena, char *file_path) {
     }
 
     p_model_load_static_info(&model, p3d.static_info);
-    p_model_load_materials(&model, temp_arena, file_path, p3d.static_info, p3d.material);
+    p_model_load_materials(&model, file_path, p3d.static_info, p3d.material);
     p_model_load_skeleton(&model, &p3d);
     p_model_load_animations(&model, p3d.static_info, p3d.animation, p3d.animation_joint);
-    p_model_load_mesh_data(&model, temp_arena, &p3d);
+    p_model_load_mesh_data(&model, &p3d);
     p_model_load_writeback_arena(&model_arena);
 
-	p_arena_temp_end(temp_arena_memory);
-
+    p_scratch_end(scratch);
 	return model;
 }
 
@@ -303,9 +303,9 @@ pMat4 *p_model_draw_get_final_bone_matrix(pModel *model, pArena *arena, pAnimati
     return final_bone_matrix;
 }
 
-void p_model_draw(pModel *model, pArena *temp_arena, pVec3 position, pVec3 rotation) {
+void p_model_draw(pModel *model, pVec3 position, pVec3 rotation) {
 	P_TRACE_FUNCTION_BEGIN();
-    pArenaTemp temp_arena_memory = p_arena_temp_begin(temp_arena);
+	pArenaTemp scratch = p_scratch_begin(NULL, 0);
 	if (!last_frame_time_initialized) {
 		last_frame_time = p_time_now();
 		last_frame_time_initialized = true;
@@ -321,11 +321,11 @@ void p_model_draw(pModel *model, pArena *temp_arena, pVec3 position, pVec3 rotat
     p_graphics_set_lighting(true);
     p_graphics_set_light_vector(P_LIGHT_VECTOR_DEFAULT);
 
-    pAnimationJoint *model_space_joints = p_model_draw_get_model_space_animation_joints(model, temp_arena);
-    pMat4 *final_bone_matrix = p_model_draw_get_final_bone_matrix(model, temp_arena, model_space_joints);
+    pAnimationJoint *model_space_joints = p_model_draw_get_model_space_animation_joints(model, scratch.arena);
+    pMat4 *final_bone_matrix = p_model_draw_get_final_bone_matrix(model, scratch.arena, model_space_joints);
 
     p_model_draw_meshes(model, final_bone_matrix);
 
-	p_arena_temp_end(temp_arena_memory);
+	p_scratch_end(scratch);
 	P_TRACE_FUNCTION_END();
 }

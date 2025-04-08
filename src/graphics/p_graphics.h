@@ -154,7 +154,7 @@ typedef struct pCamera {
 
 // GENERAL
 
-void p_graphics_init(pArena *temp_arena, int window_width, int window_height);
+void p_graphics_init(int window_width, int window_height);
 void p_graphics_shutdown(void);
 void p_graphics_set_framebuffer_size(int width, int height);
 int p_screen_width(void);
@@ -189,8 +189,8 @@ uint32_t p_color_to_8888(pColor color);
 // TEXTURE
 
 typedef struct pbmFile pbmFile;
-pTexture p_texture_create(pArena *temp_arena, void *data, int width, int height);
-pTexture p_texture_create_pbm(pArena *temp_arena, pbmFile *pbm);
+pTexture p_texture_create(void *data, int width, int height);
+pTexture p_texture_create_pbm(pbmFile *pbm);
 void p_texture_bind(pTexture texture);
 void p_texture_bind_default(void);
 

@@ -105,15 +105,15 @@ typedef struct p3dAnimationJoint p3dAnimationJoint;
 bool p_parse_p3d_static_info(p3dStaticInfo *static_info);
 void p_model_alloc(pModel *model, pArena *arena, p3dFile *p3d);
 void p_model_alloc_mesh_data(pModel *model, pArena *arena, p3dFile *p3d);
-pModel p_model_load(pArena *temp_arena, char *file_path);
+pModel p_model_load(char *file_path);
 void p_model_load_static_info(pModel *model, p3dStaticInfo *static_info);
-void p_model_load_mesh_data(pModel *model, pArena *temp_arena, p3dFile *p3d);
+void p_model_load_mesh_data(pModel *model, p3dFile *p3d);
 pVertexSkinned p_vertex_skinned_from_p3d(p3dVertex vertex_p3d, float scale);
 void p_model_load_skeleton(pModel *model, p3dFile *file);
 void p_model_load_animations(pModel *model, p3dStaticInfo *static_info, p3dAnimation *animation, p3dAnimationJoint *animation_joint);
 void p_model_load_writeback_arena(pArena *model_arena);
 
-void p_model_draw(pModel *model, pArena *temp_arena, pVec3 position, pVec3 rotation);
+void p_model_draw(pModel *model, pVec3 position, pVec3 rotation);
 void p_model_draw_meshes(pModel *model, pMat4 *final_bone_matrix);
 
 #endif // P_MODEL_H

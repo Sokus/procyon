@@ -27,7 +27,7 @@ static unsigned int __attribute__((aligned(16))) list[262144];
 // GENERAL IMPLEMENTATIONS
 //
 
-void p_graphics_init(pArena *, int, int) {
+void p_graphics_init(int, int) {
 	p_arena_init(&edram_arena, sceGeEdramGetAddr(), sceGeEdramGetSize());
 
 	unsigned int framebuffer_size = p_pixel_bytes(PSP_BUFF_W*PSP_SCREEN_H, GU_PSM_5650);
@@ -170,7 +170,7 @@ pMat4 p_matrix_orthographic(float left, float right, float bottom, float top, fl
     return p_orthographic_rh_no(left, right, bottom, top, near_z, far_z);
 }
 
-pTexture p_texture_create(pArena *temp_arena, void *data, int width, int height) {
+pTexture p_texture_create(void *data, int width, int height) {
     const int format = GU_PSM_8888;
 	int pow2_width = closest_greater_power_of_two(width);
 	int pow2_height = closest_greater_power_of_two(height);
@@ -198,7 +198,7 @@ pTexture p_texture_create(pArena *temp_arena, void *data, int width, int height)
 
 #include "graphics/p_pbm.h"
 
-pTexture p_texture_create_pbm(pArena *temp_arena, pbmFile *pbm) {
+pTexture p_texture_create_pbm(pbmFile *pbm) {
     int width = pbm->static_info->width;
     int height = pbm->static_info->height;
     int power_of_two_width = closest_greater_power_of_two(width);

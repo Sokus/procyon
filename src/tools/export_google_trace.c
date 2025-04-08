@@ -6,31 +6,28 @@
 #include "core/p_assert.h"
 #include "core/p_heap.h"
 #include "core/p_arena.h"
+#include "core/p_scratch.h"
 #include "core/p_file.h"
 #include "core/p_time.h"
 
 #include "utility/p_trace.h"
 
 int main(int argc, char *argv[]) {
+    pArenaTemp scratch = p_scratch_begin(NULL, 0);
+
     if (argc < 4) {
         printf("usage: export_google_trace traced_binary input.pt output.json\n");
         return 1;
     }
 
-    pArena temp_arena;
-    {
-        size_t temp_arena_size = P_MEGABYTES(256);
-        p_arena_init(&temp_arena, p_heap_alloc(temp_arena_size), temp_arena_size);
-    }
-
     char *binary_path = argv[1];
-    pFileContents binary_file_contents = p_file_read_contents(&temp_arena, binary_path, false);
+    pFileContents binary_file_contents = p_file_read_contents(scratch.arena, binary_path, false);
     if (binary_file_contents.size == 0) {
         return 1;
     }
 
     char *input_path = argv[2];
-    pFileContents input_file_contents = p_file_read_contents(&temp_arena, input_path, false);
+    pFileContents input_file_contents = p_file_read_contents(scratch.arena, input_path, false);
     if (input_file_contents.size == 0) {
         return 1;
     }
@@ -116,6 +113,8 @@ int main(int argc, char *argv[]) {
     fprintf(output_file, "]");
 
     fclose(output_file);
+
+    p_scratch_end(scratch);
 
     return 0;
 }
