@@ -171,6 +171,7 @@ pMat4 p_matrix_orthographic(float left, float right, float bottom, float top, fl
 }
 
 pTexture p_texture_create(void *data, int width, int height) {
+    P_TRACE_FUNCTION_BEGIN();
     const int format = GU_PSM_8888;
 	int pow2_width = closest_greater_power_of_two(width);
 	int pow2_height = closest_greater_power_of_two(height);
@@ -193,6 +194,7 @@ pTexture p_texture_create(void *data, int width, int height) {
 		.format = format,
 		.swizzle = true,
 	};
+	P_TRACE_FUNCTION_END();
     return texture;
 }
 
@@ -284,7 +286,8 @@ void p_texture_bind_default(void) {
 }
 
 void p_graphics_dynamic_draw_draw_batches(void) {
-    if (dynamic_draw.vertex_used > 0) {
+    int current_batch_vertex_count = dynamic_draw.batch[dynamic_draw.batch_current].vertex_count;
+    if (current_batch_vertex_count > 0) {
         P_TRACE_FUNCTION_BEGIN();
         pMatrixMode old_matrix_mode = p_graphics.matrix_mode;
         pMat4 old_matrix_model = p_graphics.matrix[p_graphics.mode][pMatrixMode_Model];

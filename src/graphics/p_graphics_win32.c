@@ -407,7 +407,8 @@ pMat4 p_matrix_orthographic(float left, float right, float bottom, float top, fl
 
 void p_graphics_dynamic_draw_draw_batches(void) {
     P_TRACE_FUNCTION_BEGIN();
-    if (dynamic_draw.vertex_used > 0) {
+    int current_batch_vertex_count = dynamic_draw.batch[dynamic_draw.batch_current].vertex_count;
+    if (current_batch_vertex_count > 0) {
         pMatrixMode old_matrix_mode = p_graphics.matrix_mode;
         pMat4 old_matrix_model = p_graphics.matrix[p_graphics.mode][pMatrixMode_Model];
         bool old_matrix_model_is_identity = p_graphics.matrix_model_is_identity[p_graphics.mode];
@@ -445,7 +446,9 @@ void p_graphics_dynamic_draw_draw_batches(void) {
             if (!texture) texture = &default_texture;
             p_texture_bind(*texture);
 
-            if (b == 0 || previous_do_lighting != dynamic_draw.batch[b].do_lighting) {
+            bool first_drawn_batch = (b == dynamic_draw.batch_drawn_count);
+            bool do_lighting_differs = (previous_do_lighting != dynamic_draw.batch[b].do_lighting);
+            if (first_drawn_batch || do_lighting_differs) {
                 p_graphics_set_lighting(dynamic_draw.batch[b].do_lighting);
                 p_graphics_set_light_vector(P_LIGHT_VECTOR_DEFAULT);
                 previous_do_lighting = dynamic_draw.batch[b].do_lighting;

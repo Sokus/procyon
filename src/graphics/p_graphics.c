@@ -115,6 +115,7 @@ void p_graphics_dynamic_draw_new_batch(void) {
     if (dynamic_draw.batch_current < P_MAX_DYNAMIC_DRAW_BATCH_COUNT) {
         dynamic_draw.batch[dynamic_draw.batch_current].primitive = dynamic_draw.primitive;
         dynamic_draw.batch[dynamic_draw.batch_current].texture = dynamic_draw.texture;
+        dynamic_draw.batch[dynamic_draw.batch_current].do_lighting = dynamic_draw.do_lighting;
         dynamic_draw.batch[dynamic_draw.batch_current].vertex_offset = dynamic_draw.vertex_used;
         dynamic_draw.batch[dynamic_draw.batch_current].vertex_count = 0;
     }

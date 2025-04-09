@@ -215,8 +215,10 @@ static void p_model_load_materials(pModel *model, char *file_path, p3dStaticInfo
 			size_t diffuse_map_file_length = strnlen(material[m].diffuse_image_file_name, sizeof(material[m].diffuse_image_file_name));
 			memcpy(diffuse_texture_path + last_slash_index + 1, material[m].diffuse_image_file_name, diffuse_map_file_length*sizeof(char));
 
+            pTraceMark tm_stbi_load = P_TRACE_MARK_BEGIN("stbi_load");
 			int w, h, channels;
 			stbi_uc *stbi_data = stbi_load(diffuse_texture_path, &w, &h, &channels, STBI_rgb_alpha);
+			P_TRACE_MARK_END(tm_stbi_load);
 			model->material[m].diffuse_map = p_texture_create(stbi_data, w, h);
 			stbi_image_free(stbi_data);
 		}

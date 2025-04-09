@@ -25,6 +25,8 @@
 #include "core/p_file.h"
 #include "graphics/p_pbm.h"
 
+#include "stb_image.h"
+
 #define CONNECTION_REQUEST_TIME_OUT 20.0f // seconds
 #define CONNECTION_REQUEST_SEND_RATE 1.0f // requests per second
 
@@ -207,8 +209,6 @@ pInput p_get_input(pCamera camera) {
     return result;
 }
 
-#include "stb_image.h"
-
 pTexture codepage = {0};
 
 void p_graphics_draw_text(char *text, int pos_x, int pos_y, pColor color) {
@@ -249,56 +249,21 @@ int main(int argc, char* argv[]) {
 
     {
         pArenaTemp scratch = p_scratch_begin(NULL, 0);
-        pFileContents pbm_file_contents = p_file_read_contents(scratch.arena, "./res/cp437.pbm", false);
-        pbmFile pbm_file;
-        bool pbm_parse_result = pbm_parse(pbm_file_contents.data, pbm_file_contents.size, &pbm_file);
-        p_scratch_end(scratch);
-        // pFileHandle pbm_file;
-        // p_file_open("./res/cp437.pbm", &pbm_file);
 
-        // int w, h, channels;
-        // stbi_uc *stbi_data = stbi_load("./res/CP437.png", &w, &h, &channels, STBI_rgb_alpha);
+        // pTraceMark tm_pbm_load = P_TRACE_MARK_BEGIN("pbm_load");
+        // pFileContents pbm_file_contents = p_file_read_contents(scratch.arena, "./res/cp437.pbm", false);
+        // pbmFile pbm_file;
+        // bool pbm_parse_result = pbm_parse(pbm_file_contents.data, pbm_file_contents.size, &pbm_file);
+        // P_TRACE_MARK_END(tm_pbm_load);
+        // codepage = p_texture_create_pbm(&pbm_file);
+        // p_scratch_end(scratch);
 
-        // pbmStaticInfo pbm_static_info = {
-        //     .extension_magic = " PBM",
-        //     .palette_format = (int8_t)pbmColorFormat_5551,
-        //     .palette_length = 2,
-        //     .width = (int16_t)w,
-        //     .height = (int16_t)h,
-        //     .bits_per_pixel = 4,
-        // };
-        // p_file_write_async(pbm_file, &pbm_static_info, sizeof(pbm_static_info));
-
-        // uint16_t pbm_palette[2] = { 0x0000, 0xFFFF };
-        // p_file_write_async(pbm_file, pbm_palette, sizeof(pbm_palette));
-
-        // int index_count = 2 * ((w * h + 1) / 2);
-        // uint8_t *index = p_arena_alloc(&temp_arena, index_count/2 * sizeof(uint8_t));
-        // memset(index, 0x0, index_count/2 * sizeof(uint8_t));
-
-        // uint8_t index_value = 0x0;
-        // int p;
-        // for (p = 0; p < w*h; p += 1) {
-        //     uint8_t index_value_pixel = (((uint32_t*)stbi_data)[p] ? 0x1 : 0x0);
-        //     if (p % 2 == 0) {
-        //         index_value = index_value_pixel;
-        //     } else {
-        //         index_value |= index_value_pixel << 4;
-        //         index[p/2] = index_value;
-        //         index_value = 0x0;
-        //     }
-        // }
-        // if (index_value) {
-        //     index[p/2] = index_value;
-        // }
-        // p_file_write_async(pbm_file, index, index_count/2 * sizeof(uint8_t));
-
-        // codepage = p_texture_create_pbm(&temp_arena, &pbm_file);
-        // codepage = p_texture_create(&temp_arena, stbi_data, w, h);
-        // p_arena_temp_end(pbm_arena_temp);
-        // stbi_image_free(stbi_data);
-
-        // p_file_close(pbm_file);
+        int w,h,n;
+        pTraceMark tm_stbi_load = P_TRACE_MARK_BEGIN("stbi_load");
+        unsigned char *cp437_data = stbi_load("./res/CP437.png", &w, &h, &n, 4);
+        P_TRACE_MARK_END(tm_stbi_load);
+        codepage = p_texture_create(cp437_data, w, h);
+        stbi_image_free(cp437_data);
     }
 
     client.camera = (pCamera){
@@ -359,7 +324,6 @@ int main(int argc, char* argv[]) {
 
         p_window_frame_begin();
         p_clear_background((pColor){ 20, 20, 20, 255 });
-
 
         // p_graphics_draw_point_int(3, 2, P_COLOR_BLUE);
 
