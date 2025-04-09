@@ -1,6 +1,7 @@
 #include "p_graphics.h"
 
 #include "core/p_assert.h"
+#include "core/p_defines.h"
 #include "graphics/p_graphics_math.h"
 #include "utility/p_trace.h"
 
@@ -121,17 +122,29 @@ void p_graphics_dynamic_draw_new_batch(void) {
     }
 }
 
-
 void p_graphics_dynamic_draw_clear(void) {
     if (dynamic_draw.vertex_used > 0) {
         bool all_batches_drawn = (dynamic_draw.batch_drawn_count > dynamic_draw.batch_current);
         bool current_batch_empty = (dynamic_draw.batch[dynamic_draw.batch_current].vertex_count == 0);
         P_ASSERT(all_batches_drawn || current_batch_empty);
     }
+
+    pDynamicDrawStats *stats = &dynamic_draw.stats;
+    {
+        stats->last_vertex_used = dynamic_draw.vertex_used;
+        stats->peak_vertex_used = P_MAX(stats->peak_vertex_used, dynamic_draw.vertex_used);
+        stats->last_batch_count = dynamic_draw.batch_drawn_count;
+        stats->peak_batch_count = P_MAX(stats->peak_batch_count, dynamic_draw.batch_drawn_count);
+    }
+
     dynamic_draw.vertex_used = 0;
     dynamic_draw.batch_current = 0;
     dynamic_draw.batch_drawn_count = 0;
     dynamic_draw.batch[0].vertex_count = 0;
+}
+
+pDynamicDrawStats p_graphics_dynamic_draw_stats(void) {
+    return dynamic_draw.stats;
 }
 
 void p_graphics_dynamic_draw_set_primitive(pPrimitive primitive) {

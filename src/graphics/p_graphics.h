@@ -128,6 +128,13 @@ typedef struct pDynamicDrawBatch {
 #define P_MAX_DYNAMIC_DRAW_BATCH_COUNT 512
 #endif
 
+typedef struct pDynamicDrawStats {
+    int last_vertex_used;
+    int peak_vertex_used;
+    int last_batch_count;
+    int peak_batch_count;
+} pDynamicDrawStats;
+
 typedef struct pDynamicDrawState {
     pPrimitive primitive;
     pTexture *texture;
@@ -142,6 +149,8 @@ typedef struct pDynamicDrawState {
     pDynamicDrawBatch *batch;
     int batch_current;
     int batch_drawn_count;
+
+    pDynamicDrawStats stats;
 } pDynamicDrawState;
 extern pDynamicDrawState dynamic_draw;
 
@@ -202,6 +211,7 @@ bool p_graphics_primitive_can_continue(pPrimitive primitive);
 bool p_graphics_dynamic_draw_vertex_reserve(int count);
 void p_graphics_dynamic_draw_new_batch(void);
 void p_graphics_dynamic_draw_clear(void);
+pDynamicDrawStats p_graphics_dynamic_draw_stats(void);
 void p_graphics_dynamic_draw_draw_batches(void);
 
 void p_graphics_dynamic_draw_set_primitive(pPrimitive primitive);

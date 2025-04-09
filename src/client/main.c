@@ -211,20 +211,43 @@ pInput p_get_input(pCamera camera) {
 
 pTexture codepage = {0};
 
-void p_graphics_draw_text(char *text, int pos_x, int pos_y, pColor color) {
-    pRect dst = { (float)pos_x, (float)pos_y, 9.0f, 16.0f };
-    for (char *p = text; *p; p += 1) {
-        char c = P_MIN(*p, 255);
-        int column = (int)(c % 28);
-        int row = (int)(c / 28);
-        pRect src = {
-            .x = (float)(column * 9),
-            .y = (float)(row * 16),
-            .width = 9.0f,
-            .height = 16.0f,
-        };
-        p_graphics_draw_texture_ex(&codepage, src, dst, color);
-        dst.x += 9.0f;
+void p_graphics_draw_string(pString str, int pos_x, int pos_y, pColor color) {
+    int src_char_w = 9;
+    int src_char_h = 16;
+    float dst_char_w = 9.0f;
+    float dst_char_h = 16.0f;
+    float offset_x = 0.0f;
+    float offset_y = 0.0f;
+    for (size_t c_idx = 0; c_idx < str.size; c_idx += 1) {
+        char c = P_MIN(str.data[c_idx], 255);
+        switch (c) {
+            case ' ':
+            case '\t':
+                offset_x += dst_char_w;
+                break;
+            case '\n':
+                offset_x = 0.0f;
+                offset_y += dst_char_h;
+                break;
+            default: {
+                int column = (int)(c % 28);
+                int row = (int)(c / 28);
+                pRect src = {
+                    .x = (float)(column * src_char_w),
+                    .y = (float)(row * src_char_h),
+                    .width = (float)src_char_w,
+                    .height = (float)src_char_h,
+                };
+                pRect dst = {
+                    (float)pos_x + offset_x,
+                    (float)pos_y + offset_y,
+                    dst_char_w,
+                    dst_char_h
+                };
+                p_graphics_draw_texture_ex(&codepage, src, dst, color);
+                offset_x += dst_char_w;
+            } break;
+        }
     }
 }
 
@@ -248,8 +271,6 @@ int main(int argc, char* argv[]) {
     client.model = p_model_load("./res/assets/fox" PE_MODEL_EXTENSION);
 
     {
-        pArenaTemp scratch = p_scratch_begin(NULL, 0);
-
         // pTraceMark tm_pbm_load = P_TRACE_MARK_BEGIN("pbm_load");
         // pFileContents pbm_file_contents = p_file_read_contents(scratch.arena, "./res/cp437.pbm", false);
         // pbmFile pbm_file;
@@ -364,15 +385,25 @@ int main(int argc, char* argv[]) {
         };
         pTraceMark tm_issue_rectangles = P_TRACE_MARK_BEGIN("issue rectangles");
         // p_graphics_draw_texture(&codepage, 0.0f, 0.0f, 1.0f, P_COLOR_WHITE);
-        p_graphics_draw_text("Hello, World!", 5, 5, P_COLOR_WHITE);
-        for (int y = 0; y < 6; y += 1) {
-            for (int x = 0; x < 5; x += 1) {
-                // pColor color = colors[(y*5+x)%P_COUNT_OF(colors)];
-                // p_graphics_draw_texture_strip(&codepage, x*w, y*h, P_COLOR_WHITE);
-                // p_graphics_draw_texture(&codepage, x*w, y*h, 0.25f, P_COLOR_WHITE);
-                // p_graphics_draw_rectangle_strip(x*w+x*5.0f, y*h+y*5.0f, w, h, color);
-            }
+
+        {
+            pDynamicDrawStats stats = p_graphics_dynamic_draw_stats();
+            char *stat_format = "dynamic draw:\n"
+                "vertex: %4d/%4d (peak: %d)\n"
+                "batch:  %4d/%4d (peak: %d)\n";
+            pString stat_str = p_string_format(
+                scratch.arena,
+                stat_format,
+                stats.last_vertex_used,
+                P_MAX_DYNAMIC_DRAW_VERTEX_COUNT,
+                stats.peak_vertex_used,
+                stats.last_batch_count,
+                P_MAX_DYNAMIC_DRAW_BATCH_COUNT,
+                stats.peak_batch_count
+            );
+            p_graphics_draw_string(stat_str, 5, 5, P_COLOR_WHITE);
         }
+
         P_TRACE_MARK_END(tm_issue_rectangles);
 
         bool vsync = true;
