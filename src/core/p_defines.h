@@ -13,6 +13,9 @@
 #define P_MIN(a, b) ((a)<=(b)?(a):(b))
 #define P_CLAMP(x, a, b) ((x)<(a)?(a) : (x)>(b)?(b) : (x))
 
+#define P_OFFSET_OF(struct_name, member_name) \
+    ((size_t)((char *)&((struct_name *)0)->member_name - (char *)0))
+
 #if !defined(P_INLINE)
 	#if defined(_MSC_VER)
 		#define P_INLINE __forceinline

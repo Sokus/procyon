@@ -94,6 +94,30 @@ typedef struct pModel {
     pAnimation *animation;
 } pModel;
 
+typedef struct pModelAllocSize {
+    size_t mesh_size;
+    size_t material_size;
+    size_t mesh_material_size;
+    size_t bone_inverse_model_space_pose_matrix_size;
+    size_t bone_parent_index_size;
+    size_t subskeleton_size; // psp
+    size_t mesh_subskeleton_size; // psp
+    struct {
+        int count;
+        size_t *vertex_size;
+        size_t *index_size;
+    } mesh_data;
+    size_t total_vertex_size;
+    size_t total_index_size;
+    size_t animation_size;
+    struct {
+        int count;
+        size_t *joint_size;
+    } animation_data;
+    size_t alignment_leeway_size;
+    size_t total;
+} pModelAllocSize;
+
 pMaterial p_default_material(void);
 pAnimationJoint p_concatenate_animation_joints(pAnimationJoint parent, pAnimationJoint child);
 
@@ -103,8 +127,9 @@ typedef struct p3dVertex p3dVertex;
 typedef struct p3dAnimation p3dAnimation;
 typedef struct p3dAnimationJoint p3dAnimationJoint;
 bool p_parse_p3d_static_info(p3dStaticInfo *static_info);
-void p_model_alloc(pModel *model, pArena *arena, p3dFile *p3d);
-void p_model_alloc_mesh_data(pModel *model, pArena *arena, p3dFile *p3d);
+pModelAllocSize p_model_alloc_size(pArena *arena, p3dFile *p3d);
+void p_model_alloc(pModel *model, pArena *arena, pModelAllocSize *alloc_size);
+void p_model_alloc_mesh_data(pModel *model, pArena *arena, pModelAllocSize *alloc_size);
 pModel p_model_load(char *file_path);
 void p_model_load_static_info(pModel *model, p3dStaticInfo *static_info);
 void p_model_load_mesh_data(pModel *model, p3dFile *p3d);

@@ -145,33 +145,85 @@ static bool p_parse_p3d(pArena *arena, pFileContents p3d_file_contents, p3dFile 
     return true;
 }
 
-void p_model_alloc(pModel *model, pArena *arena, p3dFile *p3d) {
-    size_t material_size = p3d->static_info->num_meshes * sizeof(pMaterial);
-    size_t bone_inverse_model_space_pose_matrix_size = p3d->static_info->num_bones * sizeof(pMat4);
-    size_t animation_size = p3d->static_info->num_animations * sizeof(pAnimation);
-	size_t bone_parent_index_size = p3d->static_info->num_bones * sizeof(uint16_t);
+pModelAllocSize p_model_alloc_size(pArena *arena, p3dFile *p3d) {
+    size_t subskeleton_size = 0;
+    size_t mesh_subskeleton_size = 0;
+    if (p3d->static_info->is_portable) {
+        subskeleton_size = p3d->static_info->num_subskeletons * sizeof(pSubskeleton);
+        mesh_subskeleton_size = p3d->static_info->num_meshes * sizeof(int);
+    }
 
-    size_t num_index_size = p3d->static_info->num_meshes * sizeof(unsigned int); // desktop
-    size_t index_offset_size = p3d->static_info->num_meshes * sizeof(unsigned int); // desktop
-    size_t vertex_offset_size = p3d->static_info->num_meshes * sizeof(int); // desktop
+    const size_t alignment_leeway_size = 32; // TODO: find reasonable size
+    pModelAllocSize result = {
+        .mesh_size = p3d->static_info->num_meshes * sizeof(pMesh),
+        .material_size = p3d->static_info->num_meshes * sizeof(pMaterial),
+        .mesh_material_size = p3d->static_info->num_meshes * sizeof(int),
+        .bone_inverse_model_space_pose_matrix_size = p3d->static_info->num_bones * sizeof(pMat4),
+        .bone_parent_index_size = p3d->static_info->num_bones * sizeof(uint16_t),
+        .subskeleton_size = subskeleton_size,
+        .mesh_subskeleton_size = mesh_subskeleton_size,
+        .animation_size = p3d->static_info->num_animations * sizeof(pAnimation),
+        .alignment_leeway_size = alignment_leeway_size
+    };
+    result.total = (
+        result.mesh_size +
+        result.material_size +
+        result.mesh_material_size +
+        result.bone_inverse_model_space_pose_matrix_size +
+        result.bone_parent_index_size +
+        result.subskeleton_size +
+        result.mesh_subskeleton_size +
+        result.total_vertex_size +
+        result.total_index_size +
+        result.animation_size +
+        result.alignment_leeway_size
+    );
 
-    size_t mesh_size = p3d->static_info->num_meshes * sizeof(pMesh);
+    if (p3d->static_info->is_portable) {
+        result.mesh_data.count = p3d->static_info->num_meshes;
+        result.mesh_data.vertex_size = (size_t*)p_arena_alloc(arena, p3d->static_info->num_meshes*sizeof(size_t));
+        result.mesh_data.index_size = (size_t*)p_arena_alloc(arena, p3d->static_info->num_meshes*sizeof(size_t));
+        for (int m = 0; m < p3d->static_info->num_meshes; m += 1) {
+        	result.mesh_data.vertex_size[m] = p3d->portable.vertex_size[m];
+        	result.total += p3d->portable.vertex_size[m];
+	    	if (p3d->mesh[m].num_index > 0) {
+            	result.mesh_data.index_size[m] = p3d->portable.index_size[m];
+            	result.total += p3d->portable.index_size[m];
+        	} else {
+                result.mesh_data.index_size[m] = 0;
+        	}
+        }
+    }
 
-	model->material = p_arena_alloc(arena, material_size);
-	model->bone_inverse_model_space_pose_matrix = p_arena_alloc(arena, bone_inverse_model_space_pose_matrix_size);
+    if (p3d->static_info->num_animations > 0) {
+        result.animation_data.count = p3d->static_info->num_animations;
+        result.animation_data.joint_size = (size_t*)p_arena_alloc(arena, p3d->static_info->num_animations*sizeof(size_t));
+        for (int a = 0; a < p3d->static_info->num_animations; a += 1) {
+    	    size_t num_frames = p3d->animation[a].num_frames;
+    	    size_t num_bones = p3d->static_info->num_bones;
+    		size_t num_animation_joint = num_frames * num_bones;
+    		size_t animation_joint_size = num_animation_joint * sizeof(pAnimationJoint);
+    		result.animation_data.joint_size[a] = animation_joint_size;
+    		result.total += animation_joint_size;
+    	}
+    }
 
-	model->animation = p_arena_alloc(arena, animation_size);
-	for (int a = 0; a < p3d->static_info->num_animations; a += 1) {
-	    size_t num_frames = p3d->animation[a].num_frames;
-	    size_t num_bones = p3d->static_info->num_bones;
-		size_t num_animation_joint = num_frames * num_bones;
-		size_t animation_joint_size = num_animation_joint * sizeof(pAnimationJoint);
-		model->animation[a].frames = p_arena_alloc(arena, animation_joint_size);
+    return result;
+}
+
+void p_model_alloc(pModel *model, pArena *arena, pModelAllocSize *alloc_size) {
+	model->material = p_arena_alloc(arena, alloc_size->material_size);
+	model->bone_inverse_model_space_pose_matrix = p_arena_alloc(arena, alloc_size->bone_inverse_model_space_pose_matrix_size);
+
+	model->animation = (pAnimation*)p_arena_alloc(arena, alloc_size->animation_size);
+	P_ASSERT(alloc_size->animation_data.count == (alloc_size->animation_size/sizeof(pAnimation)));
+	for (int a = 0; a < alloc_size->animation_data.count; a += 1) {
+		model->animation[a].frames = p_arena_alloc(arena, alloc_size->animation_data.joint_size[a]);
 	}
 
-    model->bone_parent_index = p_arena_alloc(arena, bone_parent_index_size);
-	model->mesh = p_arena_alloc(arena, mesh_size);
-	p_model_alloc_mesh_data(model, arena, p3d);
+    model->bone_parent_index = p_arena_alloc(arena, alloc_size->bone_parent_index_size);
+	model->mesh = p_arena_alloc(arena, alloc_size->mesh_size);
+	p_model_alloc_mesh_data(model, arena, alloc_size);
 }
 
 pVertexSkinned p_vertex_skinned_from_p3d(p3dVertex vertex_p3d, float scale) {
@@ -235,14 +287,14 @@ pModel p_model_load(char *file_path) {
     pModel model = {0};
 	pArena model_arena;
     {
-		// TODO: this is basically a memory leak (xD)
-		// so far we are only loading a single model to test things out
-		// so we don't really care, but we should allocate models in
-		// another way in the future (pool allocator?)
-		size_t model_memory_size = P_KILOBYTES(512);
-		void *model_memory = p_heap_alloc(P_KILOBYTES(512));
-		p_arena_init(&model_arena, model_memory, model_memory_size);
-        p_model_alloc(&model, &model_arena, &p3d);
+        pModelAllocSize model_alloc_size = p_model_alloc_size(scratch.arena, &p3d);
+        // TODO: this is basically a memory leak (xD)
+        // so far we are only loading a single model to test things out
+        // so we don't really care, but we should allocate models in
+        // another way in the future (pool allocator?)
+        void *model_memory = p_heap_alloc(model_alloc_size.total);
+        p_arena_init(&model_arena, model_memory, model_alloc_size.total);
+        p_model_alloc(&model, &model_arena, &model_alloc_size);
     }
 
     p_model_load_static_info(&model, p3d.static_info);

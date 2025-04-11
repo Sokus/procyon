@@ -121,11 +121,11 @@ typedef struct pDynamicDrawBatch {
 } pDynamicDrawBatch;
 
 #if defined(__PSP__)
-#define P_MAX_DYNAMIC_DRAW_VERTEX_COUNT 2024
-#define P_MAX_DYNAMIC_DRAW_BATCH_COUNT 256
+#define P_MAX_DYNAMIC_DRAW_VERTEX_COUNT (1024*1024) / sizeof(pDynamicDrawVertex)
+#define P_MAX_DYNAMIC_DRAW_BATCH_COUNT (128*1024) / sizeof(pDynamicDrawBatch)
 #else
-#define P_MAX_DYNAMIC_DRAW_VERTEX_COUNT 2024
-#define P_MAX_DYNAMIC_DRAW_BATCH_COUNT 512
+#define P_MAX_DYNAMIC_DRAW_VERTEX_COUNT (1024*1024) / sizeof(pDynamicDrawVertex)
+#define P_MAX_DYNAMIC_DRAW_BATCH_COUNT (128*1024) / sizeof(pDynamicDrawBatch)
 #endif
 
 typedef struct pDynamicDrawStats {

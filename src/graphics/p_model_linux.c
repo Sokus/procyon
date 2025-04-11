@@ -17,9 +17,8 @@ bool p_parse_p3d_static_info(p3dStaticInfo *static_info) {
     return true;
 }
 
-void p_model_alloc_mesh_data(pModel *model, pArena *arena, p3dFile *p3d) {
-    size_t mesh_material_size = p3d->static_info->num_meshes * sizeof(int);
-    model->mesh_material = p_arena_alloc(arena, mesh_material_size);
+void p_model_alloc_mesh_data(pModel *model, pArena *arena, pModelAllocSize *alloc_size) {
+    model->mesh_material = p_arena_alloc(arena, alloc_size->mesh_material_size);
 }
 
 void p_model_load_static_info(pModel *model, p3dStaticInfo *static_info) {

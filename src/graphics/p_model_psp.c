@@ -18,20 +18,17 @@ bool p_parse_p3d_static_info(p3dStaticInfo *static_info) {
     return true;
 }
 
-void p_model_alloc_mesh_data(pModel *model, pArena *arena, p3dFile *p3d) {
-    size_t mesh_material_size = p3d->static_info->num_meshes * sizeof(int);
-    model->mesh_material = p_arena_alloc(arena, mesh_material_size);
+void p_model_alloc_mesh_data(pModel *model, pArena *arena, pModelAllocSize *alloc_size) {
+    model->mesh_material = p_arena_alloc(arena, alloc_size->mesh_material_size);
 
-    P_ASSERT(p3d->static_info->is_portable);
-    size_t mesh_subskeleton_size = p3d->static_info->num_meshes * sizeof(int); // psp
-    size_t subskeleton_size = p3d->static_info->num_subskeletons * sizeof(pSubskeleton); // psp
-    model->mesh_subskeleton = p_arena_alloc(arena, mesh_subskeleton_size);
-    model->subskeleton = p_arena_alloc(arena, subskeleton_size);
+    model->mesh_subskeleton = p_arena_alloc(arena, alloc_size->mesh_subskeleton_size);
+    model->subskeleton = p_arena_alloc(arena, alloc_size->subskeleton_size);
     size_t psp_vertex_memory_alignment = 16;
-    for (int m = 0; m < p3d->static_info->num_meshes; m += 1) {
-    	model->mesh[m].vertex = p_arena_alloc_align(arena, p3d->portable.vertex_size[m], psp_vertex_memory_alignment);
-    	if (p3d->mesh[m].num_index > 0) {
-    		model->mesh[m].index = p_arena_alloc_align(arena, p3d->portable.index_size[m], psp_vertex_memory_alignment);
+    P_ASSERT(alloc_size->mesh_data.count == (alloc_size->mesh_size/sizeof(pMesh)));
+    for (int m = 0; m < alloc_size->mesh_data.count; m += 1) {
+    	model->mesh[m].vertex = p_arena_alloc_align(arena, alloc_size->mesh_data.vertex_size[m], psp_vertex_memory_alignment);
+    	if (alloc_size->mesh_data.index_size[m] > 0) {
+    		model->mesh[m].index = p_arena_alloc_align(arena, alloc_size->mesh_data.index_size[m], psp_vertex_memory_alignment);
     	}
     }
 }

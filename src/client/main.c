@@ -263,6 +263,8 @@ int main(int argc, char* argv[]) {
 
     p_allocate_entities();
 
+    pArenaTemp scratch = p_scratch_begin(NULL, 0);
+
 #if !defined(PSP)
     #define PE_MODEL_EXTENSION ".p3d"
 #else
