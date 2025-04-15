@@ -3,6 +3,7 @@
 
 #include "p_defines.h"
 #include "p_assert.h"
+#include "p_data_structure_utility.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,8 +38,6 @@ static P_INLINE void p_arena_rewind_to_pointer(pArena *arena, void *pointer);
 
 static P_INLINE pArenaTemp p_arena_temp_begin(pArena *arena);
 static P_INLINE void p_arena_temp_end(pArenaTemp temp_arena_memory);
-
-static P_INLINE bool p_is_power_of_two(uintptr_t x);
 
 static P_INLINE void p_arena_init(pArena *arena, void *start, size_t size) {
     arena->physical_start = start;
@@ -121,10 +120,6 @@ static P_INLINE void p_arena_temp_end  (pArenaTemp tmp) {
     P_ASSERT(tmp.arena->temp_count > 0);
     tmp.arena->total_allocated = tmp.original_count;
     tmp.arena->temp_count -= 1;
-}
-
-static P_INLINE bool p_is_power_of_two(uintptr_t x) {
-	return (x & (x-1)) == 0;
 }
 
 #endif // P_ARENA_HEADER_GUARD

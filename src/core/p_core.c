@@ -5,3 +5,5 @@
 #include "p_file.h"
 #include "p_time.h"
 #include "p_scratch.h"
+#include "p_data_structure_utility.h"
+#include "p_free_list.h"
