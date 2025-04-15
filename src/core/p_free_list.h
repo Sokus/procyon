@@ -132,11 +132,13 @@ void p_free_list_free(pFreeList *free_list, void *ptr) {
         return;
     }
 
-    pFreeListAllocationHeader *allocation_header = (pFreeListAllocationHeader *)(
+    pFreeListAllocationHeader allocation_header = *(pFreeListAllocationHeader *)(
         (char *)ptr - sizeof(pFreeListAllocationHeader)
     );
-    pFreeListNode *free_node = (pFreeListNode *)allocation_header;
-    free_node->block_size = allocation_header->block_size + allocation_header->padding;
+    pFreeListNode *free_node = (pFreeListNode *)(
+        (char *)ptr - sizeof(pFreeListAllocationHeader) - allocation_header.padding
+    );
+    free_node->block_size = allocation_header.block_size;
     free_node->next = NULL;
 
     pFreeListNode *node = free_list->head;
@@ -231,9 +233,8 @@ void p_free_list_node_insert(pFreeListNode **prev_head, pFreeListNode *prev_node
     if (prev_node == NULL) {
         if (*prev_head != NULL) {
             new_node->next = *prev_head;
-        } else {
-            *prev_head = new_node;
         }
+        *prev_head = new_node;
     } else {
         if (prev_node->next == NULL) {
             prev_node->next = new_node;
@@ -249,7 +250,7 @@ void p_free_list_node_remove(pFreeListNode **prev_head, pFreeListNode *prev_node
     if (prev_node == NULL) {
         *prev_head = rem_node->next;
     } else {
-        prev_node = rem_node->next;
+        prev_node->next = rem_node->next;
     }
 }
 
