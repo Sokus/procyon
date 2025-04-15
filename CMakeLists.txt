@@ -130,12 +130,15 @@ endif()
 
 # COMPILE OTHER TARGETS:
 
-add_executable(tests src/samples/p_tests.c)
-target_link_libraries(tests PRIVATE settings core platform graphics utility)
+# add_executable(tests src/samples/p_tests.c)
+# target_link_libraries(tests PRIVATE settings core platform graphics utility)
 
 if(WIN32 OR LINUX)
     add_executable(export_google_trace src/tools/export_google_trace.c)
     target_link_libraries(export_google_trace settings core platform utility)
+
+    add_executable(tests tests/test_main.c)
+    target_link_libraries(tests settings core utility)
 endif()
 
 # ------------------------------------------------------------
