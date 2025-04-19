@@ -79,6 +79,7 @@ if(WIN32)
     target_sources(graphics PRIVATE
         src/graphics/p_graphics_win32.c
         src/graphics/p_model_win32.c
+        src/graphics/p_asset_loader.c
     )
 elseif(LINUX)
     target_sources(graphics PRIVATE

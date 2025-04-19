@@ -31,7 +31,7 @@ P_TEST(test_free_list_alloc) {
         void *result = p_free_list_alloc_align(free_list, allocations[a], alignments[a]);
         P_TEST_CHECK(result != NULL);
         P_TEST_EQ_SIZE(0, (size_t)result % alignments[a]);
-        total_allocated += allocations[a];
+        total_allocated += allocations[a] + sizeof(pFreeListAllocationHeader);
     }
     P_TEST_CHECK(free_list->total_allocated >= total_allocated);
 }
