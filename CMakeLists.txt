@@ -41,12 +41,14 @@ target_link_libraries(platform PRIVATE settings core)
 target_link_libraries(platform PRIVATE graphics) # TODO: remove this
 if(WIN32)
     target_sources(platform PRIVATE
+        src/platform/p_file_win32.c
         src/platform/p_window_glfw.c
         src/platform/p_input_glfw.c
     )
     target_link_libraries(platform PRIVATE glfw)
 elseif(LINUX)
     target_sources(platform PRIVATE
+        src/platform/p_file_linux.c
         src/platform/p_window_glfw.c
         src/platform/p_input_glfw.c
     )
@@ -54,6 +56,7 @@ elseif(LINUX)
     target_link_libraries(platform PUBLIC glad)
 elseif(PSP)
     target_sources(platform PRIVATE
+        src/platform/p_file_psp.c
         src/platform/p_window_psp.c
         src/platform/p_input_psp.c
     )
@@ -74,7 +77,7 @@ target_link_libraries(graphics PRIVATE
     settings core math
     psp-stb
 )
-target_link_libraries(graphics PUBLIC math)
+target_link_libraries(graphics PUBLIC platform math)
 if(WIN32)
     target_sources(graphics PRIVATE
         src/graphics/p_graphics_win32.c

@@ -7,8 +7,8 @@
 #include "core/p_heap.h"
 #include "core/p_arena.h"
 #include "core/p_scratch.h"
-#include "core/p_file.h"
 #include "core/p_time.h"
+#include "platform/p_file.h"
 
 #include "utility/p_trace.h"
 

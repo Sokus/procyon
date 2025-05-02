@@ -22,7 +22,7 @@
 #include "game/p_protocol.h"
 #include "game/p_entity.h"
 
-#include "core/p_file.h"
+#include "platform/p_file.h"
 #include "graphics/p_pbm.h"
 
 #include "stb_image.h"

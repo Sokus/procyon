@@ -5,8 +5,8 @@
 
 #include "core/p_defines.h"
 #include "core/p_time.h"
-#include "core/p_file.h"
 #include "p_trace.h"
+#include "platform/p_file.h"
 
 struct pTraceState {
     pFileHandle output_file;
