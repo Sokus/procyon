@@ -1,3 +1,8 @@
+# directories
 *build
+*res
 
-res/assets
+# files
+*.blend1
+trace.json
+trace.pt

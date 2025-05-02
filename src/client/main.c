@@ -265,12 +265,7 @@ int main(int argc, char* argv[]) {
 
     pArenaTemp scratch = p_scratch_begin(NULL, 0);
 
-#if !defined(PSP)
-    #define PE_MODEL_EXTENSION ".p3d"
-#else
-    #define PE_MODEL_EXTENSION ".pp3d"
-#endif
-    client.model = p_model_load("./res/assets/fox" PE_MODEL_EXTENSION);
+    client.model = p_model_load("./res/models/fox.p3d");
 
     {
         // pTraceMark tm_pbm_load = P_TRACE_MARK_BEGIN("pbm_load");
