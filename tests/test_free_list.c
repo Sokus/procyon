@@ -17,8 +17,6 @@ static void test_free_list_setup(void) {
 }
 
 static void test_free_list_teardown(void) {
-    test_free_list_state.free_list = (pFreeList){0};
-    memset(test_free_list_state.buffer, 0x0, P_TEST_FREE_LIST_BUFFER_SIZE);
 }
 
 P_TEST(test_free_list_alloc) {
@@ -122,7 +120,7 @@ P_TEST_SUITE(test_free_list) {
     P_TEST_RUN(test_free_list_unordered_free);
 }
 
-void test_free_list_main() {
+void test_free_list_main(void) {
     P_TEST_SUITE_CONFIGURE(test_free_list_setup, test_free_list_teardown);
     P_TEST_SUITE_RUN(test_free_list);
 }

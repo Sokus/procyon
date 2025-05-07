@@ -11,6 +11,7 @@
 static P_INLINE bool p_is_power_of_two(uintptr_t x);
 
 size_t p_calc_padding_with_header(uintptr_t ptr, uintptr_t alignment, size_t header_size);
+uint32_t p_hash_fnv_1a(void *data, size_t size);
 
 static P_INLINE bool p_is_power_of_two(uintptr_t x) {
 	return (x & (x-1)) == 0;
@@ -42,6 +43,16 @@ size_t p_calc_padding_with_header(uintptr_t ptr, uintptr_t alignment, size_t hea
     }
 
     return (size_t)padding;
+}
+
+uint32_t p_hash_fnv_1a(void *data, size_t size) {
+    uint32_t hash = 2166136261u;
+    for (size_t i = 0; i < size; i += 1) {
+        uint8_t data_byte = ((uint8_t*)data)[i];
+        hash ^= data_byte;
+        hash *= 16777619;
+    }
+    return hash;
 }
 
 #endif // P_CORE_IMPLEMENTATION

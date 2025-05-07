@@ -13,6 +13,7 @@ uint32_t p_random_uint32(pRandom *random);
 
 #endif // P_RANDOM_HEADER_GUARD
 #if defined(P_CORE_IMPLEMENTATION) && !defined(P_RANDOM_IMPLEMENTATION_GUARD)
+#define P_RANDOM_IMPLEMENTATION_GUARD
 
 pRandom p_random_from_seed(uint32_t seed) {
     pRandom result = {

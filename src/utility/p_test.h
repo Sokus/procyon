@@ -178,7 +178,6 @@ static inline void p_test_print(bool test, const char *format, ...) {
         p_test_tmp_result = "<null pointer>";\
     }\
     if (strcmp(p_test_tmp_expected, p_test_tmp_result) != 0) {\
-        int p_test_significant_figures = 1 - log10(P_TEST_EPSILON);\
         (void)snprintf(\
             p_test.message, P_TEST_MESSAGE_BUFFER_SIZE,\
             "  %s failed:\n    %s:%d: '%s' expected but was '%s'",\
