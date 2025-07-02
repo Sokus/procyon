@@ -10,54 +10,26 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-bool p_file_open(const char *file_path, pFileHandle *result) {
-    int sce_flags = PSP_O_NBLOCK | PSP_O_WRONLY | PSP_O_CREAT | PSP_O_TRUNC | PSP_O_APPEND;
-    SceUID sce_fd = sceIoOpen(file_path, sce_flags, 0777);
+
+bool p_file_open(const char *path, int mode, int perm, pFileHandle *result) {
+    SceUID sce_fd = sceIoOpen(path, mode, perm);
     bool success = false;
     if (sce_fd >= 0) {
         success = true;
-        *result = (pFileHandle){
-            .fd_psp = sce_fd
-        };
-        sceIoChangeAsyncPriority(sce_fd, 16);
+        *result = (pFileHandle)sce_fd;
     }
     return success;
+}
+
+size_t p_file_write(pFileHandle file, void *data, size_t data_size) {
+    int write_result = sceIoWrite(file, data, (SceSize)data_size);
+    size_t bytes_written = (write_result > 0 ? (size_t)write_result : 0);
+    return bytes_written;
 }
 
 bool p_file_close(pFileHandle file) {
-    int rc_sce = sceIoClose(file.fd_psp);
+    int rc_sce = sceIoClose((SceUID)file);
     bool success = (rc_sce >= 0);
-    return success;
-}
-
-bool p_file_write_async(pFileHandle file, void *data, size_t data_size) {
-    int sce_rc = sceIoWriteAsync(file.fd_psp, data, (SceSize)data_size);
-    bool success = false;
-    if (sce_rc >= 0) {
-        success = true;
-    }
-    return success;
-}
-
-bool p_file_poll(pFileHandle file, bool *result) {
-    SceInt64 sce_result;
-    int sce_rc = sceIoPollAsync(file.fd_psp, &sce_result);
-    bool success = false;
-    switch (sce_rc) {
-        case 0: success = true; *result = false; break;
-        case 1: success = true; *result = true; break;
-        default: break;
-    }
-    return success;
-}
-
-bool p_file_wait(pFileHandle file) {
-    SceInt64 sce_result;
-    int sce_rc = sceIoWaitAsync(file.fd_psp, &sce_result);
-    bool success = false;
-    if (sce_rc >= 0) {
-        success = true;
-    }
     return success;
 }
 

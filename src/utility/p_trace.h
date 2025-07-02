@@ -4,12 +4,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define P_TRACE_FILE_PATH "./trace.pt"
 #define P_TRACE_DATA_BATCH_SIZE P_KILOBYTES(48)
-
 #define P_TRACE_REFERENCE_LITERAL "fB8PgEXDfgO5i2a5HfQ0hvelQ07mP4ce"
-
-void p_trace_init(void);
-void p_trace_shutdown(void);
 
 typedef struct pTraceHeader {
     int32_t address_bytes;
@@ -34,6 +31,9 @@ typedef struct pTraceMark {
     const char *name;
     uint64_t timestamp;
 } pTraceMark;
+
+void p_trace_init(void);
+void p_trace_shutdown(void);
 
 #if defined(P_TRACE_ENABLED)
     pTraceMark p_trace_mark_begin_internal(const char *name);

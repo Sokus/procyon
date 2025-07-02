@@ -25,7 +25,6 @@ add_library(core STATIC
 
 add_library(math INTERFACE)
 target_link_libraries(math INTERFACE handmade-math)
-
 if(PSP)
     target_link_libraries(math INTERFACE pspgum_vfpu pspvfpu)
 endif()
@@ -140,6 +139,9 @@ endif()
 if(WIN32 OR LINUX)
     add_executable(export_google_trace src/tools/export_google_trace.c)
     target_link_libraries(export_google_trace settings core platform utility)
+
+    add_executable(compile_resources src/tools/compile_resources.c)
+    target_link_libraries(compile_resources settings core platform)
 
     add_executable(tests tests/test_main.c)
     target_link_libraries(tests settings core utility)

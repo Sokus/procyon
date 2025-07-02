@@ -31,6 +31,7 @@ static P_INLINE size_t p_arena_size_remaining(pArena *arena, size_t alignment);
 
 static P_INLINE void *p_arena_alloc_align(pArena *arena, size_t size, size_t alignment);
 static P_INLINE void *p_arena_alloc(pArena *arena, size_t size);
+static P_INLINE void  p_arena_alloc_empty(pArena *arena, size_t size);
 static P_INLINE void  p_arena_clear(pArena *arena);
 
 static P_INLINE void p_arena_rewind(pArena *arena, size_t size);
@@ -89,6 +90,15 @@ static P_INLINE void *p_arena_alloc_align(pArena *arena, size_t size, size_t ali
 static P_INLINE void *p_arena_alloc(pArena *arena, size_t size) {
     void *result = p_arena_alloc_align(arena, size, P_DEFAULT_MEMORY_ALIGNMENT);
     return result;
+}
+
+static P_INLINE void p_arena_alloc_empty(pArena *arena, size_t size) {
+    if (arena->total_allocated + size > arena->total_size) {
+        fprintf(stderr, "Arena out of memory\n");
+        return;
+    }
+    arena->total_allocated += size;
+    return;
 }
 
 static P_INLINE void p_arena_clear(pArena *arena) {

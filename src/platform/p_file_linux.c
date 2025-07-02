@@ -11,15 +11,12 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-bool p_file_open(const char *file_path, pFileHandle *result) {
-    int flags_linux = O_WRONLY | O_CREAT | O_TRUNC | O_APPEND;
-    int fd_linux = open(file_path, flags_linux);
+bool p_file_open(const char *path, int mode, int perm, pFileHandle *result) {
+    int fd = open(path, mode, perm);
     bool success = false;
-    if (fd_linux >= 0) {
+    if (fd >= 0) {
         success = true;
-        *result = (pFileHandle){
-            .fd_linux = fd_linux
-        };
+        *result = (pFileHandle)fd;
     }
     return success;
 }
@@ -30,29 +27,10 @@ bool p_file_close(pFileHandle file) {
     return success;
 }
 
-bool p_file_write_async(pFileHandle file, void *data, size_t data_size) {
-    // TOOD: Actually do async writing
-    ssize_t rc_linux = write(file.fd_linux, data, data_size);
-    bool success = false;
-    if (rc_linux >= 0) {
-        success = (size_t)rc_linux == data_size;
-    }
-    return success;
-}
-
-bool p_file_poll(pFileHandle file, bool *result) {
-    // we don't have async writing yet so we can assume
-    // the operation is always done
-    bool success = true;
-    *result = false;
-    return success;
-}
-
-bool p_file_wait(pFileHandle file) {
-    // we don't have async writing yet so we can assume
-    // the operation is always done
-    bool success = true;
-    return success;
+size_t p_file_write(pFileHandle file, void *data, size_t data_size) {
+    ssize_t write_result = write(filed_linux, data, data_size);
+    size_t bytes_written = (write_result > 0 ? (size_t)write_result : 0);
+    return bytes_written;
 }
 
 pFileContents p_file_read_contents(pArena *arena, const char *file_path, bool zero_terminate) {
