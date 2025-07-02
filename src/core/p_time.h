@@ -81,6 +81,7 @@ uint64_t p_time_laptime(uint64_t *last_time) {
 
 // PLATFORM SPECIFIC (WIN32)
 #if defined(_WIN32)
+#define P_TIME_PLATFORM_IMPLEMETED
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -144,6 +145,7 @@ pTime p_time_local(void) {
 
 // PLATFORM SPECIFIC (LINUX)
 #if defined(__linux__)
+#define P_TIME_PLATFORM_IMPLEMETED
 #include <time.h>
 #include <unistd.h>
 
@@ -201,6 +203,7 @@ pTime p_time_local(void) {
 
 // PLATFORM SPECIFIC (PSP)
 #if defined(__PSP__)
+#define P_TIME_PLATFORM_IMPLEMETED
 #include <psptypes.h>
 #include <psprtc.h>
 #include <pspkernel.h> // sceKernelDelayThread();
@@ -254,5 +257,22 @@ pTime p_time_local(void) {
     return time;
 }
 #endif // PLATFORM SPECIFIC (PSP)
+
+#ifndef P_TIME_PLATFORM_IMPLEMENTED
+#warning p_time unimplemented
+
+uint64_t p_time_now(void) {
+    return 0;
+}
+
+void p_time_sleep(unsigned long ms) {
+}
+
+pTime p_time_local(void) {
+    pTime time = {0};
+    return time;
+}
+
+#endif // P_TIME_PLATFORM_IMPLEMENTED (NULL IMPLEMENTATION)
 
 #endif // P_TIME_IMPLEMENTATION

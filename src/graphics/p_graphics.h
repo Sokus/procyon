@@ -83,6 +83,10 @@ typedef struct pTexture {
     int palette_padded_length;
     int palette_format;
 } pTexture;
+#elif defined(__3DS__)
+typedef struct pTexture {
+    int width, height;
+} pTexture;
 #endif
 
 typedef enum pPrimitive {
@@ -109,6 +113,8 @@ typedef struct pDynamicDrawVertex {
     pVec3 normal;
     pVec2 texcoord;
     uint32_t color;
+#elif defined(__3DS__)
+    uint8_t stub;
 #endif
 } pDynamicDrawVertex;
 

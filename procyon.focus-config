@@ -1,4 +1,4 @@
-[16]  # Version number. Do not delete.
+[21]  # Version number. Do not delete.
 
 [[workspace]]
 # These directories and files will be scanned when a workspace is opened so that search etc. works.
@@ -15,6 +15,7 @@ C:\Users\Sokus\Dev\procyon
 build
 psp_build
 linux_build
+3ds_build
 glfw
 glad-gl-4.2-core
 HandmadeMath

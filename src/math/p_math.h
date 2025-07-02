@@ -87,23 +87,38 @@ typedef union pQuat {
 // FLOATING-POINT MATH FUNCTIONS
 
 static inline float p_sinf(float x) {
-    float result = sinf(x);
+    float result = 0.0f;
+#if defined(__PSP__)
+    result = sinf(x);
+#else
+    result = HMM_SinF(x);
+#endif
     return result;
 }
 
 static inline float p_cosf(float x) {
-    float result = cosf(x);
+    float result = 0.0f;
+#if defined(__PSP__)
+    result = cosf(x);
+#else
+    result = HMM_CosF(x);
+#endif
     return result;
 }
 
 static inline float p_tanf(float x) {
-    float result = tanf(x);
+    float result = 0.0f;
+#if defined(__PSP__)
+    result = tanf(x);
+#else
+    result = HMM_TanF(x);
+#endif
     return result;
 }
 
 static inline float p_sqrtf(float x) {
     float result;
-#if defined(PSP)
+#if defined(__PSP__)
     result = sqrtf(x);
 #else
     result = HMM_SqrtF(x);
@@ -180,7 +195,7 @@ static inline pVec3 p_vec3_add(pVec3 left, pVec3 right) {
 
 static inline pVec4 p_vec4_add(pVec4 left, pVec4 right) {
     pVec4 result;
-#if defined(PSP)
+#if defined(__PSP__)
     result = (pVec4){
         .x = left.x + right.x,
         .y = left.y + right.y,
@@ -212,7 +227,7 @@ static inline pVec3 p_vec3_sub(pVec3 left, pVec3 right) {
 
 static inline pVec4 p_vec4_sub(pVec4 left, pVec4 right) {
     pVec4 result;
-#if defined(PSP)
+#if defined(__PSP__)
     result = (pVec4){
         .x = left.x - right.x,
         .y = left.y - right.y,
@@ -261,7 +276,7 @@ static inline pVec3 p_vec3_mul_f(pVec3 left, float right) {
 
 static inline pVec4 p_vec4_mul(pVec4 left, pVec4 right) {
     pVec4 result;
-#if defined(PSP)
+#if defined(__PSP__)
     result = (pVec4){
         .x = left.x * right.x,
         .y = left.y * right.y,
@@ -276,7 +291,7 @@ static inline pVec4 p_vec4_mul(pVec4 left, pVec4 right) {
 
 static inline pVec4 p_vec4_mul_f(pVec4 left, float right) {
     pVec4 result;
-#if defined(PSP)
+#if defined(__PSP__)
     result = (pVec4){
         .x = left.x * right,
         .y = left.y * right,
@@ -325,7 +340,7 @@ static inline pVec3 p_vec3_div_f(pVec3 left, float right) {
 
 static inline pVec4 p_vec4_div(pVec4 left, pVec4 right) {
     pVec4 result;
-#if defined(PSP)
+#if defined(__PSP__)
     result = (pVec4){
         .x = left.x / right.x,
         .y = left.y / right.y,
@@ -340,7 +355,7 @@ static inline pVec4 p_vec4_div(pVec4 left, pVec4 right) {
 
 static inline pVec4 p_vec4_div_f(pVec4 left, float right) {
     pVec4 result;
-#if defined(PSP)
+#if defined(__PSP__)
     result = (pVec4){
         .x = left.x / right,
         .y = left.y / right,

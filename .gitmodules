@@ -4,9 +4,9 @@
 [submodule "ext/HandmadeMath"]
 	path = ext/HandmadeMath
 	url = https://github.com/HandmadeMath/HandmadeMath
-[submodule "ext/psp-stb"]
-	path = ext/psp-stb
-	url = https://github.com/Sokus/psp-stb
 [submodule "ext/glad-gl-4.2-core"]
 	path = ext/glad-gl-4.2-core
 	url = https://github.com/Sokus/glad-gl-4.2-core
+[submodule "ext/retro-stb"]
+	path = ext/retro-stb
+	url = https://github.com/Sokus/retro-stb

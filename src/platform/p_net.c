@@ -20,29 +20,35 @@
 	#undef SetPort
 	#endif // #ifdef SetPort
 #elif defined(PSP)
-    #include <unistd.h>
     #include <pspnet.h>
     #include <pspnet_inet.h>
     #include <pspnet_apctl.h>
     #include <pspkernel.h>
     #include <pspnet_resolver.h>
-    #include <netinet/in.h>
-    #include <arpa/inet.h>
     #include <sys/select.h>
-    #include <errno.h>
-    #include <fcntl.h>
     #include <psputility.h>
     #include <psprtc.h>
-#else
+#elif defined(__linux__)
 	#include <netdb.h>
     #include <sys/types.h>
     #include <sys/socket.h>
     #include <netinet/in.h>
-    #include <fcntl.h>
     #include <netdb.h>
-    #include <arpa/inet.h>
+#endif
+
+#if defined(__linux__) || defined(__PSP__) || defined(__3DS__)
     #include <unistd.h>
     #include <errno.h>
+    #include <fcntl.h>
+    // #include <arpa/inet.h>
+#endif
+
+#if defined(__3DS__)
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+
+#include <3ds.h>
 #endif
 
 // TODO: clean up the includes, especially on PSP
@@ -207,10 +213,12 @@ static pAddress p_address_from_sockaddr_storage(struct sockaddr_storage *addr) {
         result.ipv4 = addr_ipv4->sin_addr.s_addr;
         result.port = ntohs(addr_ipv4->sin_port);
     } else if (addr->ss_family == AF_INET6) {
+#if !defined(__3DS__)
         struct sockaddr_in6 *addr_ipv6 = (struct sockaddr_in6 *)addr;
         result.family = pAddressFamily_IPv6;
         memcpy(result.ipv6, &addr_ipv6->sin6_addr, 16);
         result.port = ntohs(addr_ipv6->sin6_port);
+#endif
     }
     return result;
 }
@@ -228,8 +236,8 @@ pAddress p_address_parse(char *address_in) {
         address_length += 1;
     }
 
-    // FIXME: Fix that. Although PSP has no IPv6 support we can still let the user parse IPv6 addreesses.
-#if !defined(PSP)
+    // FIXME: Fix that. Although PSP/3DS has no IPv6 support we can still let the user parse IPv6 addreesses.
+#if !defined(__PSP__) && !defined(__3DS__)
     // first try to parse as an IPv6 address:
     // 1. if the first character is '[' then it's probably an ipv6 in form "[addr6]:portnum"
     // 2. otherwise try to parse as raw IPv6 address, parse using inet_pton
@@ -290,7 +298,7 @@ pAddress p_address_parse_ex(char *address_in, uint16_t port) {
     return result;
 }
 
-#if defined(PSP) && !defined(INET6_ADDRSTRLEN)
+#if (defined(PSP) || defined(__3DS__)) && !defined(INET6_ADDRSTRLEN)
 #define INET6_ADDRSTRLEN 46
 #endif
 char *p_address_to_string(pAddress address, char buffer[], int buffer_size) {
@@ -358,7 +366,7 @@ pSocketCreateError p_socket_create(pAddressFamily address_family, pSocket *out_s
 
     // Force IPv6 if necessary
     if (address_family == pAddressFamily_IPv6) {
-#if !defined(PSP)
+#if !defined(PSP) && !defined(__3DS__)
         char optval = 1;
         if (setsockopt(result.handle, IPPROTO_IPV6, IPV6_V6ONLY, &optval, sizeof(optval)) != 0) {
             p_socket_destroy(result);
@@ -390,7 +398,7 @@ P_ASSERT(network_initialized);
             return pSocketBindError_BindFailed;
         }
     } else if (address_family == pAddressFamily_IPv6) {
-#if !defined(PSP)
+#if !defined(PSP) && !defined(__3DS__)
         struct sockaddr_in6 sock_address;
         sock_address.sin6_family = AF_INET6;
         sock_address.sin6_addr = in6addr_any;
@@ -433,7 +441,7 @@ pSocketSendError p_socket_send(pSocket socket, pAddress address, void *packet_da
 
     int sendto_result;
     if (address.family == pAddressFamily_IPv6) {
-#if defined(PSP)
+#if defined(__PSP__) || defined(__3DS__)
         P_PANIC();
         return -1; // TODO: Unsupported address type error
 #else

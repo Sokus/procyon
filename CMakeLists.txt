@@ -1,9 +1,18 @@
 cmake_minimum_required(VERSION 3.5)
 project(procyon)
+enable_language(ASM) # needed for 3DS shader binaries
 
-if (UNIX AND NOT APPLE AND NOT PSP)
+if (UNIX AND NOT APPLE AND NOT (PSP OR 3DS))
     set(LINUX TRUE)
 endif()
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
+if(3DS)
+    include(Tools3DS)
+    find_package(CTRULIB REQUIRED)
+    find_package(CITRO3DLIB REQUIRED)
+endif()
+
 add_subdirectory(ext)
 
 # PROJECT-WIDE TARGET SETTINGS
@@ -13,7 +22,13 @@ target_include_directories(settings INTERFACE src)
 if(MSVC)
     target_compile_options(settings INTERFACE -W3 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127)
 endif()
-target_compile_definitions(settings INTERFACE P_TRACE_ENABLED)
+if(PSP)
+    target_compile_options(settings INTERFACE -O2)
+endif()
+if(3DS)
+    target_compile_options(settings INTERFACE ${DKA_SUGGESTED_C_FLAGS})
+endif()
+# target_compile_definitions(settings INTERFACE P_TRACE_ENABLED)
 
 # CORE LIBRARY:
 
@@ -62,6 +77,13 @@ elseif(PSP)
     target_link_libraries(platform PUBLIC
         pspnet pspnet_apctl pspnet_resolver
     )
+elseif(3DS)
+    target_sources(platform PRIVATE
+        src/platform/p_file_3ds.c
+        src/platform/p_window_3ds.c
+        src/platform/p_input_3ds.c
+    )
+    target_link_libraries(platform PRIVATE 3ds-ctru)
 endif()
 
 # GRAPHICS LIBRARY
@@ -74,7 +96,7 @@ add_library(graphics STATIC
 )
 target_link_libraries(graphics PRIVATE
     settings core math
-    psp-stb
+    retro-stb
 )
 target_link_libraries(graphics PUBLIC platform math)
 if(WIN32)
@@ -98,6 +120,12 @@ elseif(PSP)
     target_link_libraries(graphics PUBLIC
         pspdisplay pspge pspgu pspgum_vfpu pspvfpu pspctrl pspdebug
     )
+elseif(3DS)
+    target_sources(graphics PRIVATE
+        src/graphics/p_graphics_3ds.c
+        src/graphics/p_model_3ds.c
+    )
+    target_link_libraries(graphics PRIVATE m)
 endif()
 
 # UTILITY LIBRARY
@@ -121,7 +149,7 @@ add_executable(client
 )
 target_link_libraries(client PRIVATE
     settings core math platform graphics utility game
-    psp-stb
+    retro-stb
 )
 
 # COMPILE SERVER:
@@ -145,6 +173,16 @@ if(WIN32 OR LINUX)
 
     add_executable(tests tests/test_main.c)
     target_link_libraries(tests settings core utility)
+endif()
+
+if(3DS)
+    add_executable(3ds_sample src/samples/3ds/main.c)
+    target_link_libraries(3ds_sample PRIVATE settings m)
+
+    target_link_libraries(3ds_sample PRIVATE 3ds-ctru 3ds-citro3d)
+
+    target_embed_shader(3ds_sample ${CMAKE_CURRENT_LIST_DIR}/src/samples/3ds/vshader.v.pica)
+    add_3dsx_target(3ds_sample)
 endif()
 
 # ------------------------------------------------------------

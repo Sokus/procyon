@@ -13,5 +13,5 @@ if(NOT SERVER_STANDALONE)
         add_subdirectory(glad-gl-4.2-core)
     endif()
 
-    add_subdirectory(psp-stb)
+    add_subdirectory(retro-stb)
 endif()
