@@ -15,32 +15,18 @@ typedef struct pTime {
     uint16_t milliseconds;
 } pTime;
 
-void p_time_sleep(unsigned long ms);
-uint64_t p_time_now(void);
+double p_time_sec(uint64_t ticks);
+uint64_t p_time_sec_to_ticks(double sec);
+double p_time_ms(uint64_t ticks);
+double p_time_us(uint64_t ticks);
+double p_time_ns(uint64_t ticks);
+
 uint64_t p_time_diff(uint64_t new_ticks, uint64_t old_ticks);
 uint64_t p_time_since(uint64_t start_ticks);
 uint64_t p_time_laptime(uint64_t *last_time);
+uint64_t p_time_now(void);
+void p_time_sleep(unsigned long ms);
 pTime p_time_local(void);
-
-static inline double p_time_sec(uint64_t ticks) {
-    return (double)ticks / 1000000000.0;
-}
-
-static inline uint64_t p_time_sec_to_ticks(double sec) {
-    return (uint64_t)sec * 1000000000;
-}
-
-static inline double p_time_ms(uint64_t ticks) {
-    return (double)ticks / 1000000.0;
-}
-
-static inline double p_time_us(uint64_t ticks) {
-    return (double)ticks / 1000.0;
-}
-
-static inline double p_time_ns(uint64_t ticks) {
-    return (double)ticks;
-}
 
 #endif // P_TIME_HEADER_GUARD
 
@@ -81,7 +67,7 @@ uint64_t p_time_laptime(uint64_t *last_time) {
 
 // PLATFORM SPECIFIC (WIN32)
 #if defined(_WIN32)
-#define P_TIME_PLATFORM_IMPLEMETED
+#define P_TIME_PLATFORM_IMPLEMENTED
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -108,6 +94,26 @@ static inline LONGLONG longlong_muldiv(LONGLONG value, LONGLONG numer, LONGLONG 
     LONGLONG q = value / denom;
     LONGLONG r = value % denom;
     return q * numer + r * numer / denom;
+}
+
+double p_time_sec(uint64_t ticks) {
+    return (double)ticks / 1000000000.0;
+}
+
+uint64_t p_time_sec_to_ticks(double sec) {
+    return (uint64_t)sec * 1000000000;
+}
+
+double p_time_ms(uint64_t ticks) {
+    return (double)ticks / 1000000.0;
+}
+
+double p_time_us(uint64_t ticks) {
+    return (double)ticks / 1000.0;
+}
+
+double p_time_ns(uint64_t ticks) {
+    return (double)ticks;
 }
 
 uint64_t p_time_now(void) {
@@ -145,7 +151,7 @@ pTime p_time_local(void) {
 
 // PLATFORM SPECIFIC (LINUX)
 #if defined(__linux__)
-#define P_TIME_PLATFORM_IMPLEMETED
+#define P_TIME_PLATFORM_IMPLEMENTED
 #include <time.h>
 #include <unistd.h>
 
@@ -161,6 +167,26 @@ static void p_time_init(void) {
     clock_gettime(CLOCK_MONOTONIC, &ts);
     p_time_state_linux.start = (uint64_t)ts.tv_sec*1000000000 + (uint64_t)ts.tv_nsec;
     p_time_state_linux.sleep_granular = true;
+}
+
+double p_time_sec(uint64_t ticks) {
+    return (double)ticks / 1000000000.0;
+}
+
+uint64_t p_time_sec_to_ticks(double sec) {
+    return (uint64_t)sec * 1000000000;
+}
+
+double p_time_ms(uint64_t ticks) {
+    return (double)ticks / 1000000.0;
+}
+
+double p_time_us(uint64_t ticks) {
+    return (double)ticks / 1000.0;
+}
+
+double p_time_ns(uint64_t ticks) {
+    return (double)ticks;
 }
 
 uint64_t p_time_now(void) {
@@ -203,7 +229,7 @@ pTime p_time_local(void) {
 
 // PLATFORM SPECIFIC (PSP)
 #if defined(__PSP__)
-#define P_TIME_PLATFORM_IMPLEMETED
+#define P_TIME_PLATFORM_IMPLEMENTED
 #include <psptypes.h>
 #include <psprtc.h>
 #include <pspkernel.h> // sceKernelDelayThread();
@@ -222,6 +248,26 @@ static void p_time_init(void) {
     P_ASSERT(get_current_tick_result == 0);
     p_time_state_psp.start = (uint64_t)(1000000000/tick_resolution)*current_tick;
     p_time_state_psp.sleep_granular = true;
+}
+
+double p_time_sec(uint64_t ticks) {
+    return (double)ticks / 1000000000.0;
+}
+
+uint64_t p_time_sec_to_ticks(double sec) {
+    return (uint64_t)sec * 1000000000;
+}
+
+double p_time_ms(uint64_t ticks) {
+    return (double)ticks / 1000000.0;
+}
+
+double p_time_us(uint64_t ticks) {
+    return (double)ticks / 1000.0;
+}
+
+double p_time_ns(uint64_t ticks) {
+    return (double)ticks;
 }
 
 uint64_t p_time_now(void) {
@@ -253,6 +299,71 @@ pTime p_time_local(void) {
         .minutes = psp_time.minute,
         .seconds = psp_time.second,
         .milliseconds = psp_time.microsecond / 1000,
+    };
+    return time;
+}
+#endif // PLATFORM SPECIFIC (PSP)
+
+// PLATFORM SPECIFIC (3DS)
+#if defined(__3DS__)
+#define P_TIME_PLATFORM_IMPLEMENTED
+#include <3ds.h>
+#include <time.h>
+
+struct pTimeState3DS {
+    bool initialized;
+    uint64_t start;
+} p_time_state_3ds = {0};
+
+static void p_time_init(void) {
+    p_time_state_3ds.initialized = true;
+    p_time_state_3ds.start = svcGetSystemTick();
+}
+
+double p_time_sec(uint64_t ticks) {
+    return (double)ticks / (double)SYSCLOCK_ARM11;
+}
+
+uint64_t p_time_sec_to_ticks(double sec) {
+    return (uint64_t)(sec * (double)SYSCLOCK_ARM11);
+}
+
+double p_time_ms(uint64_t ticks) {
+    return (double)ticks / (double)SYSCLOCK_ARM11 * 1000.0;
+}
+
+double p_time_us(uint64_t ticks) {
+    return (double)ticks / (double)SYSCLOCK_ARM11 * 1000000.0;
+}
+
+double p_time_ns(uint64_t ticks) {
+    return (double)ticks * (1000000000.0 / (double)SYSCLOCK_ARM11);
+}
+
+uint64_t p_time_now(void) {
+    if (!p_time_state_3ds.initialized) {
+        p_time_init();
+    }
+    uint64_t tick = svcGetSystemTick();
+    return tick;
+}
+
+void p_time_sleep(unsigned long ms) {
+    uint64_t delay_ns = 1000000*ms;
+    svcSleepThread(delay_ns);
+}
+
+pTime p_time_local(void) {
+    time_t unix_time = time(NULL);
+    struct tm* time_struct = gmtime((const time_t*)&unix_time);
+    pTime time = (pTime){
+        .year = time_struct->tm_year + 1900,
+        .month = time_struct->tm_mon,
+        .day = time_struct->tm_mday,
+        .hour = time_struct->tm_hour,
+        .minutes = time_struct->tm_min,
+        .seconds = time_struct->tm_sec,
+        .milliseconds = 0,
     };
     return time;
 }

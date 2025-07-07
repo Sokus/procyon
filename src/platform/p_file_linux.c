@@ -22,13 +22,13 @@ bool p_file_open(const char *path, int mode, int perm, pFileHandle *result) {
 }
 
 bool p_file_close(pFileHandle file) {
-    int rc_linux = close(file.fd_linux);
+    int rc_linux = close(file);
     bool success = (rc_linux >= 0);
     return success;
 }
 
 size_t p_file_write(pFileHandle file, void *data, size_t data_size) {
-    ssize_t write_result = write(filed_linux, data, data_size);
+    ssize_t write_result = write(file, data, data_size);
     size_t bytes_written = (write_result > 0 ? (size_t)write_result : 0);
     return bytes_written;
 }

@@ -43,7 +43,6 @@ typedef enum pFileOpenFlag {
     pFO_NOCTTY    = 0x10000,
     pFO_CLOEXEC   = 0x20000,
 #elif defined(__3DS__)
-    # warning pFileOpenFlag unimplemented
     pFO_NULL = 0x0,
 #endif
 } pFileOpenFlag;
@@ -68,10 +67,10 @@ bool p_file_open(const char *path, int mode, int perm, pFileHandle *result);
 size_t p_file_write(pFileHandle fd, void *data, size_t data_size);
 bool p_file_close(pFileHandle file);
 
+struct pArena;
 void p_file_list(const char *dir_path);
 pReadDirResult p_file_read_dir(char *dir_path, struct pArena *arena);
 bool p_file_directory_exists(const char *dir_path);
-struct pArena;
 pFileContents p_file_read_contents(struct pArena *arena, const char *file_path, bool zero_terminate);
 
 #endif // P_FILE_HEADER_GUARD

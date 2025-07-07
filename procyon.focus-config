@@ -43,3 +43,11 @@ build_command: pwsh -Command "scripts/build_psp.ps1" -BuildType Debug
 error_regex:   ^\/mnt\/c\/Users\/Sokus\/Dev\/procyon\/(?P<file>.*):(?P<line>[0-9]+):(?P<col>[0-9]+): (?P<type>error|warning): (?P<msg>.*)$
 build_command: pwsh -Command "scripts/build_psp.ps1" -BuildType Release
 
+[3DS (Debug)]
+error_regex:   ^\/mnt\/c\/Users\/Sokus\/Dev\/procyon\/(?P<file>.*):(?P<line>[0-9]+):(?P<col>[0-9]+): (?P<type>error|warning): (?P<msg>.*)$
+build_command: wsl.exe --distribution Ubuntu ./scripts/build_3ds.sh Debug
+
+[3DS (Release)]
+error_regex:   ^\/mnt\/c\/Users\/Sokus\/Dev\/procyon\/(?P<file>.*):(?P<line>[0-9]+):(?P<col>[0-9]+): (?P<type>error|warning): (?P<msg>.*)$
+build_command: wsl.exe --distribution Ubuntu ./scripts/build_3ds.sh Release
+

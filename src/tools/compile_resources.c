@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
     // p_file_close(out_file);
 
     pArenaTemp scratch = p_scratch_begin(NULL, 0);
-    p_file_read_dir("./res", scratch.arena);
+    // p_file_read_dir("./res", scratch.arena);
     p_scratch_end(scratch);
 
     return 0;

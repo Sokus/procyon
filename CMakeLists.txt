@@ -35,6 +35,9 @@ endif()
 add_library(core STATIC
     src/core/p_core.c
 )
+if(3DS)
+    target_link_libraries(core PRIVATE 3ds-ctru)
+endif()
 
 # MATH LIBRARY:
 
@@ -179,7 +182,10 @@ if(3DS)
     add_executable(3ds_sample src/samples/3ds/main.c)
     target_link_libraries(3ds_sample PRIVATE settings m)
 
-    target_link_libraries(3ds_sample PRIVATE 3ds-ctru 3ds-citro3d)
+    target_link_libraries(3ds_sample PRIVATE
+        settings core
+        3ds-ctru 3ds-citro3d
+    )
 
     target_embed_shader(3ds_sample ${CMAKE_CURRENT_LIST_DIR}/src/samples/3ds/vshader.v.pica)
     add_3dsx_target(3ds_sample)
