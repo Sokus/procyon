@@ -1,9 +1,6 @@
 [submodule "ext/glfw"]
 	path = ext/glfw
 	url = https://github.com/glfw/glfw.git
-[submodule "ext/HandmadeMath"]
-	path = ext/HandmadeMath
-	url = https://github.com/HandmadeMath/HandmadeMath
 [submodule "ext/glad-gl-4.2-core"]
 	path = ext/glad-gl-4.2-core
 	url = https://github.com/Sokus/glad-gl-4.2-core

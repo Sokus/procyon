@@ -4,9 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "math/p_math.h"
-
-#include "HandmadeMath.h"
+#include "core/p_math.h"
 
 #define MAX_ENTITY_COUNT 32
 

@@ -24,13 +24,11 @@ endif()
 add_library(core STATIC
     src/core/p_core.c
 )
-
-# MATH LIBRARY:
-
-add_library(math INTERFACE)
-target_link_libraries(math INTERFACE handmade-math)
+if(LINUX)
+    target_link_libraries(core PUBLIC m)
+endif()
 if(PSP)
-    target_link_libraries(math INTERFACE pspgum_vfpu pspvfpu)
+    target_link_libraries(core PUBLIC pspgum_vfpu pspvfpu) # p_math VFPU
 endif()
 
 # PLATFORM LIBRARY
@@ -73,10 +71,10 @@ add_library(graphics STATIC
     src/graphics/p_pbm.c
 )
 target_link_libraries(graphics PRIVATE
-    settings core math
+    settings core
     retro-stb
 )
-target_link_libraries(graphics PUBLIC platform math)
+target_link_libraries(graphics PUBLIC platform)
 if(WIN32)
     target_sources(graphics PRIVATE
         src/graphics/p_graphics_win32.c
@@ -110,7 +108,7 @@ target_link_libraries(utility PRIVATE settings core)
 add_library(game STATIC
     src/game/p_entity.c
 )
-target_link_libraries(game PRIVATE settings core math)
+target_link_libraries(game PRIVATE settings core)
 
 # COMPILE MAIN GAME:
 
@@ -118,7 +116,7 @@ add_executable(main_game
     src/main.c
 )
 target_link_libraries(main_game PRIVATE
-    settings core math platform graphics utility game
+    settings core platform graphics utility game
     retro-stb
 )
 

@@ -3,9 +3,7 @@
 
 #include <stdbool.h>
 
-#include "math/p_math.h"
-
-#include "HandmadeMath.h"
+#include "core/p_math.h"
 
 pVec3 p_unproject_vec3(
     pVec3 v,

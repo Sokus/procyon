@@ -3,8 +3,6 @@
 #include "core/p_heap.h"
 #include "p_config.h"
 
-#include "HandmadeMath.h"
-
 #include <string.h>
 #include <stdint.h>
 

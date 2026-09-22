@@ -4,9 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "math/p_math.h"
-
-#include "HandmadeMath.h"
+#include "core/p_math.h"
 
 typedef struct pArena pArena;
 

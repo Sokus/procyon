@@ -2,6 +2,7 @@
 
 #include "core/p_defines.h"
 #include "core/p_assert.h"
+#include "core/p_math.h"
 
 #define GLFW_INCLUDE_NONE
 #include "GLFW/glfw3.h"
@@ -80,7 +81,7 @@ void p_input_update(void) {
         }
 
         for (int axis = 0; axis < pGamepadAxis_Count; axis += 1) {
-            input_current->gamepad.axis[axis] = P_CLAMP(input_current->gamepad.axis[axis], -1.0f, 1.0f);
+            input_current->gamepad.axis[axis] = p_clamp(-1.0f, input_current->gamepad.axis[axis], 1.0f);
         }
     }
 }

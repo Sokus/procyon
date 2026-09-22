@@ -2,7 +2,7 @@
 #define P_MODEL_H
 
 #include "core/p_string.h"
-#include "math/p_math.h"
+#include "core/p_math.h"
 #include "p_graphics.h"
 
 #include <stdint.h>

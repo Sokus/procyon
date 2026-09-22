@@ -6,7 +6,7 @@
 #include "core/p_arena.h"
 #include "core/p_scratch.h"
 #include "platform/p_file.h"
-#include "math/p_math.h"
+#include "core/p_math.h"
 #include "utility/p_trace.h"
 
 #include "glad/glad.h"

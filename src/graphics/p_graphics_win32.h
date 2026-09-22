@@ -1,7 +1,7 @@
 #ifndef P_GRAPHICS_WIN32_H_HEADER_GUARD
 #define P_GRAPHICS_WIN32_H_HEADER_GUARD
 
-#include "math/p_math.h"
+#include "core/p_math.h"
 
 #include <wchar.h>
 #include <stdbool.h>

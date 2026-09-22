@@ -9,7 +9,7 @@
 #include "core/p_time.h"
 #include "core/p_arena.h"
 #include "core/p_scratch.h"
-#include "math/p_math.h"
+#include "core/p_math.h"
 #include "graphics/p_graphics_math.h"
 #include "platform/p_window.h"
 #include "graphics/p_graphics.h"
@@ -74,8 +74,8 @@ pInput p_get_input(pCamera camera) {
 
     pInput result = {
         .movement = p_vec2(
-            P_CLAMP(gamepad_input.x + keyboard_input.x, -1.0f, 1.0f),
-            P_CLAMP(gamepad_input.y + keyboard_input.y, -1.0f, 1.0f)
+            p_clamp(-1.0f, gamepad_input.x + keyboard_input.x, 1.0f),
+            p_clamp(-1.0f, gamepad_input.y + keyboard_input.y, 1.0f)
         ),
         .angle = look_angle
     };

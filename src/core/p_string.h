@@ -3,6 +3,8 @@
 
 #include "p_defines.h"
 #include "p_arena.h"
+#include "p_math.h"
+
 
 #include <string.h>
 #include <stdlib.h>
@@ -32,6 +34,8 @@ pString p_string_concatenate(pArena *arena, pString a, pString b);
 
 pString p_string_format_variadic(pArena *arena, char *format, va_list argument_list);
 pString p_string_format         (pArena *arena, char *format, ...);
+
+char *p_string_to_cstring(pArena *arena, pString string);
 
 #endif // P_STRING_HEADER_GUARD
 
@@ -163,6 +167,14 @@ pString p_string_format(pArena *arena, char *format, ...) {
     pString result = p_string_format_variadic(arena, format, argument_list);
     va_end(argument_list);
     return result;
+}
+
+char *p_string_to_cstring(pArena *arena, pString string) {
+    size_t size = string.size + 1;
+    char *data = p_arena_alloc(arena, size);
+    memcpy(data, string.data, string.size);
+    data[string.size] = '\0';
+    return data;
 }
 
 #endif // P_CORE_IMPLEMENTATION
