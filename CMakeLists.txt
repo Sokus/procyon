@@ -37,7 +37,6 @@ endif()
 
 add_library(platform STATIC
     src/platform/p_input.c
-    src/platform/p_net.c
     src/platform/p_window.c
 )
 target_link_libraries(platform PRIVATE settings core)
@@ -62,9 +61,6 @@ elseif(PSP)
         src/platform/p_file_psp.c
         src/platform/p_window_psp.c
         src/platform/p_input_psp.c
-    )
-    target_link_libraries(platform PUBLIC
-        pspnet pspnet_apctl pspnet_resolver
     )
 endif()
 
@@ -112,28 +108,19 @@ target_link_libraries(utility PRIVATE settings core)
 # GAME LIBRARY
 
 add_library(game STATIC
-    src/game/p_bit_stream.c
     src/game/p_entity.c
-    src/game/p_protocol.c
 )
 target_link_libraries(game PRIVATE settings core math)
 
-# COMPILE CLIENT:
+# COMPILE MAIN GAME:
 
-add_executable(client
-    src/client/main.c
+add_executable(main_game
+    src/main.c
 )
-target_link_libraries(client PRIVATE
+target_link_libraries(main_game PRIVATE
     settings core math platform graphics utility game
     retro-stb
 )
-
-# COMPILE SERVER:
-
-if(WIN32 OR LINUX)
-    add_executable(server src/server/main.c)
-    target_link_libraries(server PRIVATE settings core math platform game)
-endif()
 
 # COMPILE OTHER TARGETS:
 
@@ -153,7 +140,7 @@ endif()
 
 # ------------------------------------------------------------
 
-SET(PSP_TARGET "client" CACHE STRING "Target to build the PBP from")
+SET(PSP_TARGET "main_game" CACHE STRING "Target to build the PBP from")
 if(PSP)
     if(TARGET ${PSP_TARGET})
         create_pbp_file(
