@@ -40,7 +40,7 @@
     #include <unistd.h>
     #include <errno.h>
     #include <fcntl.h>
-    // #include <arpa/inet.h>
+    #include <arpa/inet.h>
 #endif
 
 #if defined(__3DS__)
