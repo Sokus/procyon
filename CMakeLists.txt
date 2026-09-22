@@ -1,16 +1,8 @@
 cmake_minimum_required(VERSION 3.5...3.10)
 project(procyon)
-enable_language(ASM) # needed for 3DS shader binaries
 
-if (UNIX AND NOT APPLE AND NOT (PSP OR 3DS))
+if (UNIX AND NOT APPLE AND NOT PSP)
     set(LINUX TRUE)
-endif()
-
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
-if(3DS)
-    include(Tools3DS)
-    find_package(CTRULIB REQUIRED)
-    find_package(CITRO3DLIB REQUIRED)
 endif()
 
 add_subdirectory(ext)
@@ -25,9 +17,6 @@ endif()
 if(PSP)
     target_compile_options(settings INTERFACE -O2)
 endif()
-if(3DS)
-    target_compile_options(settings INTERFACE ${DKA_SUGGESTED_C_FLAGS})
-endif()
 # target_compile_definitions(settings INTERFACE P_TRACE_ENABLED)
 
 # CORE LIBRARY:
@@ -35,9 +24,6 @@ endif()
 add_library(core STATIC
     src/core/p_core.c
 )
-if(3DS)
-    target_link_libraries(core PRIVATE 3ds-ctru)
-endif()
 
 # MATH LIBRARY:
 
@@ -80,13 +66,6 @@ elseif(PSP)
     target_link_libraries(platform PUBLIC
         pspnet pspnet_apctl pspnet_resolver
     )
-elseif(3DS)
-    target_sources(platform PRIVATE
-        src/platform/p_file_3ds.c
-        src/platform/p_window_3ds.c
-        src/platform/p_input_3ds.c
-    )
-    target_link_libraries(platform PRIVATE 3ds-ctru)
 endif()
 
 # GRAPHICS LIBRARY
@@ -123,12 +102,6 @@ elseif(PSP)
     target_link_libraries(graphics PUBLIC
         pspdisplay pspge pspgu pspgum_vfpu pspvfpu pspctrl pspdebug
     )
-elseif(3DS)
-    target_sources(graphics PRIVATE
-        src/graphics/p_graphics_3ds.c
-        src/graphics/p_model_3ds.c
-    )
-    target_link_libraries(graphics PRIVATE m)
 endif()
 
 # UTILITY LIBRARY
@@ -176,19 +149,6 @@ if(WIN32 OR LINUX)
 
     add_executable(tests tests/test_main.c)
     target_link_libraries(tests settings core utility)
-endif()
-
-if(3DS)
-    add_executable(3ds_sample src/samples/3ds/main.c)
-    target_link_libraries(3ds_sample PRIVATE settings m)
-
-    target_link_libraries(3ds_sample PRIVATE
-        settings core
-        3ds-ctru 3ds-citro3d
-    )
-
-    target_embed_shader(3ds_sample ${CMAKE_CURRENT_LIST_DIR}/src/samples/3ds/vshader.v.pica)
-    add_3dsx_target(3ds_sample)
 endif()
 
 # ------------------------------------------------------------

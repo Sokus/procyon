@@ -9,7 +9,7 @@
 
 #if defined(_WIN32)
     typedef void* pFileHandle; // HANDLE
-#elif defined(__linux__) || defined(__PSP__) || defined(__3DS__)
+#elif defined(__linux__) || defined(__PSP__)
     typedef int32_t pFileHandle; // UNIX fd, PSP SceUID
 #endif
 
@@ -42,8 +42,6 @@ typedef enum pFileOpenFlag {
     pFO_NOSUPPORT = 0x30000,
     pFO_NOCTTY    = 0x10000,
     pFO_CLOEXEC   = 0x20000,
-#elif defined(__3DS__)
-    pFO_NULL = 0x0,
 #endif
 } pFileOpenFlag;
 
