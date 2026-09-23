@@ -2,7 +2,7 @@
 
 [[workspace]]
 # These directories and files will be scanned when a workspace is opened so that search etc. works.
-C:\Users\Sokus\Dev\procyon
+.
 
 [ignore]
 # Files and directories matching the following wildcards will not be loaded or descended into
@@ -15,10 +15,7 @@ C:\Users\Sokus\Dev\procyon
 build
 psp_build
 linux_build
-glfw
-glad-gl-4.2-core
-HandmadeMath
-psp-stb
+./ext/**
 
 [[build commands]]
 error_regex:                       ^[\s]*(?P<file>.*)\((?P<line>[0-9]+),(?P<col>[0-9]+)\): (?P<type>.\S*)[^:]+ (?P<msg>.*)$

@@ -122,8 +122,8 @@ target_link_libraries(main_game PRIVATE
 
 # COMPILE OTHER TARGETS:
 
-# add_executable(tests src/samples/p_tests.c)
-# target_link_libraries(tests PRIVATE settings core platform graphics utility)
+add_executable(tests src/samples/p_tests.c)
+target_link_libraries(tests PRIVATE settings core platform graphics utility)
 
 if(WIN32 OR LINUX)
     add_executable(export_google_trace src/tools/export_google_trace.c)
@@ -132,13 +132,13 @@ if(WIN32 OR LINUX)
     add_executable(compile_resources src/tools/compile_resources.c)
     target_link_libraries(compile_resources settings core platform)
 
-    add_executable(tests tests/test_main.c)
-    target_link_libraries(tests settings core utility)
+    # add_executable(tests tests/test_main.c)
+    # target_link_libraries(tests settings core utility)
 endif()
 
 # ------------------------------------------------------------
 
-SET(PSP_TARGET "main_game" CACHE STRING "Target to build the PBP from")
+SET(PSP_TARGET "tests" CACHE STRING "Target to build the PBP from")
 if(PSP)
     if(TARGET ${PSP_TARGET})
         create_pbp_file(
