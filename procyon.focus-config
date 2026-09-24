@@ -38,3 +38,7 @@ build_command: pwsh -Command "scripts/build_psp.ps1" -BuildType Debug
 [PSP (Release)]
 error_regex:   ^\/mnt\/c\/Users\/Sokus\/Dev\/procyon\/(?P<file>.*):(?P<line>[0-9]+):(?P<col>[0-9]+): (?P<type>error|warning): (?P<msg>.*)$
 build_command: pwsh -Command "scripts/build_psp.ps1" -BuildType Release
+
+[Map Compiler]
+error_regex:   (?P<file>.*)\((?P<line>\d+):(?P<col>\d+)\) (?P<type>Error|Syntax Error|Unhandled):? (?P<msg>.*)$
+build_command: pwsh -Command "scripts/build_map_compiler.ps1"
