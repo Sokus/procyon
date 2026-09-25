@@ -3,8 +3,10 @@ package parser
 import "core:fmt"
 import "core:container/xar"
 import "core:strconv"
+import "core:math/linalg"
 
 import "../tokenizer"
+import "../entity"
 
 Warning_Handler :: #type proc(pos: tokenizer.Pos, fmt: string, args: ..any)
 Error_Handler   :: #type proc(pos: tokenizer.Pos, fmt: string, args: ..any)
@@ -13,35 +15,14 @@ File :: struct {
     fullpath: string,
     src:  string,
 
-    entities: xar.Array(Entity, 4),
-    kvps: xar.Array(KeyValuePair, 4),
-    brushes: xar.Array(Brush, 4),
-    planes: xar.Array(Plane, 4),
+    entities: xar.Array(entity.Entity, 4),
+    kvps: xar.Array(entity.KeyValuePair, 4),
+    brushes: xar.Array(entity.Brush, 4),
+    planes: xar.Array(entity.Plane, 4),
+    vertices: xar.Array(entity.Vertex, 4),
 
     syntax_warning_count: int,
     syntax_error_count: int,
-}
-
-Entity :: struct {
-    kvps: [2]int,
-    brushes: [2]int,
-}
-
-KeyValuePair :: struct {
-    left: string,
-    right: string,
-}
-
-Brush :: struct {
-    planes: [2]int,
-}
-
-Plane :: struct {
-    vertices: [3][3]int,
-    texturename: string,
-    uv_offset: [2]int,
-    rotation: int,
-    uv_scale: [2]int,
 }
 
 Parser :: struct {
@@ -223,9 +204,9 @@ skip_comments :: proc(p: ^Parser) {
     }
 }
 
-parse_entity :: proc(p: ^Parser) -> ^Entity {
+parse_entity :: proc(p: ^Parser) -> ^entity.Entity {
     expect_token(p, .Open_Brace)
-    entity := xar.push_back_elem_and_get_ptr(&p.file.entities, Entity{}) or_else panic("alloc")
+    entity := xar.push_back_elem_and_get_ptr(&p.file.entities, entity.Entity{}) or_else panic("alloc")
     kvps_start := xar.array_len(p.file.kvps)
     brushes_start := xar.array_len(p.file.brushes)
     kvps_count, brushes_count: int
@@ -261,11 +242,11 @@ fix_advance_to_next_entity :: proc(p: ^Parser) {
     }
 }
 
-parse_keyvaluepair :: proc(p: ^Parser) -> ^KeyValuePair {
+parse_keyvaluepair :: proc(p: ^Parser) -> ^entity.KeyValuePair {
     left := expect_token(p, .String)
     right := expect_token(p, .String)
     if left.kind == .String && right.kind == .String {
-        kvp := xar.push_back_elem_and_get_ptr(&p.file.kvps, KeyValuePair{
+        kvp := xar.push_back_elem_and_get_ptr(&p.file.kvps, entity.KeyValuePair{
             left = left.text,
             right = right.text
         }) or_else panic("alloc")
@@ -275,9 +256,9 @@ parse_keyvaluepair :: proc(p: ^Parser) -> ^KeyValuePair {
     }
 }
 
-parse_brush :: proc(p: ^Parser) -> ^Brush {
+parse_brush :: proc(p: ^Parser) -> ^entity.Brush {
     expect_token(p, .Open_Brace)
-    brush := xar.push_back_elem_and_get_ptr(&p.file.brushes, Brush{}) or_else panic("alloc")
+    brush := xar.push_back_elem_and_get_ptr(&p.file.brushes, entity.Brush{}) or_else panic("alloc")
     planes_start := xar.array_len(p.file.planes)
     planes_count: int
     for p.curr_tok.kind != .Close_Brace && p.curr_tok.kind != .EOF {
@@ -297,14 +278,31 @@ parse_brush :: proc(p: ^Parser) -> ^Brush {
     return brush
 }
 
-parse_plane :: proc(p: ^Parser) -> ^Plane {
-    plane := xar.push_back_elem_and_get_ptr(&p.file.planes, Plane{}) or_else panic("alloc")
+parse_plane :: proc(p: ^Parser) -> ^entity.Plane {
+    tok_to_f32 :: proc(tok: tokenizer.Token) -> (f32, bool) {
+        #partial switch tok.kind {
+            case .Integer:
+                v_int, ok := strconv.parse_int(tok.text)
+                return f32(v_int), ok
+            case .Float:
+                v_f32, ok := strconv.parse_f32(tok.text)
+                return v_f32, ok
+        }
+        return 0.0, false
+    }
+
+    plane := xar.push_back_elem_and_get_ptr(&p.file.planes, entity.Plane{}) or_else panic("alloc")
     for v in 0..<3 {
         expect_token(p, .Open_Paren)
+        vert_f32: [3]f32
         for e in 0..<3 {
-            tok_int := expect_token(p, .Integer)
-            tok_v := strconv.parse_int(tok_int.text) or_continue
-            plane.vertices[v][e] = tok_v
+            tok := advance_token(p)
+            vert_f32[e] = tok_to_f32(tok) or_continue
+        }
+        plane.vertices[v] = [3]f32{
+            vert_f32.x / 32.0,
+            vert_f32.z / 32.0,
+            -vert_f32.y / 32.0
         }
         expect_token(p, .Close_Paren)
     }
@@ -313,9 +311,8 @@ parse_plane :: proc(p: ^Parser) -> ^Plane {
     plane.texturename = tok_id.text
 
     for i in 0..<2 {
-        tok_int := expect_token(p, .Integer)
-        v := strconv.parse_int(tok_int.text) or_continue
-        plane.uv_offset[i] = v
+        tok := advance_token(p)
+        plane.uv_offset[i] = tok_to_f32(tok) or_continue
     }
 
     {
@@ -330,5 +327,13 @@ parse_plane :: proc(p: ^Parser) -> ^Plane {
         plane.uv_scale[i] = v
     }
 
+    // calculate
+    plane.n = linalg.normalize(
+        linalg.cross(
+            plane.vertices[2] - plane.vertices[0],
+            plane.vertices[1] - plane.vertices[0]
+        )
+    )
+    plane.d = plane.vertices[0].x * plane.n.x + plane.vertices[0].y * plane.n.y + plane.vertices[0].z * plane.n.z
     return plane
 }

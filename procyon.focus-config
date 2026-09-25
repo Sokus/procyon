@@ -26,7 +26,6 @@ clear_build_output_before_running: true
 
 [Desktop (Debug)]
 build_command: pwsh -Command "cmake -B build && cmake --build build --config Debug"
-key_binding: F9
 
 [Desktop (Release)]
 build_command: pwsh -Command "cmake -B build && cmake --build build --config Release"
@@ -42,3 +41,8 @@ build_command: pwsh -Command "scripts/build_psp.ps1" -BuildType Release
 [Map Compiler]
 error_regex:   (?P<file>.*)\((?P<line>\d+):(?P<col>\d+)\) (?P<type>Error|Syntax Error|Unhandled):? (?P<msg>.*)$
 build_command: pwsh -Command "scripts/build_map_compiler.ps1"
+key_binding: F9
+
+[Map Compiler Test]
+run_command: build/map_compiler.exe
+key_binding: F5
