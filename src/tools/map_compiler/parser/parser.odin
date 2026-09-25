@@ -5,6 +5,7 @@ import "core:container/xar"
 import "core:strconv"
 
 import "../tokenizer"
+import "../entity"
 
 Warning_Handler :: #type proc(pos: tokenizer.Pos, fmt: string, args: ..any)
 Error_Handler   :: #type proc(pos: tokenizer.Pos, fmt: string, args: ..any)
@@ -13,35 +14,13 @@ File :: struct {
     fullpath: string,
     src:  string,
 
-    entities: xar.Array(Entity, 4),
-    kvps: xar.Array(KeyValuePair, 4),
-    brushes: xar.Array(Brush, 4),
-    planes: xar.Array(Plane, 4),
+    entities: xar.Array(entity.Entity, 4),
+    kvps: xar.Array(entity.KeyValuePair, 4),
+    brushes: xar.Array(entity.Brush, 4),
+    planes: xar.Array(entity.Plane, 4),
 
     syntax_warning_count: int,
     syntax_error_count: int,
-}
-
-Entity :: struct {
-    kvps: [2]int,
-    brushes: [2]int,
-}
-
-KeyValuePair :: struct {
-    left: string,
-    right: string,
-}
-
-Brush :: struct {
-    planes: [2]int,
-}
-
-Plane :: struct {
-    vertices: [3][3]int,
-    texturename: string,
-    uv_offset: [2]int,
-    rotation: int,
-    uv_scale: [2]int,
 }
 
 Parser :: struct {
@@ -223,9 +202,9 @@ skip_comments :: proc(p: ^Parser) {
     }
 }
 
-parse_entity :: proc(p: ^Parser) -> ^Entity {
+parse_entity :: proc(p: ^Parser) -> ^entity.Entity {
     expect_token(p, .Open_Brace)
-    entity := xar.push_back_elem_and_get_ptr(&p.file.entities, Entity{}) or_else panic("alloc")
+    entity := xar.push_back_elem_and_get_ptr(&p.file.entities, entity.Entity{}) or_else panic("alloc")
     kvps_start := xar.array_len(p.file.kvps)
     brushes_start := xar.array_len(p.file.brushes)
     kvps_count, brushes_count: int
@@ -261,11 +240,11 @@ fix_advance_to_next_entity :: proc(p: ^Parser) {
     }
 }
 
-parse_keyvaluepair :: proc(p: ^Parser) -> ^KeyValuePair {
+parse_keyvaluepair :: proc(p: ^Parser) -> ^entity.KeyValuePair {
     left := expect_token(p, .String)
     right := expect_token(p, .String)
     if left.kind == .String && right.kind == .String {
-        kvp := xar.push_back_elem_and_get_ptr(&p.file.kvps, KeyValuePair{
+        kvp := xar.push_back_elem_and_get_ptr(&p.file.kvps, entity.KeyValuePair{
             left = left.text,
             right = right.text
         }) or_else panic("alloc")
@@ -275,9 +254,9 @@ parse_keyvaluepair :: proc(p: ^Parser) -> ^KeyValuePair {
     }
 }
 
-parse_brush :: proc(p: ^Parser) -> ^Brush {
+parse_brush :: proc(p: ^Parser) -> ^entity.Brush {
     expect_token(p, .Open_Brace)
-    brush := xar.push_back_elem_and_get_ptr(&p.file.brushes, Brush{}) or_else panic("alloc")
+    brush := xar.push_back_elem_and_get_ptr(&p.file.brushes, entity.Brush{}) or_else panic("alloc")
     planes_start := xar.array_len(p.file.planes)
     planes_count: int
     for p.curr_tok.kind != .Close_Brace && p.curr_tok.kind != .EOF {
@@ -297,8 +276,8 @@ parse_brush :: proc(p: ^Parser) -> ^Brush {
     return brush
 }
 
-parse_plane :: proc(p: ^Parser) -> ^Plane {
-    plane := xar.push_back_elem_and_get_ptr(&p.file.planes, Plane{}) or_else panic("alloc")
+parse_plane :: proc(p: ^Parser) -> ^entity.Plane {
+    plane := xar.push_back_elem_and_get_ptr(&p.file.planes, entity.Plane{}) or_else panic("alloc")
     for v in 0..<3 {
         expect_token(p, .Open_Paren)
         for e in 0..<3 {
