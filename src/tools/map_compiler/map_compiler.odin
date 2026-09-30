@@ -171,12 +171,6 @@ test_graphical :: proc() {
     rl.CloseWindow()
 }
 
-
-Triangle :: struct {
-    points: [3][2]f32
-}
-
-// NOTE: CCW DIRECTION
 get_super_triangle :: proc(in_points: [][2]f32) -> (sp_points: [3][2]f32) {
     pos_min: [2]f32 = { math.INF_F32, math.INF_F32 }
     pos_max: [2]f32 = { -math.INF_F32, -math.INF_F32 }
@@ -184,13 +178,23 @@ get_super_triangle :: proc(in_points: [][2]f32) -> (sp_points: [3][2]f32) {
         pos_min = linalg.min(pos_min, p)
         pos_max = linalg.max(pos_max, p)
     }
-    size := pos_max - pos_min
+    center := (pos_min + pos_max) * 0.5
+    delta := max(pos_max.x - pos_min.x, pos_max.y - pos_min.y)
+
     sp_points = {
-        { pos_min.x - size.x * 0.1, pos_min.y + size.y * 2.0 },
-        { pos_min.x - size.x * 0.1, pos_min.y - size.y },
-        { pos_min.x + size.x * 1.7, pos_min.y + size.y * 0.5 }
+        { center.x - 2.0 * delta, center.y - delta },
+        { center.x,               center.y + 2.0 * delta },
+        { center.x + 2.0 * delta, center.y - delta },
     }
     return sp_points
+}
+
+triangle_orientation :: proc(triangle: [3][2]f32) -> f32 {
+    cross := (
+        (triangle[1].x - triangle[0].x) * (triangle[2].y - triangle[0].y) -
+        (triangle[1].y - triangle[0].y) * (triangle[2].x - triangle[0].x)
+    )
+    return math.sign(cross)
 }
 
 in_circumcircle :: proc(triangle: [3][2]f32, point: [2]f32) -> bool {
@@ -206,7 +210,20 @@ in_circumcircle :: proc(triangle: [3][2]f32, point: [2]f32) -> bool {
         c.x, c.y, c_sq.x+c_sq.y,
     }
     det := linalg.determinant(mat)
-    return det > 0
+    ori := triangle_orientation(triangle)
+    if ori > 0 {
+        return det > 0
+    } else if ori < 0 {
+        return det < 0
+    }
+    return false
+}
+
+canonical_edge :: proc(a, b: [2]f32) -> [2][2]f32 {
+    if a.x < b.x || (a.x == b.x && a.y < b.y) {
+        return {a, b}
+    }
+    return {b, a}
 }
 
 Bowyer_Watson :: struct {
@@ -219,33 +236,25 @@ bowyer_watson_add_point :: proc(bw: ^Bowyer_Watson, point: [2]f32) {
     polygon:       [dynamic][2][2]f32
     defer delete(bad_triangles)
     defer delete(polygon)
-    fmt.printfln("Adding point: %v", point)
-    fmt.println("Find invalid triangles:")
     for triangle in bw.triangulation {
         if in_circumcircle(triangle, point) {
-            fmt.printfln(" %v", triangle)
             append(&bad_triangles, triangle)
         }
     }
-    fmt.println("Find the boundary of the polygonal hole")
     for bad_triangle0, idx0 in bad_triangles {
-        fmt.printfln(" Unused edges in bad_triangle %v", idx0)
         edges0: [][2][2]f32 = {
-            { bad_triangle0[0], bad_triangle0[1] },
-            { bad_triangle0[1], bad_triangle0[2] },
-            { bad_triangle0[2], bad_triangle0[0] }
+            canonical_edge(bad_triangle0[0], bad_triangle0[1]),
+            canonical_edge(bad_triangle0[1], bad_triangle0[2]),
+            canonical_edge(bad_triangle0[2], bad_triangle0[0]),
         }
         for edge0 in edges0 {
             edge_used: bool
             bad_triangle1_loop: for bad_triangle1, idx1 in bad_triangles {
                 if idx0 == idx1 do continue
                 edges1: [][2][2]f32 = {
-                    { bad_triangle1[0], bad_triangle1[1] },
-                    { bad_triangle1[1], bad_triangle1[0] },
-                    { bad_triangle1[1], bad_triangle1[2] },
-                    { bad_triangle1[2], bad_triangle1[1] },
-                    { bad_triangle1[2], bad_triangle1[0] },
-                    { bad_triangle1[0], bad_triangle1[2] },
+                    canonical_edge(bad_triangle1[0], bad_triangle1[1]),
+                    canonical_edge(bad_triangle1[1], bad_triangle1[2]),
+                    canonical_edge(bad_triangle1[2], bad_triangle1[0]),
                 }
                 for edge1 in edges1 {
                     if edge0 == edge1 {
@@ -255,7 +264,6 @@ bowyer_watson_add_point :: proc(bw: ^Bowyer_Watson, point: [2]f32) {
                 }
             }
             if !edge_used {
-                fmt.printfln(" Unused edge: %v", edge0)
                 append(&polygon, edge0)
             }
         }
@@ -263,38 +271,21 @@ bowyer_watson_add_point :: proc(bw: ^Bowyer_Watson, point: [2]f32) {
     for bad_triangle in bad_triangles {
         for idx := len(bw.triangulation)-1; idx >= 0; idx -= 1 {
             if bw.triangulation[idx] == bad_triangle {
-                fmt.printfln("Remove from triangulation: %v", bad_triangle)
                 runtime.ordered_remove(&bw.triangulation, idx)
             }
         }
     }
     for edge in polygon {
-        clockwise_angle :: proc(p: [2]f32) -> f32 {
-            return -1.0 * math.atan2(p.x, -p.y)
-        }
         triangle: [3][2]f32 = {
             edge[0],
             edge[1],
             point,
         }
-        origin := (edge[0]+edge[1]+point)/3.0
-        angles: [3]f32 = {
-            clockwise_angle(triangle[0]-origin),
-            clockwise_angle(triangle[1]-origin),
-            clockwise_angle(triangle[2]-origin),
+        if triangle_orientation(triangle) < 0 {
+            triangle[1], triangle[2] = triangle[2], triangle[1]
         }
-        for i in 0..<len(triangle) {
-            for j in i+1..<len(triangle) {
-                if angles[i] < angles[j] {
-                    triangle[i], triangle[j] = triangle[j], triangle[i]
-                    angles[i], angles[j] = angles[j], angles[i]
-                }
-            }
-        }
-        fmt.printfln("Add to triangulation: %v", triangle)
         append(&bw.triangulation, triangle)
     }
-    fmt.println()
 }
 
 bowyer_watson_cleanup :: proc(bw: ^Bowyer_Watson) {
@@ -310,14 +301,16 @@ bowyer_watson_cleanup :: proc(bw: ^Bowyer_Watson) {
 
 test_bowyer_watson :: proc() {
     // rand.reset_u64(213123)
+    DESIRED_POINT_COUNT :: 1000
     points: [dynamic][2]f32
-    for i in 0..<100 {
+    for i in 0..<DESIRED_POINT_COUNT {
         point: [2]f32 = {
             math.round(rand.float32_range(-350, +350.0)),
             math.round(rand.float32_range(-200.0, +200.0)),
         }
         append(&points, point)
     }
+
     origin: [2]f32
     for p in points {
         origin += p / f32(len(points))
@@ -334,15 +327,28 @@ test_bowyer_watson :: proc() {
     camera: rl.Camera2D
     camera.target = linalg.round(origin)
     camera.offset = { 1200.0/2, 720.0/2 }
-    camera.zoom = 1.0
+    camera.zoom = 0.9
 
     points_added: int
 
     for !rl.WindowShouldClose() {
-        camera.zoom += rl.GetMouseWheelMove()
-        camera.zoom = clamp(camera.zoom, 1.0, 40.0)
+        camera.zoom += rl.GetMouseWheelMove() * 0.25
+        camera.zoom = clamp(camera.zoom, 0.1, 40.0)
 
-        if rl.IsKeyPressed(.SPACE) {
+        if rl.IsKeyDown(.D) {
+            camera.target.x += 1.0
+        }
+        if rl.IsKeyDown(.A) {
+            camera.target.x -= 1.0
+        }
+        if rl.IsKeyDown(.S) {
+            camera.target.y += 1.0
+        }
+        if rl.IsKeyDown(.W) {
+            camera.target.y -= 1.0
+        }
+
+        if rl.IsKeyDown(.SPACE) {
             switch {
                 case points_added < len(points):
                     bowyer_watson_add_point(&bw, points[points_added])
@@ -354,28 +360,24 @@ test_bowyer_watson :: proc() {
         }
 
         rl.BeginDrawing()
-        rl.ClearBackground({20, 20, 20, 255})
+        rl.ClearBackground({0, 0, 0, 255})
         rl.BeginMode2D(camera)
 
-        colors: []rl.Color = {
-            rl.RED,
-            rl.GREEN,
-            rl.BLUE,
-            rl.MAGENTA,
-            rl.WHITE
-        }
-
+        color_a := rl.Color{ 34, 41, 38, 255 }
+        color_b := rl.Color{ 113, 227, 176, 255 }
         for triangle, idx in bw.triangulation {
-            color := colors[idx%len(colors)]
-            rl.DrawLineV(triangle[0]*{1,-1}, triangle[1]*{1,-1}, rl.RED)
-            rl.DrawLineV(triangle[1]*{1,-1}, triangle[2]*{1,-1}, rl.RED)
-            rl.DrawLineV(triangle[2]*{1,-1}, triangle[0]*{1,-1}, rl.RED)
-        }
-
-        for point, idx in points {
-            point_text := fmt.ctprint(point)
-            rect_size: [2]f32 = {5.0, 5.0}
-            rl.DrawRectanglePro({ expand_values(point*{1,-1}), expand_values(rect_size) }, rect_size/2, 0.0, rl.WHITE)
+            a: f32 = f32(idx+1)/f32(len(bw.triangulation))
+            color: rl.Color = {expand_values(linalg.array_cast(
+                linalg.lerp(
+                    linalg.array_cast(color_a, f32),
+                    linalg.array_cast(color_b, f32),
+                    [4]f32{ a, a, a, a }
+                ),
+                u8
+            ))}
+            rl.DrawLineV(triangle[0]*{1,-1}, triangle[1]*{1,-1}, color)
+            rl.DrawLineV(triangle[1]*{1,-1}, triangle[2]*{1,-1}, color)
+            rl.DrawLineV(triangle[2]*{1,-1}, triangle[0]*{1,-1}, color)
         }
 
         rl.EndMode2D()
